@@ -6,8 +6,9 @@ import {
 } from "@/components/organisms/InstallLanding/InstallLanding";
 
 export const metadata: Metadata = {
-  title: "Install App | RND",
-  description: "Install the RND progressive web app on your device for fast, focused access.",
+  title: "BBAI | Boneless Bangus AI",
+  description:
+    "Boneless Bangus AI — Livro Systems' internal assistant for tasks, QA, and school setup support.",
 };
 
 export default function LandingPage() {
