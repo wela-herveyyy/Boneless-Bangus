@@ -27,6 +27,13 @@
   --on-surface-muted: #5c6568;
 
   --shadow-bloom: 0 12px 32px rgb(24 28 29 / 4%);
+  --radius: 1rem;
+}
+
+html[data-radius="sharp"] *,
+html[data-radius="sharp"] *::before,
+html[data-radius="sharp"] *::after {
+  border-radius: 0 !important;
 }
 
 @theme inline {
@@ -148,5 +155,37 @@ html {
     linear-gradient(90deg, color-mix(in srgb, var(--primary) 6%, transparent) 1px, transparent 1px);
   background-size: 20px 20px;
   mask-image: linear-gradient(to bottom, black 60%, transparent);
+}
+
+.theme-sidebar-panel {
+  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.theme-sidebar-trigger {
+  transition:
+    right 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.22s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
+}
+
+.theme-sidebar-trigger:hover {
+  transform: translateY(-50%) translateX(-4px) scale(1.05);
+}
+
+.theme-sidebar-content {
+  animation: theme-sidebar-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes theme-sidebar-pop {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
+import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -32,7 +33,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-(family-name:--font-inter)">{children}</body>
+      <body className="min-h-full flex flex-col font-(family-name:--font-inter)">
+        {children}
+        <ThemeSidebar />
+      </body>
     </html>
   );
 }
