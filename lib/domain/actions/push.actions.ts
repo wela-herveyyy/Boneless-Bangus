@@ -39,7 +39,7 @@ export async function sendNotification(message: string) {
     await webpush.sendNotification(
       subscription,
       JSON.stringify({
-        title: "RND Template",
+        title: "BBAI",
         body: message,
         icon: "/icon.svg",
       }),

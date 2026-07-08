@@ -25,7 +25,7 @@ export function AuthShell({ title, description, variant, children }: AuthShellPr
 
         <div className="relative z-10">
           <Link href="/landing" className="inline-flex items-center gap-3 text-primary">
-            <span className="flex size-10 items-center justify-center bg-surface-container-high">
+            <span className="flex size-10 items-center justify-center bg-surface-container-high text-primary">
               <LuFishSymbol className="size-5" aria-hidden />
             </span>
             <span>

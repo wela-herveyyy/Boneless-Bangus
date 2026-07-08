@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Livro Systems' internal assistant for tasks, QA, and school setup support.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f6fafa",
-    theme_color: "#0a5c66",
+    background_color: "#000000",
+    theme_color: "#000000",
     icons: [
       {
         src: "/icon.svg",
