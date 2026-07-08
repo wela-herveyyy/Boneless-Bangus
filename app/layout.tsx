@@ -16,11 +16,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "RND Next.js Template",
-  description: "Livro Systems RND Next.js template with Atomic Design, Drizzle ORM, and Better Auth",
+  title: "BBAI | Boneless Bangus AI",
+  description:
+    "Boneless Bangus AI — Livro Systems' internal assistant for tasks, QA, and school setup support.",
   appleWebApp: {
     capable: true,
-    title: "RND",
+    title: "BBAI",
   },
   icons: {
     icon: "/icon.svg",

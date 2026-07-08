@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { AuthShellFallback } from "@/components/organisms/AuthShell/AuthShell";
 import { SignUpForm } from "@/components/organisms/SignUpForm/sign-up-form";
 
 type SignUpPageProps = {
@@ -7,9 +5,5 @@ type SignUpPageProps = {
 };
 
 export default function SignUpPage({ searchParams }: SignUpPageProps) {
-  return (
-    <Suspense fallback={<AuthShellFallback title="Create account" variant="sign-up" />}>
-      <SignUpForm searchParams={searchParams} />
-    </Suspense>
-  );
+  return <SignUpForm searchParams={searchParams} />;
 }

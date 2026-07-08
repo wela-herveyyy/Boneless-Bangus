@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { AuthShellFallback } from "@/components/organisms/AuthShell/AuthShell";
 import { SignInForm } from "@/components/organisms/SignInForm/sign-in-form";
 
 type SignInPageProps = {
@@ -7,9 +5,5 @@ type SignInPageProps = {
 };
 
 export default function SignInPage({ searchParams }: SignInPageProps) {
-  return (
-    <Suspense fallback={<AuthShellFallback title="Sign in" variant="sign-in" />}>
-      <SignInForm searchParams={searchParams} />
-    </Suspense>
-  );
+  return <SignInForm searchParams={searchParams} />;
 }

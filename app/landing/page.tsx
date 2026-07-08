@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import {
-  InstallLanding,
-  InstallLandingFallback,
-} from "@/components/organisms/InstallLanding/InstallLanding";
+import { InstallLanding } from "@/components/organisms/InstallLanding/InstallLanding";
 
 export const metadata: Metadata = {
   title: "BBAI | Boneless Bangus AI",
@@ -12,9 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function LandingPage() {
-  return (
-    <Suspense fallback={<InstallLandingFallback />}>
-      <InstallLanding />
-    </Suspense>
-  );
+  return <InstallLanding />;
 }

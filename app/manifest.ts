@@ -2,13 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "RND Next.js Template",
-    short_name: "RND",
-    description: "Livro Systems RND Next.js template — Atomic Design, Drizzle, Better Auth",
+    name: "Boneless Bangus AI",
+    short_name: "BBAI",
+    description: "Livro Systems' internal assistant for tasks, QA, and school setup support.",
     start_url: "/",
     display: "standalone",
-    background_color: "#fafafa",
-    theme_color: "#000000",
+    background_color: "#f6fafa",
+    theme_color: "#0a5c66",
     icons: [
       {
         src: "/icon.svg",
