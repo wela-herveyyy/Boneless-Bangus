@@ -23,7 +23,7 @@ export async function SignInForm({ searchParams }: SignInFormProps) {
   const submitClassName = useAuthFormSubmitStyles();
 
   return (
-    <AuthShell title="Sign in" description="Use your email and password to continue.">
+    <AuthShell title="Sign in" description="Use your email and password to continue." variant="sign-in">
       {error ? (
         <p className="mb-6 rounded-xl bg-secondary-container px-4 py-3 text-sm text-secondary">
           {error}

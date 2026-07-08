@@ -30,6 +30,10 @@
   --radius: 1rem;
 }
 
+html:not([data-theme-ready]) body {
+  visibility: hidden;
+}
+
 html[data-radius="sharp"] *,
 html[data-radius="sharp"] *::before,
 html[data-radius="sharp"] *::after {

@@ -23,7 +23,7 @@ export async function SignUpForm({ searchParams }: SignUpFormProps) {
   const submitClassName = useAuthFormSubmitStyles();
 
   return (
-    <AuthShell title="Create account" description="Sign up with email and password.">
+    <AuthShell title="Create account" description="Sign up with email and password." variant="sign-up">
       {error ? (
         <p className="mb-6 rounded-xl bg-secondary-container px-4 py-3 text-sm text-secondary">
           {error}

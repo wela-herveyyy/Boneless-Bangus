@@ -8,7 +8,7 @@ type SignInPageProps = {
 
 export default function SignInPage({ searchParams }: SignInPageProps) {
   return (
-    <Suspense fallback={<AuthShellFallback title="Sign in" />}>
+    <Suspense fallback={<AuthShellFallback title="Sign in" variant="sign-in" />}>
       <SignInForm searchParams={searchParams} />
     </Suspense>
   );

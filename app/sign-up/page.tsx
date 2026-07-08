@@ -8,7 +8,7 @@ type SignUpPageProps = {
 
 export default function SignUpPage({ searchParams }: SignUpPageProps) {
   return (
-    <Suspense fallback={<AuthShellFallback title="Create account" />}>
+    <Suspense fallback={<AuthShellFallback title="Create account" variant="sign-up" />}>
       <SignUpForm searchParams={searchParams} />
     </Suspense>
   );

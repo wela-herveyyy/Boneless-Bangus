@@ -1,0 +1,2 @@
+/** Blocking inline script — key is inlined so this file has zero runtime imports. */
+export const THEME_INIT_SCRIPT = `(function(){try{var v=JSON.parse(localStorage.getItem("rnd-theme-applied")||"null");if(v){var r=document.documentElement;for(var k in v){if(Object.prototype.hasOwnProperty.call(v,k))r.style.setProperty(k,v[k]);}if(v["--radius"]==="0")r.dataset.radius="sharp";else delete r.dataset.radius;}}catch(e){}document.documentElement.dataset.themeReady="";})();`;

@@ -1,64 +1,95 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   DEFAULT_THEME_PRESET_ID,
   getDefaultThemePreset,
-  getThemePreset,
-  THEME_PRESETS,
 } from "@/lib/theme/theme-presets";
+import { readAppliedThemeVars } from "@/lib/theme/theme-applied";
 import type { ThemeVars } from "@/lib/theme/theme-tokens";
 import {
   applyThemeVars,
-  mergeThemeVars,
+  buildCustomPresetFromCss,
+  findPresetById,
+  getClientThemeState,
+  isCustomPresetId,
+  mergePresets,
   parseThemeCss,
-  readStoredTheme,
   resolveThemeVars,
   themeVarsToCss,
+  writeCustomPresets,
   writeStoredTheme,
+  type CustomThemePreset,
 } from "@/lib/theme/theme.utils";
 
-export function useThemeSidebar() {
+function getDefaultState() {
   const defaultPreset = getDefaultThemePreset();
-  const [presetId, setPresetId] = useState(defaultPreset.id);
-  const [customVars, setCustomVars] = useState<Partial<ThemeVars>>({});
+  return {
+    customPresets: [] as CustomThemePreset[],
+    presetId: defaultPreset.id,
+    customVars: {} as Partial<ThemeVars>,
+    editorCss: themeVarsToCss(defaultPreset.vars),
+  };
+}
+
+export function useThemeSidebar() {
+  const defaultState = getDefaultState();
+  const [ready, setReady] = useState(false);
+  const [customPresets, setCustomPresets] = useState<CustomThemePreset[]>(defaultState.customPresets);
+  const [presetId, setPresetId] = useState(defaultState.presetId);
+  const [customVars, setCustomVars] = useState<Partial<ThemeVars>>(defaultState.customVars);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editorCss, setEditorCss] = useState(() => themeVarsToCss(defaultPreset.vars));
+  const [editorCss, setEditorCss] = useState(defaultState.editorCss);
+  const [newThemeName, setNewThemeName] = useState("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [applyState, setApplyState] = useState<"idle" | "applied" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+
+  const presets = useMemo(() => mergePresets(customPresets), [customPresets]);
 
   const activeVars = useMemo(
-    () => resolveThemeVars(presetId, customVars),
-    [presetId, customVars],
+    () => resolveThemeVars(presetId, customVars, customPresets),
+    [presetId, customVars, customPresets],
   );
 
-  useEffect(() => {
-    const stored = readStoredTheme();
-    if (!stored) return;
+  const activePreset = useMemo(
+    () => findPresetById(presetId, customPresets),
+    [presetId, customPresets],
+  );
 
-    const nextPresetId = stored.presetId ?? defaultPreset.id;
-    const nextCustomVars = stored.customVars ?? {};
-    const resolved = resolveThemeVars(nextPresetId, nextCustomVars);
+  useLayoutEffect(() => {
+    const stored = getClientThemeState();
+    setCustomPresets(stored.customPresets);
+    setPresetId(stored.presetId);
+    setCustomVars(stored.customVars);
+    setEditorCss(stored.editorCss);
 
-    setPresetId(nextPresetId);
-    setCustomVars(nextCustomVars);
-    setEditorCss(themeVarsToCss(resolved));
-  }, [defaultPreset.id]);
+    if (!readAppliedThemeVars()) {
+      applyThemeVars(stored.activeVars);
+    }
 
-  useEffect(() => {
-    applyThemeVars(activeVars);
-  }, [activeVars]);
-
-  const selectPreset = useCallback((nextPresetId: string) => {
-    const preset = getThemePreset(nextPresetId);
-    if (!preset) return;
-
-    setPresetId(nextPresetId);
-    setCustomVars({});
-    setEditorCss(themeVarsToCss(preset.vars));
-    setApplyState("idle");
-    writeStoredTheme({ presetId: nextPresetId });
+    document.documentElement.dataset.themeReady = "";
+    setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    applyThemeVars(activeVars);
+  }, [activeVars, ready]);
+
+  const selectPreset = useCallback(
+    (nextPresetId: string) => {
+      const preset = findPresetById(nextPresetId, customPresets);
+      if (!preset) return;
+
+      setPresetId(nextPresetId);
+      setCustomVars({});
+      setEditorCss(themeVarsToCss(preset.vars));
+      setApplyState("idle");
+      writeStoredTheme({ presetId: nextPresetId });
+    },
+    [customPresets],
+  );
 
   const resetTheme = useCallback(() => {
     const preset = getDefaultThemePreset();
@@ -88,36 +119,95 @@ export function useThemeSidebar() {
       return;
     }
 
-    const base = getThemePreset(presetId)?.vars ?? getDefaultThemePreset().vars;
-    const merged = mergeThemeVars(base, parsed);
+    const base = findPresetById(presetId, customPresets)?.vars ?? getDefaultThemePreset().vars;
+    const merged = { ...base, ...parsed };
 
-    setCustomVars(parsed);
+    if (isCustomPresetId(presetId)) {
+      const nextCustom = customPresets.map((preset) =>
+        preset.id === presetId ? { ...preset, vars: merged } : preset,
+      );
+      setCustomPresets(nextCustom);
+      writeCustomPresets(nextCustom);
+      setCustomVars({});
+      writeStoredTheme({ presetId });
+    } else {
+      setCustomVars(parsed);
+      writeStoredTheme({ presetId, customVars: parsed });
+    }
+
     setEditorCss(themeVarsToCss(merged));
     setApplyState("applied");
-    writeStoredTheme({ presetId, customVars: parsed });
     window.setTimeout(() => setApplyState("idle"), 2000);
-  }, [editorCss, presetId]);
+  }, [editorCss, presetId, customPresets]);
+
+  const saveCustomTheme = useCallback(() => {
+    const base = findPresetById(presetId, customPresets)?.vars ?? getDefaultThemePreset().vars;
+    const created = buildCustomPresetFromCss(newThemeName, editorCss, base);
+
+    if (!created) {
+      setSaveState("error");
+      window.setTimeout(() => setSaveState("idle"), 2000);
+      return;
+    }
+
+    const nextCustom = [...customPresets, created];
+    setCustomPresets(nextCustom);
+    writeCustomPresets(nextCustom);
+    setPresetId(created.id);
+    setCustomVars({});
+    setEditorCss(themeVarsToCss(created.vars));
+    setNewThemeName("");
+    writeStoredTheme({ presetId: created.id });
+    setSaveState("saved");
+    window.setTimeout(() => setSaveState("idle"), 2000);
+  }, [newThemeName, editorCss, presetId, customPresets]);
+
+  const deleteCustomTheme = useCallback(
+    (targetId: string) => {
+      const nextCustom = customPresets.filter((preset) => preset.id !== targetId);
+      setCustomPresets(nextCustom);
+      writeCustomPresets(nextCustom);
+
+      if (presetId === targetId) {
+        const fallback = getDefaultThemePreset();
+        setPresetId(fallback.id);
+        setCustomVars({});
+        setEditorCss(themeVarsToCss(fallback.vars));
+        writeStoredTheme({ presetId: fallback.id });
+      }
+    },
+    [customPresets, presetId],
+  );
 
   const loadPresetIntoEditor = useCallback(() => {
-    const preset = getThemePreset(presetId) ?? getDefaultThemePreset();
+    const preset = findPresetById(presetId, customPresets) ?? getDefaultThemePreset();
     setEditorCss(themeVarsToCss(preset.vars));
     setApplyState("idle");
-  }, [presetId]);
+  }, [presetId, customPresets]);
 
   return {
-    presets: THEME_PRESETS,
+    ready,
+    presets,
+    customPresets,
     presetId,
+    activePreset,
     editorOpen,
     editorCss,
+    newThemeName,
     copyState,
     applyState,
+    saveState,
     activeVars,
     setEditorOpen,
     setEditorCss,
+    setNewThemeName,
     selectPreset,
     resetTheme,
     copyThemeCss,
     applyEditorCss,
+    saveCustomTheme,
+    deleteCustomTheme,
     loadPresetIntoEditor,
+    isCustomPresetId,
   };
 }

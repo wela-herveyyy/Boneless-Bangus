@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiXMark } from "react-icons/hi2";
+import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiOutlineTrash, HiXMark } from "react-icons/hi2";
 import { RiTailwindCssLine } from "react-icons/ri";
 import { Button } from "@/components/atoms/Button/Button";
 import { useThemeSidebar } from "./themeSidebar.hooks";
@@ -9,19 +9,27 @@ import { useThemeSidebar } from "./themeSidebar.hooks";
 export function ThemeSidebar() {
   const controls = useThemeSidebar();
   const {
+    ready,
     presets,
     presetId,
+    activePreset,
     editorOpen,
     editorCss,
+    newThemeName,
     copyState,
     applyState,
+    saveState,
     setEditorOpen,
     setEditorCss,
+    setNewThemeName,
     selectPreset,
     resetTheme,
     copyThemeCss,
     applyEditorCss,
+    saveCustomTheme,
+    deleteCustomTheme,
     loadPresetIntoEditor,
+    isCustomPresetId,
   } = controls;
 
   const [hoverOpen, setHoverOpen] = useState(false);
@@ -29,7 +37,54 @@ export function ThemeSidebar() {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOpen = hoverOpen || pinnedOpen;
-  const activePreset = presets.find((preset) => preset.id === presetId);
+
+  const renderPresetButton = (preset: (typeof presets)[number]) => {
+    const isActive = presetId === preset.id;
+    const isCustom = isCustomPresetId(preset.id);
+
+    return (
+      <div key={preset.id} className="relative">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={isActive}
+          aria-label={preset.label}
+          title={preset.description}
+          onClick={() => selectPreset(preset.id)}
+          className={[
+            "flex w-full flex-col items-center gap-1.5 bg-surface-container-low p-2 transition-colors hover:bg-surface-container-high",
+            isActive ? "ghost-border ring-2 ring-primary" : "ghost-border",
+          ].join(" ")}
+        >
+          <span className="flex overflow-hidden">
+            <span
+              className="size-5"
+              style={{ backgroundColor: preset.vars["--primary"] }}
+              aria-hidden
+            />
+            <span
+              className="size-5"
+              style={{ backgroundColor: preset.vars["--secondary"] }}
+              aria-hidden
+            />
+          </span>
+          <span className="w-full truncate text-center text-[10px] font-medium leading-none text-on-surface-muted">
+            {preset.label}
+          </span>
+        </button>
+        {isCustom ? (
+          <button
+            type="button"
+            aria-label={`Delete ${preset.label}`}
+            onClick={() => deleteCustomTheme(preset.id)}
+            className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center bg-secondary text-on-secondary shadow-bloom"
+          >
+            <HiOutlineTrash className="size-3" aria-hidden />
+          </button>
+        ) : null}
+      </div>
+    );
+  };
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current) {
@@ -134,46 +189,21 @@ export function ThemeSidebar() {
         <div className="theme-sidebar-content flex flex-1 flex-col gap-5 overflow-y-auto p-5">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Presets</p>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme presets">
-              {presets.map((preset) => {
-                const isActive = presetId === preset.id;
-
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    aria-label={preset.label}
-                    title={preset.description}
-                    onClick={() => selectPreset(preset.id)}
-                    className={[
-                      "flex flex-col items-center gap-1.5 bg-surface-container-low p-2 transition-colors hover:bg-surface-container-high",
-                      isActive ? "ghost-border ring-2 ring-primary" : "ghost-border",
-                    ].join(" ")}
-                  >
-                    <span className="flex overflow-hidden">
-                      <span
-                        className="size-5"
-                        style={{ backgroundColor: preset.vars["--primary"] }}
-                        aria-hidden
-                      />
-                      <span
-                        className="size-5"
-                        style={{ backgroundColor: preset.vars["--secondary"] }}
-                        aria-hidden
-                      />
-                    </span>
-                    <span className="w-full truncate text-center text-[10px] font-medium leading-none text-on-surface-muted">
-                      {preset.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {activePreset ? (
-              <p className="text-xs leading-relaxed text-on-surface-muted">{activePreset.description}</p>
-            ) : null}
+            {!ready ? (
+              <p className="text-xs text-on-surface-muted">Loading themes…</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme presets">
+                  {presets.map(renderPresetButton)}
+                </div>
+                {activePreset ? (
+                  <p className="text-xs leading-relaxed text-on-surface-muted">{activePreset.description}</p>
+                ) : null}
+              </>
+            )}
+            <p className="text-[10px] leading-relaxed text-on-surface-muted">
+              Custom themes are saved in this browser&apos;s local storage.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -223,6 +253,26 @@ export function ThemeSidebar() {
                 </Button>
                 <Button variant="secondary" onClick={resetTheme} className="px-4 py-2 text-sm">
                   Reset default
+                </Button>
+              </div>
+
+              <div className="space-y-2 border-t border-primary/10 pt-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
+                  Save to library
+                </p>
+                <input
+                  type="text"
+                  value={newThemeName}
+                  onChange={(event) => setNewThemeName(event.target.value)}
+                  placeholder="Theme name"
+                  className="input-glow w-full bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none"
+                />
+                <Button onClick={saveCustomTheme} className="w-full px-4 py-2 text-sm">
+                  {saveState === "saved"
+                    ? "Saved!"
+                    : saveState === "error"
+                      ? "Name or CSS invalid"
+                      : "Save theme"}
                 </Button>
               </div>
             </section>
