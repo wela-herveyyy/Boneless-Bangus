@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import Script from "next/script";
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
+import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
         </Script>
         {children}
         <ThemeSidebar />
+        <SkillsMarketplaceSidebar />
       </body>
     </html>
   );
