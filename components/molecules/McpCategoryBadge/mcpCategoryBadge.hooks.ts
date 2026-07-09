@@ -1,12 +1,9 @@
-import type { McpCategory } from "@/lib/entities/mcp_server.type";
+import type { BadgeVariant } from "@/components/atoms/Badge/badge.hooks";
+import { getCategoryLabel, type McpCategory } from "@/lib/entities/mcp_server.type";
 
 export function useMcpCategoryBadge(category: McpCategory) {
-  const isCompany = category === "company_tools";
+  const variant: BadgeVariant = category === "company_tools" ? "secondary" : "muted";
+  const label = getCategoryLabel(category);
 
-  const className = [
-    "rounded-full px-2 py-0.5 text-[10px] font-medium",
-    isCompany ? "bg-secondary/15 text-secondary" : "bg-surface-container-high text-on-surface-muted",
-  ].join(" ");
-
-  return { className };
+  return { variant, label };
 }
