@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuPackageSearch, LuPower, LuSearch, LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
+import { Input } from "@/components/atoms/Input/Input";
 import {
   getCategoryLabel,
   MCP_CATEGORIES,
@@ -138,17 +139,17 @@ export function McpMarketplace() {
 
         {/* Search */}
         <div className="border-b border-primary/10 px-4 py-3">
-          <label className="flex items-center gap-2 rounded-xl bg-surface-container-low px-3 py-2">
-            <LuSearch className="size-4 shrink-0 text-on-surface-muted" aria-hidden />
-            <input
+          <div className="relative">
+            <LuSearch className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-muted pointer-events-none" aria-hidden />
+            <Input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search servers…"
-              className="min-w-0 flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
+              className="pl-9"
               aria-label="Search MCP servers"
             />
-          </label>
+          </div>
         </div>
 
         {/* Category filters */}
