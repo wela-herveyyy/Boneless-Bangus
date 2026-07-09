@@ -6,7 +6,9 @@ import {
   MCP_CATEGORIES,
   type McpFormState,
 } from "@/lib/entities/mcp_server.type";
-import { useMcpServerFormStyles } from "./mcpServerForm.hooks";
+
+const FIELD_CLASS =
+  "w-full rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none transition-colors input-glow focus:bg-surface-container-lowest placeholder:text-on-surface-muted";
 
 export type McpServerFormProps = {
   mode: "create" | "edit";
@@ -25,9 +27,6 @@ export function McpServerForm({
   onSave,
   onCancel,
 }: McpServerFormProps) {
-  const { fieldClass, containerClass, headerClass, bodyClass, footerClass } =
-    useMcpServerFormStyles();
-
   const saveLabel =
     saveState === "saved"
       ? "Saved!"
@@ -36,9 +35,9 @@ export function McpServerForm({
         : "Save server";
 
   return (
-    <div className={containerClass}>
+    <div className="flex flex-1 flex-col overflow-y-auto">
       {/* Back */}
-      <div className={headerClass}>
+      <div className="border-b border-primary/10 px-4 py-3">
         <button
           type="button"
           onClick={onCancel}
@@ -50,7 +49,7 @@ export function McpServerForm({
       </div>
 
       {/* Fields */}
-      <div className={bodyClass}>
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Slug — create only */}
         {mode === "create" && (
           <label className="flex flex-col gap-1.5">
@@ -90,7 +89,7 @@ export function McpServerForm({
             onChange={(e) => setFormField("description", e.target.value)}
             placeholder="What does this MCP server enable the AI to do?"
             rows={3}
-            className={[fieldClass, "resize-y"].join(" ")}
+            className={[FIELD_CLASS, "resize-y"].join(" ")}
             aria-label="Server description"
           />
         </label>
@@ -113,7 +112,7 @@ export function McpServerForm({
           <select
             value={form.category}
             onChange={(e) => setFormField("category", e.target.value)}
-            className={fieldClass}
+            className={FIELD_CLASS}
             aria-label="Server category"
           >
             {MCP_CATEGORIES.map((cat) => (
@@ -132,7 +131,7 @@ export function McpServerForm({
             onChange={(e) => setFormField("configTemplate", e.target.value)}
             spellCheck={false}
             rows={7}
-            className={[fieldClass, "resize-y font-mono text-xs leading-6"].join(" ")}
+            className={[FIELD_CLASS, "resize-y font-mono text-xs leading-6"].join(" ")}
             aria-label="Connection config JSON"
           />
           <p className="text-[10px] leading-relaxed text-on-surface-muted">
@@ -148,7 +147,7 @@ export function McpServerForm({
       </div>
 
       {/* Save */}
-      <div className={footerClass}>
+      <div className="border-t border-primary/10 px-4 py-4">
         <Button
           onClick={onSave}
           className="w-full px-4 py-2 text-sm"
