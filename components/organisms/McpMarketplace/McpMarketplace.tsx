@@ -6,7 +6,7 @@ import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
-import { McpServerForm } from "@/components/molecules/McpServerForm/McpServerForm";
+import { McpServerForm } from "@/components/organisms/McpServerForm/McpServerForm";
 import { MCP_CATEGORIES, useMcpMarketplace } from "./mcpMarketplace.hooks";
 
 export function McpMarketplace() {
