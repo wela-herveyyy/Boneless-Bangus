@@ -1,9 +1,13 @@
 "use client";
 
-import { HiOutlinePlus, HiXMark, HiOutlineCubeTransparent, HiOutlineCheck } from "react-icons/hi2";
+import { HiOutlinePlus, HiXMark, HiOutlineCubeTransparent } from "react-icons/hi2";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { useSkillsMarketplaceSidebar } from "./skillsMarketplaceSidebar.hooks";
+import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
+import { SkillDetailsModal } from "@/components/molecules/SkillDetailsModal/SkillDetailsModal";
+import { UninstallSkillModal } from "@/components/molecules/UninstallSkillModal/UninstallSkillModal";
+import { MarketplaceSkillCard } from "@/components/molecules/MarketplaceSkillCard/MarketplaceSkillCard";
 
 export function SkillsMarketplaceSidebar() {
   const {
@@ -24,6 +28,12 @@ export function SkillsMarketplaceSidebar() {
     newSkillForm,
     setNewSkillForm,
     handleAddSkill,
+    selectedSkillId,
+    setSelectedSkillId,
+    selectedSkill,
+    skillToUninstall,
+    confirmUninstall,
+    cancelUninstall,
   } = useSkillsMarketplaceSidebar();
 
   return (
@@ -119,32 +129,12 @@ export function SkillsMarketplaceSidebar() {
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Available Skills</p>
             <div className="mt-2 flex flex-col gap-3">
               {filteredSkills.map((skill) => (
-                <div
+                <MarketplaceSkillCard
                   key={skill.id}
-                  className="flex flex-col gap-2 rounded-xl bg-surface-container-low p-4 transition-colors hover:bg-surface-container-high ghost-border"
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-sm font-medium text-on-surface">{skill.name}</h3>
-                  </div>
-                  <p className="text-xs text-on-surface-muted leading-relaxed">{skill.description}</p>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[10px] text-on-surface-muted">by {skill.author}</span>
-                    <Button
-                      variant={skill.installed ? "secondary" : "primary"}
-                      onClick={() => toggleInstall(skill.id)}
-                      className="px-3 py-1 text-xs"
-                    >
-                      {skill.installed ? (
-                        <>
-                          <HiOutlineCheck className="mr-1 inline size-3" />
-                          Installed
-                        </>
-                      ) : (
-                        "Install"
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                  skill={skill}
+                  onClick={() => setSelectedSkillId(skill.id)}
+                  onToggleInstall={toggleInstall}
+                />
               ))}
               {filteredSkills.length === 0 && (
                 <p className="py-4 text-center text-sm text-on-surface-muted">No skills found.</p>
@@ -154,66 +144,26 @@ export function SkillsMarketplaceSidebar() {
         </div>
       </aside>
 
-      {/* Add Custom Skill Modal */}
-      {isAddingFormOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-on-surface/40 backdrop-blur-sm px-4">
-          <div
-            className="w-full max-w-md flex flex-col gap-5 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-skill-title"
-          >
-            <div className="flex items-start justify-between">
-              <h3 id="add-skill-title" className="font-display text-xl font-semibold text-primary">
-                Add New Skill
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAddingFormOpen(false)}
-                className="flex size-8 items-center justify-center rounded-full bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-                aria-label="Close modal"
-              >
-                <HiXMark className="size-5" />
-              </button>
-            </div>
+      <AddSkillModal
+        isOpen={isAddingFormOpen}
+        onClose={() => setIsAddingFormOpen(false)}
+        newSkillForm={newSkillForm}
+        setNewSkillForm={setNewSkillForm}
+        onSubmit={handleAddSkill}
+        disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.category.trim()}
+      />
 
-            <div className="space-y-4">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-on-surface">Skill Name</span>
-                <Input
-                  type="text"
-                  placeholder="e.g. Advanced Search"
-                  value={newSkillForm.name}
-                  onChange={(e) => setNewSkillForm({ ...newSkillForm, name: e.target.value })}
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-on-surface">Description</span>
-                <Input
-                  type="text"
-                  placeholder="What does this skill do?"
-                  value={newSkillForm.description}
-                  onChange={(e) => setNewSkillForm({ ...newSkillForm, description: e.target.value })}
-                />
-              </label>
-            </div>
+      <SkillDetailsModal
+        skill={selectedSkill}
+        onClose={() => setSelectedSkillId(null)}
+        onToggleInstall={toggleInstall}
+      />
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="secondary" onClick={() => setIsAddingFormOpen(false)} className="px-5 py-2 text-sm">
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleAddSkill}
-                disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim()}
-                className="px-5 py-2 text-sm"
-              >
-                Save Skill
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <UninstallSkillModal
+        isOpen={!!skillToUninstall}
+        onCancel={cancelUninstall}
+        onConfirm={confirmUninstall}
+      />
     </>
   );
 }

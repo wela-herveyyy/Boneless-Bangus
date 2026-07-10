@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { getSkillsAction, createSkillAction } from "@/lib/domain/actions/skills.actions";
+import { 
+  saveLocalRecordAction, 
+  listLocalRecordsAction, 
+  deleteLocalRecordAction 
+} from "@/lib/domain/actions/storage.actions";
 
 export type Skill = {
   id: string;
@@ -9,50 +15,58 @@ export type Skill = {
   author: string;
   category: string;
   installed: boolean;
+  localId?: number;
 };
-
-const MOCK_SKILLS: Skill[] = [
-  {
-    id: "s1",
-    name: "React Advanced Patterns",
-    description: "Expert-level hooks and context management.",
-    author: "frontend-wizards",
-    category: "Frontend",
-    installed: false,
-  },
-  {
-    id: "s2",
-    name: "Figma to Code",
-    description: "Generate components directly from Figma tokens.",
-    author: "design-systems-inc",
-    category: "Design",
-    installed: true,
-  },
-  {
-    id: "s3",
-    name: "SQL Performance Tuning",
-    description: "Optimize complex queries and indexes.",
-    author: "db-masters",
-    category: "Database",
-    installed: false,
-  },
-];
 
 export function useSkillsMarketplaceSidebar() {
   const [hoverOpen, setHoverOpen] = useState(false);
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [skills, setSkills] = useState<Skill[]>(MOCK_SKILLS);
-
+  
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [isAddingFormOpen, setIsAddingFormOpen] = useState(false);
-  const [newSkillForm, setNewSkillForm] = useState({ name: "", description: "", category: "Custom" });
+  const [newSkillForm, setNewSkillForm] = useState({ name: "", description: "", category: "" });
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [skillToUninstall, setSkillToUninstall] = useState<string | null>(null);
 
   const categories = ["All", ...Array.from(new Set(skills.map((s) => s.category)))];
 
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOpen = hoverOpen || pinnedOpen;
+
+  const loadData = useCallback(async () => {
+    const [skillsRes, localRes] = await Promise.all([
+      getSkillsAction(),
+      listLocalRecordsAction()
+    ]);
+
+    if (skillsRes.ok && skillsRes.data && localRes.ok && localRes.data) {
+      const localRecordsMap = new Map<string, number>();
+      localRes.data.forEach(record => {
+        if (record.key.startsWith("installed-skill-")) {
+          const skillId = record.key.replace("installed-skill-", "");
+          localRecordsMap.set(skillId, record.id);
+        }
+      });
+
+      const mappedSkills: Skill[] = skillsRes.data.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        author: s.author.name,
+        category: s.category.name,
+        installed: localRecordsMap.has(s.id),
+        localId: localRecordsMap.get(s.id)
+      }));
+      setSkills(mappedSkills);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current) {
@@ -107,26 +121,56 @@ export function useSkillsMarketplaceSidebar() {
     return matchesSearch && matchesCategory;
   });
 
-  const toggleInstall = (id: string) => {
-    setSkills(skills.map((s) => (s.id === id ? { ...s, installed: !s.installed } : s)));
+  const toggleInstall = async (id: string) => {
+    const skill = skills.find((s) => s.id === id);
+    if (!skill) return;
+
+    if (skill.installed && skill.localId) {
+      setSkillToUninstall(id);
+    } else {
+      const res = await saveLocalRecordAction({
+        key: `installed-skill-${id}`,
+        value: JSON.stringify(skill),
+      });
+      if (res.ok && res.data) {
+        setSkills(skills.map((s) => (s.id === id ? { ...s, installed: true, localId: res.data?.id } : s)));
+      }
+    }
   };
 
-  const handleAddSkill = () => {
-    if (!newSkillForm.name.trim() || !newSkillForm.description.trim()) return;
+  const confirmUninstall = async () => {
+    if (!skillToUninstall) return;
+    const skill = skills.find((s) => s.id === skillToUninstall);
+    if (!skill || !skill.localId) return;
+
+    await deleteLocalRecordAction({ id: skill.localId });
+    setSkills(skills.map((s) => (s.id === skillToUninstall ? { ...s, installed: false, localId: undefined } : s)));
+    setSkillToUninstall(null);
+  };
+
+  const cancelUninstall = () => {
+    setSkillToUninstall(null);
+  };
+
+  const handleAddSkill = async () => {
+    if (!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.category.trim()) return;
     
-    const newSkill: Skill = {
-      id: `custom-${Date.now()}`,
+    const res = await createSkillAction({
       name: newSkillForm.name,
       description: newSkillForm.description,
-      category: newSkillForm.category || "Custom",
-      author: "you",
-      installed: true,
-    };
-    
-    setSkills((prev) => [newSkill, ...prev]);
-    setNewSkillForm({ name: "", description: "", category: "Custom" });
-    setIsAddingFormOpen(false);
+      categoryName: newSkillForm.category.trim()
+    });
+
+    if (res.ok) {
+      await loadData(); // refresh the list
+      setNewSkillForm({ name: "", description: "", category: "" });
+      setIsAddingFormOpen(false);
+    } else {
+      console.error(res.error);
+    }
   };
+
+  const selectedSkill = skills.find((s) => s.id === selectedSkillId) || null;
 
   return {
     isOpen,
@@ -146,5 +190,11 @@ export function useSkillsMarketplaceSidebar() {
     newSkillForm,
     setNewSkillForm,
     handleAddSkill,
+    selectedSkillId,
+    setSelectedSkillId,
+    selectedSkill,
+    skillToUninstall,
+    confirmUninstall,
+    cancelUninstall,
   };
 }
