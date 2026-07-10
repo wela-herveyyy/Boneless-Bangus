@@ -1,4 +1,4 @@
-import { LuChevronLeft } from "react-icons/lu";
+import { LuChevronLeft, LuPlus, LuTrash2, LuWrench } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
@@ -13,10 +13,11 @@ const FIELD_CLASS =
 export type McpServerFormProps = {
   mode: "create" | "edit";
   form: McpFormState;
-  setFormField: (field: keyof McpFormState, value: string) => void;
+  setFormField: (field: keyof McpFormState, value: unknown) => void;
   saveState: "idle" | "saved" | "error";
   onSave: () => void;
   onCancel: () => void;
+  categories?: { id: string; slug: string; name: string }[];
 };
 
 export function McpServerForm({
@@ -26,6 +27,7 @@ export function McpServerForm({
   saveState,
   onSave,
   onCancel,
+  categories = [],
 }: McpServerFormProps) {
   const saveLabel =
     saveState === "saved"
@@ -33,6 +35,31 @@ export function McpServerForm({
       : saveState === "error"
         ? "Check fields & JSON"
         : "Save server";
+
+  const tools = form.tools || [];
+
+  const addTool = () => {
+    const next = [
+      ...tools,
+      {
+        name: "",
+        description: "",
+        inputSchema: '{\n  "type": "object",\n  "properties": {}\n}',
+      },
+    ];
+    setFormField("tools", next);
+  };
+
+  const removeTool = (index: number) => {
+    const next = tools.filter((_, i) => i !== index);
+    setFormField("tools", next);
+  };
+
+  const updateToolField = (index: number, field: string, val: string) => {
+    const next = [...tools];
+    next[index] = { ...next[index], [field]: val };
+    setFormField("tools", next);
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto">
@@ -115,11 +142,17 @@ export function McpServerForm({
             className={FIELD_CLASS}
             aria-label="Server category"
           >
-            {MCP_CATEGORIES.map((cat) => (
-              <option key={cat.value} value={cat.value}>
-                {cat.label}
-              </option>
-            ))}
+            {categories.length > 0
+              ? categories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))
+              : MCP_CATEGORIES.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </option>
+                ))}
           </select>
         </label>
 
@@ -130,7 +163,7 @@ export function McpServerForm({
             value={form.configTemplate}
             onChange={(e) => setFormField("configTemplate", e.target.value)}
             spellCheck={false}
-            rows={7}
+            rows={5}
             className={[FIELD_CLASS, "resize-y font-mono text-xs leading-6"].join(" ")}
             aria-label="Connection config JSON"
           />
@@ -144,6 +177,91 @@ export function McpServerForm({
             </code>
           </p>
         </label>
+
+        {/* Dynamic Tools Section */}
+        <div className="pt-2 border-t border-outline/10 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <LuWrench className="size-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">
+                Tools Included ({tools.length})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={addTool}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2.5 py-1 rounded-lg"
+            >
+              <LuPlus className="size-3.5" />
+              <span>Add Tool</span>
+            </button>
+          </div>
+
+          <p className="text-[11px] text-on-surface-muted">
+            Document individual functions/tools so users know what specific actions this server unlocks.
+          </p>
+
+          <div className="space-y-4">
+            {tools.map((tool, idx) => (
+              <div
+                key={idx}
+                className="relative rounded-2xl bg-surface-container p-3.5 space-y-3 border border-outline/15 shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-on-surface-muted uppercase tracking-wider">
+                    Tool #{idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeTool(idx)}
+                    className="p-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    title="Remove Tool"
+                  >
+                    <LuTrash2 className="size-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Tool Name</Label>
+                  <Input
+                    type="text"
+                    value={tool.name || ""}
+                    onChange={(e) => updateToolField(idx, "name", e.target.value)}
+                    placeholder="e.g. query_database"
+                    className="mt-1 bg-surface-container-low text-xs py-2"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Description</Label>
+                  <textarea
+                    value={tool.description || ""}
+                    onChange={(e) => updateToolField(idx, "description", e.target.value)}
+                    placeholder="What does this specific tool do?"
+                    rows={2}
+                    className={[FIELD_CLASS, "mt-1 bg-surface-container-low text-xs py-2 resize-y"].join(" ")}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs">Input Schema (JSON)</Label>
+                  <textarea
+                    value={
+                      typeof tool.inputSchema === "string"
+                        ? tool.inputSchema
+                        : tool.inputSchema
+                          ? JSON.stringify(tool.inputSchema, null, 2)
+                          : '{\n  "type": "object",\n  "properties": {}\n}'
+                    }
+                    onChange={(e) => updateToolField(idx, "inputSchema", e.target.value)}
+                    rows={3}
+                    className={[FIELD_CLASS, "mt-1 bg-surface-container-low font-mono text-[11px] py-2 resize-y leading-5"].join(" ")}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Save */}

@@ -1,113 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   EMPTY_MCP_FORM,
-  MCP_CATEGORY,
+  MCP_CATEGORIES,
+  getCategoryLabel,
   type McpCategory,
   type McpFormState,
   type McpServer,
+  type McpServerDetailed,
   type McpView,
+  USER_AI_CONFIG_DEFAULT,
+  type UserAiConfig,
 } from "@/lib/entities/mcp_server.type";
+import {
+  getMcpDataAction,
+  createMcpServerAction,
+  updateMcpServerAction,
+  deleteMcpServerAction,
+} from "@/lib/domain/actions/mcp_server.actions";
+import {
+  loadUserAiConfigFromIdb,
+  saveUserAiConfigToIdb,
+} from "@/lib/utils/mcp-idb";
 
 export { MCP_CATEGORIES, getCategoryLabel } from "@/lib/entities/mcp_server.type";
 export type { McpCategory, McpFormState, McpServer, McpView };
 
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-const INITIAL_SERVERS: McpServer[] = [
-  {
-    id: generateId(),
-    slug: "leave-filing",
-    name: "Leave Filing",
-    description: "File and track leave requests via the company's HR system.",
-    author: "Livro Systems",
-    category: MCP_CATEGORY.COMPANY_TOOLS,
-    configTemplate: '{\n  "url": "https://mcp.company.com/leave"\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "timesheets",
-    name: "Timesheets",
-    description: "Log hours, view your timesheet, and submit for approval.",
-    author: "Livro Systems",
-    category: MCP_CATEGORY.COMPANY_TOOLS,
-    configTemplate: '{\n  "url": "https://mcp.company.com/time"\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "github",
-    name: "GitHub",
-    description: "Interact with repositories, issues, pull requests, and workflows.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.DEVTOOLS,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-github"],\n  "env": { "GITHUB_TOKEN": "" }\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "postgres",
-    name: "PostgreSQL",
-    description: "Query and inspect PostgreSQL databases with read-only safe access.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.DATABASE,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "brave-search",
-    name: "Brave Search",
-    description: "Web and local search powered by the Brave Search API.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.WEB,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-brave-search"],\n  "env": { "BRAVE_API_KEY": "" }\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "filesystem",
-    name: "Filesystem",
-    description: "Read and write files on the local filesystem with path-scoped access.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.FILESYSTEM,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed"]\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "memory",
-    name: "Memory",
-    description: "Persistent key-value memory store that survives across conversations.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.AI,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-memory"]\n}',
-    enabled: false,
-  },
-  {
-    id: generateId(),
-    slug: "slack",
-    name: "Slack",
-    description: "Send messages, list channels, and interact with your Slack workspace.",
-    author: "Anthropic",
-    category: MCP_CATEGORY.COMMUNICATION,
-    configTemplate:
-      '{\n  "command": "npx",\n  "args": ["-y", "@modelcontextprotocol/server-slack"],\n  "env": { "SLACK_BOT_TOKEN": "", "SLACK_TEAM_ID": "" }\n}',
-    enabled: false,
-  },
-];
-
 export function useMcpMarketplace() {
-  const [servers, setServers] = useState<McpServer[]>(INITIAL_SERVERS);
+  const [rawServers, setRawServers] = useState<McpServerDetailed[]>([]);
+  const [userConfig, setUserConfig] = useState<UserAiConfig>(USER_AI_CONFIG_DEFAULT);
+  const [categories, setCategories] = useState<{ id: string; slug: string; name: string }[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [canManageAll, setCanManageAll] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<McpCategory | "all">("all");
 
@@ -116,6 +43,52 @@ export function useMcpMarketplace() {
   const [form, setFormRaw] = useState<McpFormState>(EMPTY_MCP_FORM);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [res, idbConfig] = await Promise.all([
+        getMcpDataAction(),
+        loadUserAiConfigFromIdb(),
+      ]);
+      if (res.ok) {
+        setRawServers(res.data.catalogue);
+        setCategories(res.data.categories);
+        setCurrentUserId(res.data.currentUserId);
+        setCanManageAll(res.data.canManageAll);
+      }
+      setUserConfig(idbConfig);
+    } catch (err) {
+      console.error("Failed to load MCP Marketplace data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const servers: McpServer[] = useMemo(() => {
+    return rawServers.map((s) => {
+      const isEnabled = Boolean(userConfig.mcpServers && userConfig.mcpServers[s.slug]);
+      return {
+        id: s.id,
+        slug: s.slug,
+        name: s.name,
+        description: s.description,
+        author: s.user?.name || "Custom",
+        category: s.category?.slug || "dev-tools",
+        categoryId: s.categoryId,
+        configTemplate: typeof s.configTemplate === "string"
+          ? s.configTemplate
+          : JSON.stringify(s.configTemplate, null, 2),
+        configTemplateObj: s.configTemplate,
+        enabled: isEnabled,
+        tools: s.tools || [],
+      };
+    });
+  }, [rawServers, userConfig]);
 
   const filteredServers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -132,18 +105,29 @@ export function useMcpMarketplace() {
 
   const enabledCount = useMemo(() => servers.filter((s) => s.enabled).length, [servers]);
 
-  const setFormField = (field: keyof McpFormState, value: string) => {
-    setFormRaw((prev) => ({ ...prev, [field]: value }));
+  const setFormField = (field: keyof McpFormState, value: unknown) => {
+    setFormRaw((prev) => ({ ...prev, [field]: value as never }));
   };
 
-  const toggleServer = (id: string) => {
-    setServers((prev) =>
-      prev.map((server) => (server.id === id ? { ...server, enabled: !server.enabled } : server)),
-    );
+  const toggleServer = async (idOrSlug: string) => {
+    const target = servers.find((s) => s.id === idOrSlug || s.slug === idOrSlug);
+    if (!target) return;
+
+    const nextMcpServers = { ...(userConfig.mcpServers || {}) };
+    if (target.enabled) {
+      delete nextMcpServers[target.slug];
+    } else {
+      nextMcpServers[target.slug] = target.configTemplateObj || { url: "" };
+    }
+
+    const nextConfig = { ...userConfig, mcpServers: nextMcpServers };
+    setUserConfig(nextConfig);
+    await saveUserAiConfigToIdb(nextConfig);
   };
 
   const startCreate = () => {
-    setFormRaw(EMPTY_MCP_FORM);
+    const defaultCat = categories[0]?.id || "";
+    setFormRaw({ ...EMPTY_MCP_FORM, categoryId: defaultCat });
     setSaveState("idle");
     setDeletingServerId(null);
     setView("create");
@@ -151,12 +135,19 @@ export function useMcpMarketplace() {
 
   const startEdit = (server: McpServer) => {
     setFormRaw({
+      id: server.id,
       slug: server.slug,
       name: server.name,
       description: server.description,
       author: server.author,
       category: server.category,
+      categoryId: server.categoryId || categories.find((c) => c.slug === server.category)?.id || "",
       configTemplate: server.configTemplate,
+      tools: (server.tools || []).map((t: any) => ({
+        name: t.name || t.toolName || "",
+        description: t.description || "",
+        inputSchema: t.inputSchema ?? null,
+      })),
     });
     setEditingServer(server);
     setSaveState("idle");
@@ -171,8 +162,8 @@ export function useMcpMarketplace() {
     setView("list");
   };
 
-  const saveServer = () => {
-    const { slug, name, description, author, category, configTemplate } = form;
+  const saveServer = async () => {
+    const { slug, name, description, category, categoryId, configTemplate, tools } = form;
 
     if (!slug.trim() || !name.trim() || !description.trim()) {
       setSaveState("error");
@@ -180,50 +171,48 @@ export function useMcpMarketplace() {
       return;
     }
 
+    let parsedConfig: Record<string, unknown>;
     try {
-      JSON.parse(configTemplate);
+      parsedConfig = JSON.parse(configTemplate);
     } catch {
       setSaveState("error");
       window.setTimeout(() => setSaveState("idle"), 2000);
       return;
     }
 
+    const targetCategoryId = categoryId || categories.find((c) => c.slug === category)?.id || categories[0]?.id || "";
+
     if (view === "create") {
-      if (servers.some((s) => s.slug === slug.trim())) {
+      const res = await createMcpServerAction({
+        slug: slug.trim(),
+        name: name.trim(),
+        description: description.trim(),
+        categoryId: targetCategoryId,
+        configTemplate: parsedConfig,
+        tools: tools || [],
+      });
+      if (!res.ok) {
         setSaveState("error");
         window.setTimeout(() => setSaveState("idle"), 2000);
         return;
       }
-      setServers((prev) => [
-        {
-          id: generateId(),
-          slug: slug.trim(),
-          name: name.trim(),
-          description: description.trim(),
-          author: author.trim() || "Custom",
-          category: category as McpCategory,
-          configTemplate,
-          enabled: false,
-        },
-        ...prev,
-      ]);
     } else if (view === "edit" && editingServer) {
-      setServers((prev) =>
-        prev.map((s) =>
-          s.id === editingServer.id
-            ? {
-                ...s,
-                name: name.trim(),
-                description: description.trim(),
-                author: author.trim(),
-                category: category as McpCategory,
-                configTemplate,
-              }
-            : s,
-        ),
-      );
+      const res = await updateMcpServerAction({
+        id: editingServer.id,
+        name: name.trim(),
+        description: description.trim(),
+        categoryId: targetCategoryId,
+        configTemplate: parsedConfig,
+        tools: tools || [],
+      });
+      if (!res.ok) {
+        setSaveState("error");
+        window.setTimeout(() => setSaveState("idle"), 2000);
+        return;
+      }
     }
 
+    await loadData();
     setSaveState("saved");
     window.setTimeout(() => {
       setSaveState("idle");
@@ -233,14 +222,19 @@ export function useMcpMarketplace() {
 
   const requestDelete = (id: string) => setDeletingServerId(id);
   const cancelDelete = () => setDeletingServerId(null);
-  const confirmDelete = (id: string) => {
-    setServers((prev) => prev.filter((s) => s.id !== id));
+  const confirmDelete = async (id: string) => {
+    await deleteMcpServerAction({ id });
     setDeletingServerId(null);
+    await loadData();
   };
 
   return {
     servers,
     filteredServers,
+    categories,
+    currentUserId,
+    canManageAll,
+    loading,
     query,
     setQuery,
     activeCategory,
