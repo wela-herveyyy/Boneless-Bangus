@@ -15,6 +15,13 @@
       "when": 1783358364187,
       "tag": "0001_optimal_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1783678299744,
+      "tag": "0002_fluffy_ink",
+      "breakpoints": true
     }
   ]
 }
