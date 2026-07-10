@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuPackageSearch, LuPlus, LuPower, LuSearch, LuX } from "react-icons/lu";
+import { LuPackageSearch, LuPlus, LuSearch, LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
@@ -16,7 +16,6 @@ export function McpMarketplace() {
     setQuery,
     activeCategory,
     setActiveCategory,
-    enabledCount,
     toggleServer,
     view,
     form,
@@ -87,13 +86,13 @@ export function McpMarketplace() {
   }, [closeSidebar, cancelForm, isOpen, view]);
 
   const panelTitle =
-    view === "create" ? "New Server" : view === "edit" ? "Edit Server" : "MCP Marketplace";
+    view === "create" ? "New Server" : view === "edit" ? "Edit Server" : "Explore MCP Servers";
   const panelSubtitle =
     view === "create"
       ? "Register a new MCP server"
       : view === "edit"
         ? "Update server details"
-        : "Model Context Protocol";
+        : "MCP MARKETPLACE";
 
   return (
     <>
@@ -113,11 +112,6 @@ export function McpMarketplace() {
         ].join(" ")}
       >
         <LuPackageSearch className="size-5" aria-hidden />
-        {enabledCount > 0 ? (
-          <span className="absolute -top-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full bg-secondary text-[10px] font-semibold text-on-secondary shadow-bloom">
-            {enabledCount}
-          </span>
-        ) : null}
       </button>
 
       {/* Backdrop */}
@@ -148,24 +142,13 @@ export function McpMarketplace() {
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
               {panelSubtitle}
             </p>
-            <h2 className="font-display text-lg font-semibold text-primary">{panelTitle}</h2>
+            <h2 className="font-display text-xl font-bold text-primary">{panelTitle}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {view === "list" ? (
-              <button
-                type="button"
-                onClick={startCreate}
-                aria-label="Add new MCP server"
-                title="Add new server"
-                className="flex size-9 items-center justify-center bg-primary text-on-primary transition-colors hover:bg-primary-container"
-              >
-                <LuPlus className="size-5" />
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={view !== "list" ? cancelForm : closeSidebar}
-              className="flex size-9 items-center justify-center bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
+              className="flex size-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
               aria-label={view !== "list" ? "Cancel and go back" : "Close MCP Marketplace"}
             >
               <LuX className="size-5" />
@@ -176,57 +159,75 @@ export function McpMarketplace() {
         {/* List view */}
         {view === "list" ? (
           <>
-            {/* Search */}
-            <div className="border-b border-primary/10 px-4 py-3">
+            {/* Search, Add Button & Category Filters */}
+            <div className="flex flex-col gap-3.5 border-b border-primary/10 px-4 py-4">
+              {/* Search input */}
               <div className="relative">
                 <LuSearch
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-muted"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-muted"
                   aria-hidden
                 />
                 <Input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search servers…"
-                  className="pl-9"
+                  placeholder="Search servers..."
+                  className="w-full rounded-2xl bg-surface-container-low py-2.5 pl-10 pr-4 text-sm text-on-surface placeholder:text-on-surface-muted/60 ghost-border focus:bg-surface-container-lowest"
                   aria-label="Search MCP servers"
                 />
               </div>
-            </div>
 
-            {/* Category filters */}
-            <div className="flex gap-1.5 overflow-x-auto border-b border-primary/10 px-4 py-3">
-              <button
+              {/* Full-width Add Button */}
+              <Button
                 type="button"
-                onClick={() => setActiveCategory("all")}
-                className={[
-                  "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  activeCategory === "all"
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container-low text-on-surface-muted hover:bg-surface-container-high",
-                ].join(" ")}
+                onClick={startCreate}
+                variant="primary"
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold shadow-bloom"
               >
-                All
-              </button>
-              {MCP_CATEGORIES.map((cat) => (
+                <LuPlus className="size-4" aria-hidden />
+                <span>Add Your Own Server</span>
+              </Button>
+
+              {/* Category filters */}
+              <div className="flex gap-1.5 overflow-x-auto pt-0.5 pb-1">
                 <button
-                  key={cat.value}
                   type="button"
-                  onClick={() => setActiveCategory(cat.value)}
+                  onClick={() => setActiveCategory("all")}
                   className={[
-                    "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    activeCategory === cat.value
-                      ? "bg-primary text-on-primary"
+                    "shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all",
+                    activeCategory === "all"
+                      ? "bg-primary text-on-primary shadow-sm"
                       : "bg-surface-container-low text-on-surface-muted hover:bg-surface-container-high",
                   ].join(" ")}
                 >
-                  {cat.label}
+                  All
                 </button>
-              ))}
+                {MCP_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setActiveCategory(cat.value)}
+                    className={[
+                      "shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all",
+                      activeCategory === cat.value
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "bg-surface-container-low text-on-surface-muted hover:bg-surface-container-high",
+                    ].join(" ")}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Server list */}
             <div className="flex-1 overflow-y-auto p-4">
+              <div className="mb-3 px-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-muted">
+                  Available Servers
+                </p>
+              </div>
+
               {filteredServers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-surface-container-low text-on-surface-muted">
@@ -246,7 +247,7 @@ export function McpMarketplace() {
                   </Button>
                 </div>
               ) : (
-                <ul className="space-y-3">
+                <ul className="space-y-3.5">
                   {filteredServers.map((server) => (
                     <McpServerCard
                       key={server.id}
@@ -262,16 +263,6 @@ export function McpMarketplace() {
                 </ul>
               )}
             </div>
-
-            {/* Footer */}
-            {enabledCount > 0 ? (
-              <div className="border-t border-primary/10 px-5 py-4">
-                <Button variant="primary" className="w-full gap-2 px-4 py-2 text-sm">
-                  <LuPower className="size-4" aria-hidden />
-                  {enabledCount} server{enabledCount !== 1 ? "s" : ""} enabled
-                </Button>
-              </div>
-            ) : null}
           </>
         ) : null}
 
