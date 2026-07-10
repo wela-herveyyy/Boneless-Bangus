@@ -15,6 +15,13 @@
       "when": 1783358364187,
       "tag": "0001_optimal_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1783668766469,
+      "tag": "0002_thick_captain_marvel",
+      "breakpoints": true
     }
   ]
 }
