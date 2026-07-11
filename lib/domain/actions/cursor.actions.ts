@@ -3,7 +3,12 @@
 import { auth } from "@/lib/domain/services/auth.service";
 import { promptAgent } from "@/lib/domain/services/cursor.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-import type { CursorResult, PromptAgentOutput } from "@/lib/entities/cursor.type";
+import type {
+  CursorMcpServerConfig,
+  CursorResult,
+  CursorSkill,
+  PromptAgentOutput,
+} from "@/lib/entities/cursor.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 function getErrorMessage(error: unknown): string {
@@ -14,6 +19,8 @@ export type PromptAgentActionInput = {
   message: string;
   name?: string;
   email?: string;
+  mcpServers?: Record<string, CursorMcpServerConfig>;
+  skills?: CursorSkill[];
 };
 
 export async function promptAgentAction(
@@ -45,7 +52,6 @@ export async function promptAgentAction(
       return { ok: false, error: "You are not authorized for this action." };
     }
 
-    // ponytail: IndexedDB is client-only — prefer passed record, else session
     const name = input.name?.trim() || userSession.user.name;
     const email = input.email?.trim() || userSession.user.email;
 
@@ -53,6 +59,8 @@ export async function promptAgentAction(
       message: input.message,
       name,
       email,
+      mcpServers: input.mcpServers,
+      skills: input.skills,
     });
 
     await logAction({
@@ -61,7 +69,12 @@ export async function promptAgentAction(
       success: result.ok,
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
-      metadata: { name, email },
+      metadata: {
+        name,
+        email,
+        mcpCount: input.mcpServers ? Object.keys(input.mcpServers).length : 0,
+        skillCount: input.skills?.length ?? 0,
+      },
     });
 
     return result;

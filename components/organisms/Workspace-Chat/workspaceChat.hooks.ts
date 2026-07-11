@@ -9,6 +9,12 @@ import {
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { promptAgentAction } from "@/lib/domain/actions/cursor.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
+import {
+  CURSOR_MCP_STORAGE_KEY,
+  CURSOR_SKILLS_STORAGE_KEY,
+  type CursorMcpServerConfig,
+  type CursorSkill,
+} from "@/lib/entities/cursor.type";
 
 function parseProfile(value: string): OnboardingProfile | null {
   try {
@@ -19,6 +25,33 @@ function parseProfile(value: string): OnboardingProfile | null {
     return parsed;
   } catch {
     return null;
+  }
+}
+
+function parseMcpServers(value: string): Record<string, CursorMcpServerConfig> | undefined {
+  try {
+    const parsed = JSON.parse(value) as
+      | Record<string, CursorMcpServerConfig>
+      | { mcpServers?: Record<string, CursorMcpServerConfig> };
+    const servers = "mcpServers" in parsed && parsed.mcpServers ? parsed.mcpServers : parsed;
+    if (!servers || typeof servers !== "object" || Array.isArray(servers)) return undefined;
+    return servers as Record<string, CursorMcpServerConfig>;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseSkills(value: string): CursorSkill[] | undefined {
+  try {
+    const parsed = JSON.parse(value) as CursorSkill[] | { skills?: CursorSkill[] };
+    const skills = Array.isArray(parsed) ? parsed : parsed.skills;
+    if (!Array.isArray(skills)) return undefined;
+    return skills.filter(
+      (s): s is CursorSkill =>
+        !!s && typeof s.name === "string" && typeof s.content === "string",
+    );
+  } catch {
+    return undefined;
   }
 }
 
@@ -57,6 +90,20 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [mcpServers, setMcpServers] = useState<Record<string, CursorMcpServerConfig>>();
+  const [skills, setSkills] = useState<CursorSkill[]>();
+
+  useEffect(() => {
+    void (async () => {
+      const result = await listLocalRecordsAction();
+      if (!result.ok) return;
+
+      const mcp = result.data.find((item) => item.key === CURSOR_MCP_STORAGE_KEY);
+      const sk = result.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
+      if (mcp) setMcpServers(parseMcpServers(mcp.value));
+      if (sk) setSkills(parseSkills(sk.value));
+    })();
+  }, []);
 
   const send = useCallback(
     async (event?: FormEvent) => {
@@ -73,6 +120,8 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
         message: text,
         name: user?.name,
         email: user?.email,
+        mcpServers,
+        skills,
       });
 
       if (result.ok) {
@@ -90,7 +139,7 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
 
       setSending(false);
     },
-    [message, sending, user?.name, user?.email],
+    [message, sending, user?.name, user?.email, mcpServers, skills],
   );
 
   return { message, setMessage, turns, error, sending, send, hasChat: turns.length > 0 };
