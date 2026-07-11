@@ -7,7 +7,7 @@ import {
   ONBOARDING_STORAGE_KEY,
   type OnboardingProfile,
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
-import { promptAiAction } from "@/lib/domain/actions/ai.actions";
+import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
 import { AI_PROVIDER, type AiProvider } from "@/lib/entities/ai.type";
 import {
@@ -158,14 +158,23 @@ export type ChatTurn = {
   text: string;
 };
 
-export function useWorkspaceChat(user?: { name?: string; email?: string }) {
+export function useWorkspaceChat(
+  user?: { name?: string; email?: string },
+  options?: {
+    activeChatId?: string | null;
+    onConversationSaved?: (dbConversationId: string) => void;
+  },
+) {
   const [message, setMessage] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [provider, setProviderState] = useState<AiProvider>(AI_PROVIDER.GOOGLE_AI);
   const [googleModel, setGoogleModelState] = useState<GoogleAiModel>(GOOGLE_AI_DEFAULT_MODEL);
-  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [providerConversationId, setProviderConversationId] = useState<string | undefined>();
+  const [dbConversationId, setDbConversationId] = useState<string | undefined>();
+  const [thinkingText, setThinkingText] = useState("");
+  const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<Record<string, CursorMcpServerConfig>>();
   const [skills, setSkills] = useState<CursorSkill[]>();
 
@@ -186,15 +195,62 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
     })();
   }, []);
 
+  useEffect(() => {
+    const activeId = options?.activeChatId ?? null;
+
+    if (!activeId) {
+      setTurns([]);
+      setDbConversationId(undefined);
+      setProviderConversationId(undefined);
+      setThinkingText("");
+      setStreamingAssistantId(null);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const result = await listConversationMessagesAction(activeId);
+      if (cancelled) return;
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      setDbConversationId(activeId);
+      setProviderConversationId(undefined);
+      setTurns(
+        result.data.flatMap((item) => {
+          const turns: ChatTurn[] = [
+            { id: `${item.id}-u`, role: "user", text: item.content },
+          ];
+          if (item.aiFeedback) {
+            turns.push({
+              id: `${item.id}-a`,
+              role: "assistant",
+              text: item.aiFeedback,
+            });
+          }
+          return turns;
+        }),
+      );
+      setError(null);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [options?.activeChatId]);
+
   const setProvider = useCallback((next: AiProvider) => {
     setProviderState(next);
-    setConversationId(undefined);
+    setProviderConversationId(undefined);
     window.localStorage.setItem(PROVIDER_STORAGE_KEY, next);
   }, []);
 
   const setGoogleModel = useCallback((next: GoogleAiModel) => {
     setGoogleModelState(next);
-    setConversationId(undefined);
+    setProviderConversationId(undefined);
     window.localStorage.setItem(GOOGLE_MODEL_STORAGE_KEY, next);
   }, []);
 
@@ -207,8 +263,130 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
       setGoogleModelState(route.googleModel);
       window.localStorage.setItem(GOOGLE_MODEL_STORAGE_KEY, route.googleModel);
     }
-    setConversationId(undefined);
+    setProviderConversationId(undefined);
   }, []);
+
+  const sendGoogleStream = useCallback(
+    async (text: string) => {
+      const assistantId = `a-${Date.now()}`;
+      setThinkingText("");
+      setStreamingAssistantId(assistantId);
+      setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "" }]);
+
+      try {
+        const response = await fetch("/api/ai/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            model: googleModel,
+            previousInteractionId: providerConversationId,
+            dbConversationId,
+            name: user?.name,
+            email: user?.email,
+          }),
+        });
+
+        if (!response.ok || !response.body) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(payload?.error ?? `Stream failed (${response.status}).`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let sawDone = false;
+
+        const applyEvent = (raw: string) => {
+          const line = raw.trim();
+          if (!line.startsWith("data:")) return;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === "[DONE]") return;
+
+          const event = JSON.parse(payload) as {
+            type: string;
+            text?: string;
+            error?: string;
+            conversationId?: string;
+            dbConversationId?: string;
+            messageId?: string;
+          };
+
+          if (event.type === "thinking" && event.text) {
+            setThinkingText((prev) => prev + event.text);
+            return;
+          }
+          if (event.type === "text" && event.text) {
+            setThinkingText("");
+            setTurns((prev) =>
+              prev.map((turn) =>
+                turn.id === assistantId ? { ...turn, text: turn.text + event.text } : turn,
+              ),
+            );
+            return;
+          }
+          if (event.type === "created" && event.conversationId) {
+            setProviderConversationId(event.conversationId);
+            return;
+          }
+          if (event.type === "done") {
+            sawDone = true;
+            if (event.conversationId) setProviderConversationId(event.conversationId);
+            if (event.dbConversationId) {
+              setDbConversationId(event.dbConversationId);
+              options?.onConversationSaved?.(event.dbConversationId);
+            }
+            setTurns((prev) =>
+              prev.map((turn) =>
+                turn.id === assistantId
+                  ? {
+                      ...turn,
+                      id: event.messageId ?? turn.id,
+                      text: event.text ?? turn.text,
+                    }
+                  : turn,
+              ),
+            );
+            setThinkingText("");
+            setStreamingAssistantId(null);
+            return;
+          }
+          if (event.type === "error") {
+            throw new Error(event.error ?? "Stream error.");
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) applyEvent(part);
+        }
+        if (buffer.trim()) applyEvent(buffer);
+
+        if (!sawDone) {
+          throw new Error("Stream ended before completion.");
+        }
+      } catch (err) {
+        setThinkingText("");
+        setStreamingAssistantId(null);
+        setTurns((prev) =>
+          prev.filter((turn) => turn.id !== assistantId || turn.text.trim().length > 0),
+        );
+        throw err;
+      }
+    },
+    [
+      googleModel,
+      providerConversationId,
+      dbConversationId,
+      user?.name,
+      user?.email,
+      options,
+    ],
+  );
 
   const send = useCallback(
     async (event?: FormEvent) => {
@@ -221,30 +399,40 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
       setMessage("");
       setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text }]);
 
-      const result = await promptAiAction({
-        provider,
-        message: text,
-        name: user?.name,
-        email: user?.email,
-        mcpServers: provider === AI_PROVIDER.CURSOR ? mcpServers : undefined,
-        skills: provider === AI_PROVIDER.CURSOR ? skills : undefined,
-        model: provider === AI_PROVIDER.GOOGLE_AI ? googleModel : undefined,
-        previousInteractionId:
-          provider === AI_PROVIDER.GOOGLE_AI ? conversationId : undefined,
-      });
+      try {
+        if (provider === AI_PROVIDER.GOOGLE_AI) {
+          await sendGoogleStream(text);
+        } else {
+          const result = await promptAiAction({
+            provider,
+            message: text,
+            name: user?.name,
+            email: user?.email,
+            mcpServers,
+            skills,
+            dbConversationId,
+          });
 
-      if (result.ok) {
-        setConversationId(result.data.conversationId);
-        setTurns((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: "assistant",
-            text: result.data.text,
-          },
-        ]);
-      } else {
-        setError(result.error);
+          if (result.ok) {
+            setProviderConversationId(result.data.conversationId);
+            if (result.data.dbConversationId) {
+              setDbConversationId(result.data.dbConversationId);
+              options?.onConversationSaved?.(result.data.dbConversationId);
+            }
+            setTurns((prev) => [
+              ...prev,
+              {
+                id: result.data.messageId ?? `a-${Date.now()}`,
+                role: "assistant",
+                text: result.data.text,
+              },
+            ]);
+          } else {
+            setError(result.error);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Request failed.");
       }
 
       setSending(false);
@@ -255,10 +443,11 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
       user?.name,
       user?.email,
       provider,
-      googleModel,
       mcpServers,
       skills,
-      conversationId,
+      dbConversationId,
+      options,
+      sendGoogleStream,
     ],
   );
 
@@ -269,6 +458,8 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
     error,
     sending,
     send,
+    thinkingText,
+    streamingAssistantId,
     hasChat: turns.length > 0,
     provider,
     setProvider,
@@ -276,6 +467,7 @@ export function useWorkspaceChat(user?: { name?: string; email?: string }) {
     setGoogleModel,
     routeId: routeIdFromSelection(provider, googleModel),
     setRoute,
+    dbConversationId,
   };
 }
 

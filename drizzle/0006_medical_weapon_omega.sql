@@ -1,0 +1,1 @@
+ALTER TABLE `ai_message` DROP COLUMN `role`;

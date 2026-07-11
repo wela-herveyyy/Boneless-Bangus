@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
@@ -46,7 +46,7 @@ function AiRouteMenu({
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative z-50">
       <button
         type="button"
         disabled={disabled}
@@ -75,7 +75,7 @@ function AiRouteMenu({
         <ul
           role="listbox"
           aria-label="AI model"
-          className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-xl bg-surface-container-lowest py-1 shadow-bloom"
+          className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-xl bg-surface-container-lowest py-1 shadow-bloom"
         >
           {AI_ROUTE_OPTIONS.map((option) => {
             const active = option.id === value;
@@ -119,6 +119,8 @@ type WorkspaceChatProps = {
   profile: OnboardingProfile | null;
   loading: boolean;
   sidebarOpen: boolean;
+  activeChatId?: string | null;
+  onConversationSaved?: (dbConversationId: string) => void;
 };
 
 export function WorkspaceChat({
@@ -127,19 +129,24 @@ export function WorkspaceChat({
   profile,
   loading,
   sidebarOpen,
+  activeChatId = null,
+  onConversationSaved,
 }: WorkspaceChatProps) {
   const firstName = displayName.split(" ")[0];
-  const chat = useWorkspaceChat({
-    name: profile?.name || displayName,
-    email: userEmail,
-  });
+  const chat = useWorkspaceChat(
+    {
+      name: profile?.name || displayName,
+      email: userEmail,
+    },
+    { activeChatId, onConversationSaved },
+  );
   const threadRef = useRef<HTMLDivElement>(null);
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [chat.turns, chat.sending]);
+  }, [chat.turns, chat.sending, chat.thinkingText]);
 
   const composer = (
     <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
@@ -190,29 +197,47 @@ export function WorkspaceChat({
 
           <div ref={threadRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
             {chat.turns.map((turn) => (
-              <div
-                key={turn.id}
-                className={[
-                  "flex",
-                  turn.role === "user"
-                    ? "chat-bubble-user justify-end"
-                    : "chat-bubble-assistant justify-start",
-                ].join(" ")}
-              >
+              <Fragment key={turn.id}>
+                {turn.id === chat.streamingAssistantId && chat.thinkingText ? (
+                  <div className="chat-bubble-assistant flex justify-start">
+                    <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-surface-container px-4 py-3 text-xs leading-relaxed text-on-surface-muted">
+                      <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.2em]">
+                        Thinking
+                      </p>
+                      {chat.thinkingText}
+                    </div>
+                  </div>
+                ) : null}
                 <div
                   className={[
-                    "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                    "flex",
                     turn.role === "user"
-                      ? "bg-primary text-on-primary"
-                      : "bg-surface-container-lowest text-on-surface shadow-bloom",
+                      ? "chat-bubble-user justify-end"
+                      : "chat-bubble-assistant justify-start",
                   ].join(" ")}
                 >
-                  {turn.text}
+                  <div
+                    className={[
+                      "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                      turn.role === "user"
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-container-lowest text-on-surface shadow-bloom",
+                    ].join(" ")}
+                  >
+                    {turn.text ||
+                      (turn.id === chat.streamingAssistantId ? (
+                        <span className="inline-flex gap-1.5 text-on-surface-muted">
+                          <span className="chat-dot">●</span>
+                          <span className="chat-dot">●</span>
+                          <span className="chat-dot">●</span>
+                        </span>
+                      ) : null)}
+                  </div>
                 </div>
-              </div>
+              </Fragment>
             ))}
 
-            {chat.sending ? (
+            {chat.sending && !chat.streamingAssistantId && !chat.thinkingText ? (
               <div className="chat-bubble-assistant flex justify-start">
                 <div className="rounded-2xl bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-muted shadow-bloom">
                   <span className="inline-flex gap-1.5">

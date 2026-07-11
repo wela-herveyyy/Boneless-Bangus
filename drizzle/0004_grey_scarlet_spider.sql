@@ -1,0 +1,1 @@
+ALTER TABLE `ai_message` MODIFY COLUMN `row_position` int NOT NULL;

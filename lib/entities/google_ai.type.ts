@@ -24,6 +24,7 @@ export type CreateInteractionInput = {
   model?: GoogleAiModel | string;
   /** Continue a stored conversation (Interactions API server state). */
   previousInteractionId?: string;
+  systemInstruction?: string;
 };
 
 export type CreateInteractionOutput = {
@@ -31,3 +32,29 @@ export type CreateInteractionOutput = {
   text: string;
   status?: string;
 };
+
+/** Normalized events from Interactions API SSE (v1: thinking + text). */
+export type GoogleAiStreamEvent =
+  | { type: "created"; conversationId: string }
+  | { type: "thinking"; text: string }
+  | { type: "text"; text: string }
+  | {
+      type: "completed";
+      conversationId: string;
+      status?: string;
+      inputTokens?: number;
+      outputTokens?: number;
+    }
+  | { type: "error"; error: string };
+
+/** SSE payload sent to the browser from `/api/ai/stream`. */
+export type AiStreamClientEvent =
+  | GoogleAiStreamEvent
+  | {
+      type: "done";
+      conversationId: string;
+      dbConversationId: string;
+      messageId: string;
+      text: string;
+      usage: { inputTokens: number; outputTokens: number; cost: string };
+    };

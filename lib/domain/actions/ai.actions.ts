@@ -2,9 +2,17 @@
 
 import { auth } from "@/lib/domain/services/auth.service";
 import { promptAi } from "@/lib/domain/services/ai.service";
+import {
+  insertAiMessage,
+  listConversationMessages,
+  listConversations,
+} from "@/lib/domain/services/ai_conversation.service";
+import { cleanupAiPrompt } from "@/lib/domain/usecases/ai/prompt.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import {
   AI_PROVIDER,
+  type AiConversationListItem,
+  type AiMessageItem,
   type AiProvider,
   type AiResult,
   type PromptAiInput,
@@ -30,6 +38,65 @@ function permissionFor(provider: AiProvider): UserPermission {
       const _never: never = provider;
       return _never;
     }
+  }
+}
+
+export async function listConversationsAction(): Promise<
+  AiResult<AiConversationListItem[]>
+> {
+  const action = "ai:conversations:list";
+  const permission = USER_PERMISSION.AI_CONVERSATIONS;
+
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+    if (!hasPermission(userSession.user.role, permission)) {
+      return { ok: false, error: "You are not authorized for this action." };
+    }
+
+    const result = await listConversations(userSession.user.id);
+    await logAction({
+      userId: userSession.user.id,
+      action,
+      success: result.ok,
+      error: result.ok ? undefined : result.error,
+      role: userSession.user.role,
+    });
+    return result;
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function listConversationMessagesAction(
+  conversationId: string,
+): Promise<AiResult<AiMessageItem[]>> {
+  const action = "ai:conversations:messages";
+  const permission = USER_PERMISSION.AI_CONVERSATIONS;
+
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+    if (!hasPermission(userSession.user.role, permission)) {
+      return { ok: false, error: "You are not authorized for this action." };
+    }
+
+    const result = await listConversationMessages(userSession.user.id, conversationId);
+    await logAction({
+      userId: userSession.user.id,
+      action,
+      success: result.ok,
+      error: result.ok ? undefined : result.error,
+      role: userSession.user.role,
+      metadata: { conversationId },
+    });
+    return result;
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
   }
 }
 
@@ -66,20 +133,62 @@ export async function promptAiAction(
     const email = input.email?.trim() || userSession.user.email;
 
     const result = await promptAi({ ...input, name, email });
+    if (!result.ok) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: result.error,
+        role: userSession.user.role,
+        metadata: { provider: input.provider, dbConversationId: input.dbConversationId },
+      });
+      return result;
+    }
+
+    const cleaned = cleanupAiPrompt(result.data.text);
+    const saved = await insertAiMessage({
+      userId: userSession.user.id,
+      conversationId: input.dbConversationId,
+      content: input.message,
+      aiFeedback: cleaned.content,
+      usage: cleaned.usage,
+    });
+
+    if (!saved.ok) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: saved.error,
+        role: userSession.user.role,
+      });
+      return { ok: false, error: saved.error };
+    }
 
     await logAction({
       userId: userSession.user.id,
       action,
-      success: result.ok,
-      error: result.ok ? undefined : result.error,
+      success: true,
       role: userSession.user.role,
       metadata: {
         provider: input.provider,
-        conversationId: result.ok ? result.data.conversationId : undefined,
+        conversationId: result.data.conversationId,
+        dbConversationId: saved.data.conversationId,
+        messageId: saved.data.messageId,
+        ...cleaned.usage,
       },
     });
 
-    return result;
+    return {
+      ok: true,
+      data: {
+        ...result.data,
+        text: cleaned.content,
+        dbConversationId: saved.data.conversationId,
+        messageId: saved.data.messageId,
+        usage: cleaned.usage,
+      },
+    };
   } catch (error) {
     const messageText = getErrorMessage(error);
     await logAction({ userId: "unknown", action, success: false, error: messageText });

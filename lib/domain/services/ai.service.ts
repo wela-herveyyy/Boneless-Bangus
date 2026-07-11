@@ -1,5 +1,6 @@
 import { promptAgent } from "@/lib/domain/services/cursor.service";
 import { createInteraction } from "@/lib/domain/services/google_ai.service";
+import { AI_USAGE_SYSTEM_PROMPT } from "@/lib/domain/usecases/ai/prompt.usecase";
 import {
   AI_PROVIDER,
   type AiResult,
@@ -16,7 +17,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
   switch (input.provider) {
     case AI_PROVIDER.CURSOR: {
       const result = await promptAgent({
-        message,
+        message: `${AI_USAGE_SYSTEM_PROMPT}\n\n${message}`,
         name: input.name,
         email: input.email,
         mcpServers: input.mcpServers,
@@ -38,6 +39,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         message,
         model: input.model,
         previousInteractionId: input.previousInteractionId,
+        systemInstruction: AI_USAGE_SYSTEM_PROMPT,
       });
       if (!result.ok) return result;
       return {
@@ -51,7 +53,6 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
     }
 
     default: {
-      // ponytail: exhaustiveness — add case when wiring a new provider
       const _never: never = input.provider;
       return { ok: false, error: `Unknown AI provider: ${String(_never)}` };
     }
