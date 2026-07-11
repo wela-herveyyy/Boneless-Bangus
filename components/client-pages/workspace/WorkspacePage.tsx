@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
 import { WorkspaceChat, WorkspaceChatFallback } from "@/components/organisms/Workspace-Chat/WorkspaceChat";
 import {
@@ -22,6 +23,14 @@ export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
   const { profile, loading } = useWorkspaceProfile();
   const displayName = getDisplayName(profile, userName);
 
+  const onConversationSaved = useCallback(
+    (dbConversationId: string) => {
+      sidebar.setActiveChatId(dbConversationId);
+      void sidebar.refreshHistory();
+    },
+    [sidebar.setActiveChatId, sidebar.refreshHistory],
+  );
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface">
       <FuturisticBackdrop />
@@ -32,6 +41,8 @@ export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
         profile={profile}
         loading={loading}
         sidebarOpen={sidebar.isOpen}
+        activeChatId={sidebar.activeChatId}
+        onConversationSaved={onConversationSaved}
       />
     </div>
   );

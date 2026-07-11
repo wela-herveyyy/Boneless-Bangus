@@ -11,7 +11,8 @@ type WorkspaceSidebarControls = {
   closeSidebar: () => void;
   chatHistory: ChatHistoryItem[];
   activeChatId: string | null;
-  setActiveChatId: (id: string) => void;
+  setActiveChatId: (id: string | null) => void;
+  startNewChat: () => void;
 };
 
 type WorkspaceSidebarProps = {
@@ -21,7 +22,15 @@ type WorkspaceSidebarProps = {
 };
 
 export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceSidebarProps) {
-  const { isOpen, openSidebar, closeSidebar, chatHistory, activeChatId, setActiveChatId } = sidebar;
+  const {
+    isOpen,
+    openSidebar,
+    closeSidebar,
+    chatHistory,
+    activeChatId,
+    setActiveChatId,
+    startNewChat,
+  } = sidebar;
 
   return (
     <>
@@ -50,6 +59,12 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
           >
             <LuPanelLeftClose className="size-4" aria-hidden />
           </button>
+        </div>
+
+        <div className="px-3 pb-3">
+          <Button type="button" variant="secondary" className="w-full" onClick={startNewChat}>
+            New chat
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-3">

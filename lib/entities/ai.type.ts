@@ -13,6 +13,34 @@ export const AI_PROVIDER = {
 
 export type AiProvider = (typeof AI_PROVIDER)[keyof typeof AI_PROVIDER];
 
+export type AiUsageMetrics = {
+  inputTokens: number;
+  outputTokens: number;
+  cost: string;
+};
+
+export type AiConversationListItem = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  createdAt: string;
+};
+
+/** One DB row = one turn: user prompt + agent reply. */
+export type AiMessageItem = {
+  id: string;
+  conversationId: string;
+  /** User prompt. */
+  content: string;
+  /** Agent/model reply. */
+  aiFeedback: string | null;
+  rowPosition: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: string;
+  createdAt: string;
+};
+
 export type PromptAiInput = {
   provider: AiProvider;
   message: string;
@@ -25,6 +53,8 @@ export type PromptAiInput = {
   previousInteractionId?: string;
   /** Google AI — model / agent id */
   model?: GoogleAiModel | string;
+  /** DB ai_conversation.id — created on first message when omitted. */
+  dbConversationId?: string;
 };
 
 export type PromptAiOutput = {
@@ -32,4 +62,7 @@ export type PromptAiOutput = {
   text: string;
   /** Cursor requestId or Google interaction id — pass back for multi-turn. */
   conversationId?: string;
+  dbConversationId?: string;
+  messageId?: string;
+  usage?: AiUsageMetrics;
 };
