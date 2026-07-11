@@ -146,9 +146,7 @@ export function WorkspaceChat({
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
   useEffect(() => {
-    const el = threadRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
   }, [chat.historyEpoch]);
 
   useEffect(() => {
@@ -159,7 +157,7 @@ export function WorkspaceChat({
   const composer = (
     <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
       <div className="mb-3">
-        <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending} />
+        <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending || chat.loadingThread} />
       </div>
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
@@ -171,14 +169,14 @@ export function WorkspaceChat({
             className="sm:flex-1"
             value={chat.message}
             onChange={(event) => chat.setMessage(event.target.value)}
-            disabled={chat.sending}
+            disabled={chat.sending || chat.loadingThread}
           />
           <Button
             type="submit"
-            disabled={chat.sending || !chat.message.trim()}
+            disabled={chat.sending || chat.loadingThread || !chat.message.trim()}
             className="sm:shrink-0"
           >
-            {chat.sending ? "Thinking…" : "Send"}
+            {chat.sending ? "Thinking…" : chat.loadingThread ? "Loading…" : "Send"}
           </Button>
         </div>
       </label>
@@ -194,26 +192,45 @@ export function WorkspaceChat({
     return (
       <div
         className={[
-          "relative z-10 flex h-screen flex-col px-6 py-6 transition-[margin] duration-300 ease-out chat-layout-in",
+          "relative z-10 flex h-screen flex-col overflow-hidden px-6 py-6 transition-[margin] duration-300 ease-out",
           sidebarOpen ? "ml-72" : "ml-0",
         ].join(" ")}
       >
-        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col overflow-hidden">
+        <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col overflow-hidden">
           <p className="mb-4 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
             BBAI · {firstName} · {routeLabel}
           </p>
 
           <div
+            key={activeChatId ?? chat.dbConversationId ?? "thread"}
             ref={threadRef}
-            className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4"
+            className="bbai-scroll chat-thread-in min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4"
             onScroll={(event) => {
               if (event.currentTarget.scrollTop > 48) return;
               void chat.loadOlder(event.currentTarget);
             }}
           >
+            {chat.loadingThread && chat.turns.length === 0 ? (
+              <div className="space-y-4" aria-busy="true" aria-label="Loading chat">
+                <div className="flex justify-end">
+                  <div className="h-10 w-2/5 animate-pulse rounded-2xl bg-surface-container-low" />
+                </div>
+                <div className="flex justify-start">
+                  <div className="h-24 w-3/4 animate-pulse rounded-2xl bg-surface-container-low" />
+                </div>
+                <div className="flex justify-end">
+                  <div className="h-10 w-1/3 animate-pulse rounded-2xl bg-surface-container-low" />
+                </div>
+                <div className="flex justify-start">
+                  <div className="h-16 w-2/3 animate-pulse rounded-2xl bg-surface-container-low" />
+                </div>
+              </div>
+            ) : null}
+
             {chat.loadingOlder ? (
               <p className="text-center text-xs text-on-surface-muted">Loading earlier…</p>
             ) : null}
+
             {chat.turns.map((turn) => (
               <Fragment key={turn.id}>
                 {turn.id === chat.streamingAssistantId && chat.thinkingText ? (

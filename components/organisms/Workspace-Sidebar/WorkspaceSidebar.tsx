@@ -67,7 +67,7 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
+        <div className="bbai-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {chatHistory.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
               <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-surface-container-high text-on-surface-muted">
