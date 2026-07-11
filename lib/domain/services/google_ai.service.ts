@@ -4,10 +4,8 @@ import type {
   GoogleAiResult,
   GoogleAiStreamEvent,
 } from "@/lib/entities/google_ai.type";
-import {
-  createInteraction as createInteractionUseCase,
-  createInteractionStream as createInteractionStreamUseCase,
-} from "../usecases/google_ai/create_interaction.usecase";
+import { createInteraction as createInteractionUseCase } from "../usecases/google_ai/create_interaction.usecase";
+import { createInteractionStream as createInteractionStreamUseCase } from "../usecases/google_ai/create_interaction_stream.usecase";
 
 export async function createInteraction(
   input: CreateInteractionInput,

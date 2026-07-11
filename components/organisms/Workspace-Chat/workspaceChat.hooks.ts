@@ -42,27 +42,27 @@ export const AI_ROUTE_OPTIONS: {
   provider: AiProvider;
   googleModel?: GoogleAiModel;
 }[] = [
-  {
-    id: "cursor",
-    label: "Cursor",
-    hint: "Agent SDK",
-    provider: AI_PROVIDER.CURSOR,
-  },
-  {
-    id: "gemma_4",
-    label: "Gemma 4",
-    hint: "Google",
-    provider: AI_PROVIDER.GOOGLE_AI,
-    googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
-  },
-  {
-    id: "antigravity",
-    label: "Antigravity",
-    hint: "Google agent",
-    provider: AI_PROVIDER.GOOGLE_AI,
-    googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
-  },
-];
+    {
+      id: "cursor",
+      label: "Cursor",
+      hint: "Agent SDK",
+      provider: AI_PROVIDER.CURSOR,
+    },
+    {
+      id: "gemma_4",
+      label: "Gemma 4",
+      hint: "Google",
+      provider: AI_PROVIDER.GOOGLE_AI,
+      googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
+    },
+    {
+      id: "antigravity",
+      label: "Antigravity",
+      hint: "Google agent",
+      provider: AI_PROVIDER.GOOGLE_AI,
+      googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
+    },
+  ];
 
 export function routeIdFromSelection(
   provider: AiProvider,
@@ -158,6 +158,20 @@ export type ChatTurn = {
   text: string;
 };
 
+const HISTORY_PAGE = 20;
+
+function turnsFromMessages(
+  items: { id: string; content: string; aiFeedback: string | null }[],
+): ChatTurn[] {
+  return items.flatMap((item) => {
+    const next: ChatTurn[] = [{ id: `${item.id}-u`, role: "user", text: item.content }];
+    if (item.aiFeedback) {
+      next.push({ id: `${item.id}-a`, role: "assistant", text: item.aiFeedback });
+    }
+    return next;
+  });
+}
+
 export function useWorkspaceChat(
   user?: { name?: string; email?: string },
   options?: {
@@ -177,6 +191,10 @@ export function useWorkspaceChat(
   const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
   const [mcpServers, setMcpServers] = useState<Record<string, CursorMcpServerConfig>>();
   const [skills, setSkills] = useState<CursorSkill[]>();
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [historyEpoch, setHistoryEpoch] = useState(0);
 
   useEffect(() => {
     setProviderState(readStoredProvider());
@@ -204,13 +222,15 @@ export function useWorkspaceChat(
       setProviderConversationId(undefined);
       setThinkingText("");
       setStreamingAssistantId(null);
+      setHasMoreHistory(false);
+      setNextBefore(null);
       setError(null);
       return;
     }
 
     let cancelled = false;
     void (async () => {
-      const result = await listConversationMessagesAction(activeId);
+      const result = await listConversationMessagesAction(activeId, { limit: HISTORY_PAGE });
       if (cancelled) return;
       if (!result.ok) {
         setError(result.error);
@@ -219,21 +239,10 @@ export function useWorkspaceChat(
 
       setDbConversationId(activeId);
       setProviderConversationId(undefined);
-      setTurns(
-        result.data.flatMap((item) => {
-          const turns: ChatTurn[] = [
-            { id: `${item.id}-u`, role: "user", text: item.content },
-          ];
-          if (item.aiFeedback) {
-            turns.push({
-              id: `${item.id}-a`,
-              role: "assistant",
-              text: item.aiFeedback,
-            });
-          }
-          return turns;
-        }),
-      );
+      setTurns(turnsFromMessages(result.data.items));
+      setHasMoreHistory(result.data.hasMore);
+      setNextBefore(result.data.nextBefore);
+      setHistoryEpoch((n) => n + 1);
       setError(null);
     })();
 
@@ -241,6 +250,31 @@ export function useWorkspaceChat(
       cancelled = true;
     };
   }, [options?.activeChatId]);
+
+  const loadOlder = useCallback(
+    async (el?: HTMLElement | null) => {
+      if (!dbConversationId || !hasMoreHistory || loadingOlder || nextBefore == null) return;
+
+      setLoadingOlder(true);
+      const prevHeight = el?.scrollHeight ?? 0;
+      const result = await listConversationMessagesAction(dbConversationId, {
+        limit: HISTORY_PAGE,
+        before: nextBefore,
+      });
+
+      if (result.ok) {
+        setTurns((prev) => [...turnsFromMessages(result.data.items), ...prev]);
+        setHasMoreHistory(result.data.hasMore);
+        setNextBefore(result.data.nextBefore);
+        requestAnimationFrame(() => {
+          if (el) el.scrollTop = el.scrollHeight - prevHeight;
+        });
+      }
+
+      setLoadingOlder(false);
+    },
+    [dbConversationId, hasMoreHistory, loadingOlder, nextBefore],
+  );
 
   const setProvider = useCallback((next: AiProvider) => {
     setProviderState(next);
@@ -273,14 +307,17 @@ export function useWorkspaceChat(
       setStreamingAssistantId(assistantId);
       setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "" }]);
 
-      try {
+      const shouldDropChainAndRetry = (message: string) =>
+        /404|requested entity was not found|internal error/i.test(message);
+
+      const runStream = async (previousInteractionId?: string) => {
         const response = await fetch("/api/ai/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: text,
             model: googleModel,
-            previousInteractionId: providerConversationId,
+            previousInteractionId,
             dbConversationId,
             name: user?.name,
             email: user?.email,
@@ -340,10 +377,10 @@ export function useWorkspaceChat(
               prev.map((turn) =>
                 turn.id === assistantId
                   ? {
-                      ...turn,
-                      id: event.messageId ?? turn.id,
-                      text: event.text ?? turn.text,
-                    }
+                    ...turn,
+                    id: event.messageId ?? turn.id,
+                    text: event.text ?? turn.text,
+                  }
                   : turn,
               ),
             );
@@ -369,7 +406,27 @@ export function useWorkspaceChat(
         if (!sawDone) {
           throw new Error("Stream ended before completion.");
         }
+      };
+
+      try {
+        try {
+          await runStream(providerConversationId);
+        } catch (err) {
+          const errMessage = err instanceof Error ? err.message : "";
+          // Google Gemma Interactions often 500s / 404s on a stale chain — retry once fresh.
+          if (shouldDropChainAndRetry(errMessage)) {
+            setProviderConversationId(undefined);
+            setThinkingText("");
+            setTurns((prev) =>
+              prev.map((turn) => (turn.id === assistantId ? { ...turn, text: "" } : turn)),
+            );
+            await runStream(undefined);
+          } else {
+            throw err;
+          }
+        }
       } catch (err) {
+        setProviderConversationId(undefined);
         setThinkingText("");
         setStreamingAssistantId(null);
         setTurns((prev) =>
@@ -468,6 +525,10 @@ export function useWorkspaceChat(
     routeId: routeIdFromSelection(provider, googleModel),
     setRoute,
     dbConversationId,
+    hasMoreHistory,
+    loadingOlder,
+    loadOlder,
+    historyEpoch,
   };
 }
 
