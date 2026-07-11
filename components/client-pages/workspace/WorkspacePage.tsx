@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
 import { WorkspaceChat, WorkspaceChatFallback } from "@/components/organisms/Workspace-Chat/WorkspaceChat";
 import {
@@ -31,8 +31,16 @@ export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
     [sidebar.setActiveChatId, sidebar.refreshHistory],
   );
 
+  // Keep the native window scrollbar off so only .bbai-scroll panels scroll.
+  useEffect(() => {
+    document.documentElement.classList.add("bbai-lock-scroll");
+    return () => {
+      document.documentElement.classList.remove("bbai-lock-scroll");
+    };
+  }, []);
+
   return (
-    <div className="relative min-h-screen overflow-hidden bg-surface">
+    <div className="relative h-screen overflow-hidden bg-surface">
       <FuturisticBackdrop />
       <WorkspaceSidebar displayName={displayName} userEmail={userEmail} sidebar={sidebar} />
       <WorkspaceChat
@@ -50,7 +58,7 @@ export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
 
 export function WorkspacePageFallback() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-surface">
+    <div className="relative h-screen overflow-hidden bg-surface">
       <FuturisticBackdrop />
       <WorkspaceSidebarFallback />
       <WorkspaceChatFallback />

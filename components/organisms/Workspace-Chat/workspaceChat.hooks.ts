@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   getFocusLabel,
   getTeamLabel,
@@ -42,27 +42,27 @@ export const AI_ROUTE_OPTIONS: {
   provider: AiProvider;
   googleModel?: GoogleAiModel;
 }[] = [
-    {
-      id: "cursor",
-      label: "Cursor",
-      hint: "Agent SDK",
-      provider: AI_PROVIDER.CURSOR,
-    },
-    {
-      id: "gemma_4",
-      label: "Gemma 4",
-      hint: "Google",
-      provider: AI_PROVIDER.GOOGLE_AI,
-      googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
-    },
-    {
-      id: "antigravity",
-      label: "Antigravity",
-      hint: "Google agent",
-      provider: AI_PROVIDER.GOOGLE_AI,
-      googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
-    },
-  ];
+  {
+    id: "cursor",
+    label: "Cursor",
+    hint: "Agent SDK",
+    provider: AI_PROVIDER.CURSOR,
+  },
+  {
+    id: "gemma_4",
+    label: "Gemma 4",
+    hint: "Google",
+    provider: AI_PROVIDER.GOOGLE_AI,
+    googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
+  },
+  {
+    id: "antigravity",
+    label: "Antigravity",
+    hint: "Google agent",
+    provider: AI_PROVIDER.GOOGLE_AI,
+    googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
+  },
+];
 
 export function routeIdFromSelection(
   provider: AiProvider,
@@ -160,6 +160,15 @@ export type ChatTurn = {
 
 const HISTORY_PAGE = 20;
 
+type ThreadCacheEntry = {
+  turns: ChatTurn[];
+  hasMoreHistory: boolean;
+  nextBefore: number | null;
+};
+
+/** Session cache — switching chats restores instantly. */
+const threadCache = new Map<string, ThreadCacheEntry>();
+
 function turnsFromMessages(
   items: { id: string; content: string; aiFeedback: string | null }[],
 ): ChatTurn[] {
@@ -169,6 +178,14 @@ function turnsFromMessages(
       next.push({ id: `${item.id}-a`, role: "assistant", text: item.aiFeedback });
     }
     return next;
+  });
+}
+
+function writeThreadCache(id: string, entry: ThreadCacheEntry) {
+  threadCache.set(id, {
+    turns: entry.turns,
+    hasMoreHistory: entry.hasMoreHistory,
+    nextBefore: entry.nextBefore,
   });
 }
 
@@ -194,7 +211,15 @@ export function useWorkspaceChat(
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadingThread, setLoadingThread] = useState(false);
   const [historyEpoch, setHistoryEpoch] = useState(0);
+  const threadStateRef = useRef({
+    turns,
+    dbConversationId,
+    hasMoreHistory,
+    nextBefore,
+  });
+  threadStateRef.current = { turns, dbConversationId, hasMoreHistory, nextBefore };
 
   useEffect(() => {
     setProviderState(readStoredProvider());
@@ -225,8 +250,43 @@ export function useWorkspaceChat(
       setHasMoreHistory(false);
       setNextBefore(null);
       setError(null);
+      setLoadingThread(false);
       return;
     }
+
+    const cached = threadCache.get(activeId);
+    const live = threadStateRef.current;
+    if (cached) {
+      setDbConversationId(activeId);
+      setProviderConversationId(undefined);
+      setTurns(cached.turns);
+      setHasMoreHistory(cached.hasMoreHistory);
+      setNextBefore(cached.nextBefore);
+      setLoadingThread(false);
+      setHistoryEpoch((n) => n + 1);
+      setError(null);
+      return;
+    }
+
+    if (live.dbConversationId === activeId && live.turns.length > 0) {
+      writeThreadCache(activeId, {
+        turns: live.turns,
+        hasMoreHistory: live.hasMoreHistory,
+        nextBefore: live.nextBefore,
+      });
+      setLoadingThread(false);
+      return;
+    }
+
+    setTurns([]);
+    setDbConversationId(activeId);
+    setProviderConversationId(undefined);
+    setThinkingText("");
+    setStreamingAssistantId(null);
+    setHasMoreHistory(false);
+    setNextBefore(null);
+    setLoadingThread(true);
+    setError(null);
 
     let cancelled = false;
     void (async () => {
@@ -234,22 +294,35 @@ export function useWorkspaceChat(
       if (cancelled) return;
       if (!result.ok) {
         setError(result.error);
+        setLoadingThread(false);
         return;
       }
 
+      const nextTurns = turnsFromMessages(result.data.items);
       setDbConversationId(activeId);
       setProviderConversationId(undefined);
-      setTurns(turnsFromMessages(result.data.items));
+      setTurns(nextTurns);
       setHasMoreHistory(result.data.hasMore);
       setNextBefore(result.data.nextBefore);
+      writeThreadCache(activeId, {
+        turns: nextTurns,
+        hasMoreHistory: result.data.hasMore,
+        nextBefore: result.data.nextBefore,
+      });
       setHistoryEpoch((n) => n + 1);
       setError(null);
+      setLoadingThread(false);
     })();
 
     return () => {
       cancelled = true;
     };
   }, [options?.activeChatId]);
+
+  useEffect(() => {
+    if (!dbConversationId || loadingThread) return;
+    writeThreadCache(dbConversationId, { turns, hasMoreHistory, nextBefore });
+  }, [dbConversationId, turns, hasMoreHistory, nextBefore, loadingThread]);
 
   const loadOlder = useCallback(
     async (el?: HTMLElement | null) => {
@@ -377,10 +450,10 @@ export function useWorkspaceChat(
               prev.map((turn) =>
                 turn.id === assistantId
                   ? {
-                    ...turn,
-                    id: event.messageId ?? turn.id,
-                    text: event.text ?? turn.text,
-                  }
+                      ...turn,
+                      id: event.messageId ?? turn.id,
+                      text: event.text ?? turn.text,
+                    }
                   : turn,
               ),
             );
@@ -413,7 +486,6 @@ export function useWorkspaceChat(
           await runStream(providerConversationId);
         } catch (err) {
           const errMessage = err instanceof Error ? err.message : "";
-          // Google Gemma Interactions often 500s / 404s on a stale chain — retry once fresh.
           if (shouldDropChainAndRetry(errMessage)) {
             setProviderConversationId(undefined);
             setThinkingText("");
@@ -435,14 +507,7 @@ export function useWorkspaceChat(
         throw err;
       }
     },
-    [
-      googleModel,
-      providerConversationId,
-      dbConversationId,
-      user?.name,
-      user?.email,
-      options,
-    ],
+    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options],
   );
 
   const send = useCallback(
@@ -517,7 +582,8 @@ export function useWorkspaceChat(
     send,
     thinkingText,
     streamingAssistantId,
-    hasChat: turns.length > 0,
+    hasChat: turns.length > 0 || loadingThread || Boolean(dbConversationId),
+    loadingThread,
     provider,
     setProvider,
     googleModel,

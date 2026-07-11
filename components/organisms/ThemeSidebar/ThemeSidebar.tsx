@@ -186,7 +186,7 @@ export function ThemeSidebar() {
           </button>
         </header>
 
-        <div className="theme-sidebar-content flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <div className="bbai-scroll theme-sidebar-content min-h-0 flex flex-1 flex-col gap-5 overflow-y-auto p-5">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Presets</p>
             {!ready ? (
