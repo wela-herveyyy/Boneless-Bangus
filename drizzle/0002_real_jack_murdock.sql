@@ -9,7 +9,7 @@ CREATE TABLE `ai_conversation` (
 CREATE TABLE `message` (
 	`id` varchar(36) NOT NULL,
 	`conversation_id` varchar(36) NOT NULL,
-	`row_position` int AUTO_INCREMENT NOT NULL DEFAULT 0,
+	`row_position` int NOT NULL DEFAULT 0,
 	`content` text NOT NULL,
 	`agent_feedback` text,
 	`input_tokens` int NOT NULL DEFAULT 0,

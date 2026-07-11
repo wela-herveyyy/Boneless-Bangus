@@ -1,12 +1,10 @@
 import type {
   AiConversationListItem,
-  AiMessageItem,
+  AiMessagePage,
   AiResult,
 } from "@/lib/entities/ai.type";
-import {
-  listConversationMessages as listConversationMessagesUseCase,
-  listConversations as listConversationsUseCase,
-} from "../usecases/ai/list_conversations.usecase";
+import { listConversations as listConversationsUseCase } from "../usecases/ai/list_conversations.usecase";
+import { listConversationMessages as listConversationMessagesUseCase } from "../usecases/ai/list_conversation_messages.usecase";
 import {
   insertAiMessage as insertAiMessageUseCase,
   type InsertAiMessageInput,
@@ -22,8 +20,9 @@ export async function listConversations(
 export async function listConversationMessages(
   userId: string,
   conversationId: string,
-): Promise<AiResult<AiMessageItem[]>> {
-  return listConversationMessagesUseCase(userId, conversationId);
+  opts?: { limit?: number; before?: number },
+): Promise<AiResult<AiMessagePage>> {
+  return listConversationMessagesUseCase(userId, conversationId, opts);
 }
 
 export async function insertAiMessage(

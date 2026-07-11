@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/atoms/Button/Button";
+import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { Input } from "@/components/atoms/Input/Input";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import {
@@ -145,8 +146,15 @@ export function WorkspaceChat({
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
   useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [chat.historyEpoch]);
+
+  useEffect(() => {
+    if (!chat.sending && !chat.streamingAssistantId && !chat.thinkingText) return;
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [chat.turns, chat.sending, chat.thinkingText]);
+  }, [chat.turns, chat.sending, chat.streamingAssistantId, chat.thinkingText]);
 
   const composer = (
     <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
@@ -195,7 +203,17 @@ export function WorkspaceChat({
             BBAI · {firstName} · {routeLabel}
           </p>
 
-          <div ref={threadRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
+          <div
+            ref={threadRef}
+            className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4"
+            onScroll={(event) => {
+              if (event.currentTarget.scrollTop > 48) return;
+              void chat.loadOlder(event.currentTarget);
+            }}
+          >
+            {chat.loadingOlder ? (
+              <p className="text-center text-xs text-on-surface-muted">Loading earlier…</p>
+            ) : null}
             {chat.turns.map((turn) => (
               <Fragment key={turn.id}>
                 {turn.id === chat.streamingAssistantId && chat.thinkingText ? (
@@ -218,20 +236,25 @@ export function WorkspaceChat({
                 >
                   <div
                     className={[
-                      "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                      "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                       turn.role === "user"
-                        ? "bg-primary text-on-primary"
+                        ? "whitespace-pre-wrap bg-primary text-on-primary"
                         : "bg-surface-container-lowest text-on-surface shadow-bloom",
                     ].join(" ")}
                   >
-                    {turn.text ||
-                      (turn.id === chat.streamingAssistantId ? (
-                        <span className="inline-flex gap-1.5 text-on-surface-muted">
-                          <span className="chat-dot">●</span>
-                          <span className="chat-dot">●</span>
-                          <span className="chat-dot">●</span>
-                        </span>
-                      ) : null)}
+                    {turn.text ? (
+                      turn.role === "assistant" ? (
+                        <ChatMarkdown content={turn.text} />
+                      ) : (
+                        turn.text
+                      )
+                    ) : turn.id === chat.streamingAssistantId ? (
+                      <span className="inline-flex gap-1.5 text-on-surface-muted">
+                        <span className="chat-dot">●</span>
+                        <span className="chat-dot">●</span>
+                        <span className="chat-dot">●</span>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </Fragment>

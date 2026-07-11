@@ -41,6 +41,13 @@ export type AiMessageItem = {
   createdAt: string;
 };
 
+export type AiMessagePage = {
+  items: AiMessageItem[];
+  hasMore: boolean;
+  /** Pass as `before` to load older turns. */
+  nextBefore: number | null;
+};
+
 export type PromptAiInput = {
   provider: AiProvider;
   message: string;

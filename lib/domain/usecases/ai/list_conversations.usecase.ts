@@ -1,11 +1,7 @@
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { database } from "@/database";
 import { aiConversation, aiMessage } from "@/database/schema";
-import type {
-  AiConversationListItem,
-  AiMessageItem,
-  AiResult,
-} from "@/lib/entities/ai.type";
+import type { AiConversationListItem, AiResult } from "@/lib/entities/ai.type";
 
 function titleFromContent(content: string): string {
   const flat = content.replace(/\s+/g, " ").trim();
@@ -62,54 +58,6 @@ export async function listConversations(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Failed to list conversations.",
-    };
-  }
-}
-
-export async function listConversationMessages(
-  userId: string,
-  conversationId: string,
-): Promise<AiResult<AiMessageItem[]>> {
-  const id = conversationId.trim();
-  if (!id) {
-    return { ok: false, error: "Conversation id is required." };
-  }
-
-  try {
-    const [convo] = await database
-      .select({ id: aiConversation.id, userId: aiConversation.userId })
-      .from(aiConversation)
-      .where(eq(aiConversation.id, id))
-      .limit(1);
-
-    if (!convo || convo.userId !== userId) {
-      return { ok: false, error: "Conversation not found." };
-    }
-
-    const rows = await database
-      .select()
-      .from(aiMessage)
-      .where(eq(aiMessage.conversationId, id))
-      .orderBy(asc(aiMessage.rowPosition));
-
-    return {
-      ok: true,
-      data: rows.map((row) => ({
-        id: row.id,
-        conversationId: row.conversationId,
-        content: row.content,
-        aiFeedback: row.aiFeedback,
-        rowPosition: row.rowPosition,
-        inputTokens: row.inputTokens,
-        outputTokens: row.outputTokens,
-        cost: String(row.cost),
-        createdAt: row.createdAt.toISOString(),
-      })),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Failed to load messages.",
     };
   }
 }

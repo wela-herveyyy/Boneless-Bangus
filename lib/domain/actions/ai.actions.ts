@@ -12,7 +12,7 @@ import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import {
   AI_PROVIDER,
   type AiConversationListItem,
-  type AiMessageItem,
+  type AiMessagePage,
   type AiProvider,
   type AiResult,
   type PromptAiInput,
@@ -72,7 +72,8 @@ export async function listConversationsAction(): Promise<
 
 export async function listConversationMessagesAction(
   conversationId: string,
-): Promise<AiResult<AiMessageItem[]>> {
+  opts?: { limit?: number; before?: number },
+): Promise<AiResult<AiMessagePage>> {
   const action = "ai:conversations:messages";
   const permission = USER_PERMISSION.AI_CONVERSATIONS;
 
@@ -85,14 +86,18 @@ export async function listConversationMessagesAction(
       return { ok: false, error: "You are not authorized for this action." };
     }
 
-    const result = await listConversationMessages(userSession.user.id, conversationId);
+    const result = await listConversationMessages(
+      userSession.user.id,
+      conversationId,
+      opts,
+    );
     await logAction({
       userId: userSession.user.id,
       action,
       success: result.ok,
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
-      metadata: { conversationId },
+      metadata: { conversationId, ...opts },
     });
     return result;
   } catch (error) {
@@ -145,7 +150,7 @@ export async function promptAiAction(
       return result;
     }
 
-    const cleaned = cleanupAiPrompt(result.data.text);
+    const cleaned = cleanupAiPrompt(result.data.text, result.data.usage);
     const saved = await insertAiMessage({
       userId: userSession.user.id,
       conversationId: input.dbConversationId,

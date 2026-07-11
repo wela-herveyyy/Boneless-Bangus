@@ -31,6 +31,8 @@ export type CreateInteractionOutput = {
   id: string;
   text: string;
   status?: string;
+  inputTokens?: number;
+  outputTokens?: number;
 };
 
 /** Normalized events from Interactions API SSE (v1: thinking + text). */

@@ -2,8 +2,9 @@ import { auth } from "@/lib/domain/services/auth.service";
 import { createInteractionStream } from "@/lib/domain/services/google_ai.service";
 import { insertAiMessage } from "@/lib/domain/services/ai_conversation.service";
 import {
-  AI_USAGE_SYSTEM_PROMPT,
+  BBAI_SYSTEM_CONTEXT,
   cleanupAiPrompt,
+  usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
             message,
             model: body.model,
             previousInteractionId: body.previousInteractionId,
-            systemInstruction: AI_USAGE_SYSTEM_PROMPT,
+            systemInstruction: BBAI_SYSTEM_CONTEXT,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -93,12 +94,11 @@ export async function POST(request: Request) {
               apiOutputTokens = event.outputTokens;
               send(event);
 
-              const cleaned = cleanupAiPrompt(accumulated);
-              const usage = {
-                inputTokens: apiInputTokens ?? cleaned.usage.inputTokens,
-                outputTokens: apiOutputTokens ?? cleaned.usage.outputTokens,
-                cost: cleaned.usage.cost,
-              };
+              const usage = usageFromApi({
+                inputTokens: apiInputTokens,
+                outputTokens: apiOutputTokens,
+              });
+              const cleaned = cleanupAiPrompt(accumulated, usage);
 
               const saved = await insertAiMessage({
                 userId: userSession.user.id,

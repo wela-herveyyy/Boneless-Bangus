@@ -1,6 +1,6 @@
 import { promptAgent } from "@/lib/domain/services/cursor.service";
 import { createInteraction } from "@/lib/domain/services/google_ai.service";
-import { AI_USAGE_SYSTEM_PROMPT } from "@/lib/domain/usecases/ai/prompt.usecase";
+import { BBAI_SYSTEM_CONTEXT, usageFromApi } from "@/lib/domain/usecases/ai/prompt.usecase";
 import {
   AI_PROVIDER,
   type AiResult,
@@ -17,7 +17,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
   switch (input.provider) {
     case AI_PROVIDER.CURSOR: {
       const result = await promptAgent({
-        message: `${AI_USAGE_SYSTEM_PROMPT}\n\n${message}`,
+        message: `${BBAI_SYSTEM_CONTEXT}\n\n${message}`,
         name: input.name,
         email: input.email,
         mcpServers: input.mcpServers,
@@ -30,6 +30,8 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
           provider: AI_PROVIDER.CURSOR,
           text: result.data.result?.trim() || "(No response)",
           conversationId: result.data.requestId,
+          // Cursor SDK run result has no token usage fields.
+          usage: usageFromApi(),
         },
       };
     }
@@ -39,7 +41,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         message,
         model: input.model,
         previousInteractionId: input.previousInteractionId,
-        systemInstruction: AI_USAGE_SYSTEM_PROMPT,
+        systemInstruction: BBAI_SYSTEM_CONTEXT,
       });
       if (!result.ok) return result;
       return {
@@ -48,6 +50,10 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
           provider: AI_PROVIDER.GOOGLE_AI,
           text: result.data.text,
           conversationId: result.data.id,
+          usage: usageFromApi({
+            inputTokens: result.data.inputTokens,
+            outputTokens: result.data.outputTokens,
+          }),
         },
       };
     }

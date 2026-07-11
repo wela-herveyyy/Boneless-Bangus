@@ -1,23 +1,26 @@
 import type { AiUsageMetrics } from "@/lib/entities/ai.type";
 
-/** Appended via system instruction / prompt prefix so models emit usage JSON. */
-export const AI_USAGE_SYSTEM_PROMPT = `You must end every reply with exactly one final line that is raw JSON (no markdown fence, no prose after it) in this exact shape:
-{"inputTokens":<number>,"outputTokens":<number>,"cost":<number>}
-- inputTokens: estimate of prompt tokens for this turn
-- outputTokens: estimate of completion tokens for this turn
-- cost: estimated USD for this turn (number, e.g. 0.01)
-The JSON line is mandatory. Put all normal answer text before it.`;
+/** Shared identity / role for every BBAI turn (Google system_instruction, Cursor prompt prefix). */
+export const BBAI_SYSTEM_CONTEXT = `You are BBAI (Boneless Bangus AI), Livro Systems' internal assistant.
+Help with tasks, bugs, QA, and school setup. Be concise and practical.
+If asked who you are, say you are BBAI — Boneless Bangus AI.
+
+Format every reply as Markdown so the UI can render it:
+- Use headings, bullet/numbered lists, and **bold** where helpful
+- Use fenced code blocks with a language tag for code
+- Use tables when comparing options
+- Do not wrap the entire reply in a single code fence`;
 
 export type CleanAiPromptResult = {
   content: string;
   usage: AiUsageMetrics;
 };
 
-function toCostString(value: unknown): string {
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n) || n < 0) return "0.00";
-  return n.toFixed(2);
-}
+const ZERO_USAGE: AiUsageMetrics = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cost: "0.00",
+};
 
 function toTokenCount(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -25,39 +28,32 @@ function toTokenCount(value: unknown): number {
   return Math.round(n);
 }
 
+/** Build usage from provider metadata. APIs return tokens; USD cost is not provided. */
+export function usageFromApi(input?: {
+  inputTokens?: number;
+  outputTokens?: number;
+}): AiUsageMetrics {
+  if (!input) return { ...ZERO_USAGE };
+  return {
+    inputTokens: toTokenCount(input.inputTokens),
+    outputTokens: toTokenCount(input.outputTokens),
+    cost: "0.00",
+  };
+}
+
 /**
- * Strip trailing usage JSON from model output.
- * Expected end: {"inputTokens":0,"outputTokens":0,"cost":0}
+ * Drop a trailing model-emitted usage JSON line if present (legacy / accidental).
+ * Prefer {@link usageFromApi} for real metrics — do not instruct models to emit this.
  */
-export function cleanupAiPrompt(raw: string): CleanAiPromptResult {
+export function cleanupAiPrompt(raw: string, apiUsage?: AiUsageMetrics): CleanAiPromptResult {
   const text = raw.trim();
   const match = text.match(/\{[\s\S]*"inputTokens"[\s\S]*\}\s*$/);
+  const content = match
+    ? text.slice(0, match.index).trim() || "(No response)"
+    : text || "(No response)";
 
-  if (!match) {
-    return {
-      content: text,
-      usage: { inputTokens: 0, outputTokens: 0, cost: "0.00" },
-    };
-  }
-
-  const jsonChunk = match[0].trim();
-  const content = text.slice(0, match.index).trim() || "(No response)";
-
-  try {
-    const parsed = JSON.parse(jsonChunk) as Record<string, unknown>;
-    return {
-      content,
-      usage: {
-        inputTokens: toTokenCount(parsed.inputTokens),
-        outputTokens: toTokenCount(parsed.outputTokens),
-        cost: toCostString(parsed.cost),
-      },
-    };
-  } catch {
-    // ponytail: bad JSON → keep full text, zero usage
-    return {
-      content: text,
-      usage: { inputTokens: 0, outputTokens: 0, cost: "0.00" },
-    };
-  }
+  return {
+    content,
+    usage: apiUsage ?? { ...ZERO_USAGE },
+  };
 }
