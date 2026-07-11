@@ -1,10 +1,117 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
-import { getFocusLabel, getTeamLabel, useWorkspaceChat } from "./workspaceChat.hooks";
+import {
+  getFocusLabel,
+  getTeamLabel,
+  AI_ROUTE_OPTIONS,
+  useWorkspaceChat,
+  type AiRouteId,
+} from "./workspaceChat.hooks";
+
+function AiRouteMenu({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: AiRouteId;
+  onChange: (id: AiRouteId) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = AI_ROUTE_OPTIONS.find((option) => option.id === value) ?? AI_ROUTE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="AI model"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-surface-container-low px-4 py-2.5 text-left transition-colors hover:bg-surface-container-high disabled:opacity-60"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-on-surface">{selected.label}</span>
+          <span className="block truncate text-xs text-on-surface-muted">{selected.hint}</span>
+        </span>
+        <span
+          aria-hidden
+          className={[
+            "text-on-surface-muted transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="AI model"
+          className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-xl bg-surface-container-lowest py-1 shadow-bloom"
+        >
+          {AI_ROUTE_OPTIONS.map((option) => {
+            const active = option.id === value;
+            return (
+              <li key={option.id} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  className={[
+                    "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
+                    active
+                      ? "bg-surface-container-low text-on-surface"
+                      : "text-on-surface hover:bg-surface-container-low",
+                  ].join(" ")}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{option.label}</span>
+                    <span className="block text-xs text-on-surface-muted">{option.hint}</span>
+                  </span>
+                  {active ? (
+                    <span className="text-xs font-medium text-primary" aria-hidden>
+                      ✓
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 type WorkspaceChatProps = {
   userEmail: string;
@@ -27,6 +134,8 @@ export function WorkspaceChat({
     email: userEmail,
   });
   const threadRef = useRef<HTMLDivElement>(null);
+  const routeLabel =
+    AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
@@ -34,6 +143,9 @@ export function WorkspaceChat({
 
   const composer = (
     <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
+      <div className="mb-3">
+        <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending} />
+      </div>
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -73,7 +185,7 @@ export function WorkspaceChat({
       >
         <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col overflow-hidden">
           <p className="mb-4 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
-            BBAI · {firstName}
+            BBAI · {firstName} · {routeLabel}
           </p>
 
           <div ref={threadRef} className="flex-1 space-y-4 overflow-y-auto pb-4">

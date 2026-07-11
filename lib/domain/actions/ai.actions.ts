@@ -1,33 +1,43 @@
 "use server";
 
 import { auth } from "@/lib/domain/services/auth.service";
-import { promptAgent } from "@/lib/domain/services/cursor.service";
+import { promptAi } from "@/lib/domain/services/ai.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-import type {
-  CursorMcpServerConfig,
-  CursorResult,
-  CursorSkill,
-  PromptAgentOutput,
-} from "@/lib/entities/cursor.type";
-import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import {
+  AI_PROVIDER,
+  type AiProvider,
+  type AiResult,
+  type PromptAiInput,
+  type PromptAiOutput,
+} from "@/lib/entities/ai.type";
+import {
+  hasPermission,
+  USER_PERMISSION,
+  type UserPermission,
+} from "@/lib/entities/users.type";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error.";
 }
 
-export type PromptAgentActionInput = {
-  message: string;
-  name?: string;
-  email?: string;
-  mcpServers?: Record<string, CursorMcpServerConfig>;
-  skills?: CursorSkill[];
-};
+function permissionFor(provider: AiProvider): UserPermission {
+  switch (provider) {
+    case AI_PROVIDER.CURSOR:
+      return USER_PERMISSION.CURSOR_PROMPT;
+    case AI_PROVIDER.GOOGLE_AI:
+      return USER_PERMISSION.GOOGLE_AI_INTERACT;
+    default: {
+      const _never: never = provider;
+      return _never;
+    }
+  }
+}
 
-export async function promptAgentAction(
-  input: PromptAgentActionInput,
-): Promise<CursorResult<PromptAgentOutput>> {
-  const action = "cursor:prompt";
-  const permission = USER_PERMISSION.CURSOR_PROMPT;
+export async function promptAiAction(
+  input: PromptAiInput,
+): Promise<AiResult<PromptAiOutput>> {
+  const action = `ai:prompt:${input.provider}`;
+  const permission = permissionFor(input.provider);
 
   try {
     const userSession = await auth();
@@ -55,13 +65,7 @@ export async function promptAgentAction(
     const name = input.name?.trim() || userSession.user.name;
     const email = input.email?.trim() || userSession.user.email;
 
-    const result = await promptAgent({
-      message: input.message,
-      name,
-      email,
-      mcpServers: input.mcpServers,
-      skills: input.skills,
-    });
+    const result = await promptAi({ ...input, name, email });
 
     await logAction({
       userId: userSession.user.id,
@@ -70,10 +74,8 @@ export async function promptAgentAction(
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
       metadata: {
-        name,
-        email,
-        mcpCount: input.mcpServers ? Object.keys(input.mcpServers).length : 0,
-        skillCount: input.skills?.length ?? 0,
+        provider: input.provider,
+        conversationId: result.ok ? result.data.conversationId : undefined,
       },
     });
 
