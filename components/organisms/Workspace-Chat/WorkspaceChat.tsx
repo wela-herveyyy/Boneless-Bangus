@@ -1,9 +1,117 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
-import { getFocusLabel, getTeamLabel } from "./workspaceChat.hooks";
+import {
+  getFocusLabel,
+  getTeamLabel,
+  AI_ROUTE_OPTIONS,
+  useWorkspaceChat,
+  type AiRouteId,
+} from "./workspaceChat.hooks";
+
+function AiRouteMenu({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: AiRouteId;
+  onChange: (id: AiRouteId) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = AI_ROUTE_OPTIONS.find((option) => option.id === value) ?? AI_ROUTE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="AI model"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl bg-surface-container-low px-4 py-2.5 text-left transition-colors hover:bg-surface-container-high disabled:opacity-60"
+      >
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-on-surface">{selected.label}</span>
+          <span className="block truncate text-xs text-on-surface-muted">{selected.hint}</span>
+        </span>
+        <span
+          aria-hidden
+          className={[
+            "text-on-surface-muted transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="AI model"
+          className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-xl bg-surface-container-lowest py-1 shadow-bloom"
+        >
+          {AI_ROUTE_OPTIONS.map((option) => {
+            const active = option.id === value;
+            return (
+              <li key={option.id} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  className={[
+                    "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
+                    active
+                      ? "bg-surface-container-low text-on-surface"
+                      : "text-on-surface hover:bg-surface-container-low",
+                  ].join(" ")}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{option.label}</span>
+                    <span className="block text-xs text-on-surface-muted">{option.hint}</span>
+                  </span>
+                  {active ? (
+                    <span className="text-xs font-medium text-primary" aria-hidden>
+                      ✓
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 type WorkspaceChatProps = {
   userEmail: string;
@@ -21,6 +129,107 @@ export function WorkspaceChat({
   sidebarOpen,
 }: WorkspaceChatProps) {
   const firstName = displayName.split(" ")[0];
+  const chat = useWorkspaceChat({
+    name: profile?.name || displayName,
+    email: userEmail,
+  });
+  const threadRef = useRef<HTMLDivElement>(null);
+  const routeLabel =
+    AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
+
+  useEffect(() => {
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+  }, [chat.turns, chat.sending]);
+
+  const composer = (
+    <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
+      <div className="mb-3">
+        <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending} />
+      </div>
+      <label className="block space-y-3">
+        <span className="sr-only">Ask BBAI</span>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            type="text"
+            placeholder="e.g. What tasks are overdue?"
+            aria-label="Ask BBAI"
+            className="sm:flex-1"
+            value={chat.message}
+            onChange={(event) => chat.setMessage(event.target.value)}
+            disabled={chat.sending}
+          />
+          <Button
+            type="submit"
+            disabled={chat.sending || !chat.message.trim()}
+            className="sm:shrink-0"
+          >
+            {chat.sending ? "Thinking…" : "Send"}
+          </Button>
+        </div>
+      </label>
+      {chat.error ? (
+        <p className="mt-3 text-sm text-secondary" role="alert">
+          {chat.error}
+        </p>
+      ) : null}
+    </form>
+  );
+
+  if (chat.hasChat) {
+    return (
+      <div
+        className={[
+          "relative z-10 flex h-screen flex-col px-6 py-6 transition-[margin] duration-300 ease-out chat-layout-in",
+          sidebarOpen ? "ml-72" : "ml-0",
+        ].join(" ")}
+      >
+        <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col overflow-hidden">
+          <p className="mb-4 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
+            BBAI · {firstName} · {routeLabel}
+          </p>
+
+          <div ref={threadRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
+            {chat.turns.map((turn) => (
+              <div
+                key={turn.id}
+                className={[
+                  "flex",
+                  turn.role === "user"
+                    ? "chat-bubble-user justify-end"
+                    : "chat-bubble-assistant justify-start",
+                ].join(" ")}
+              >
+                <div
+                  className={[
+                    "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                    turn.role === "user"
+                      ? "bg-primary text-on-primary"
+                      : "bg-surface-container-lowest text-on-surface shadow-bloom",
+                  ].join(" ")}
+                >
+                  {turn.text}
+                </div>
+              </div>
+            ))}
+
+            {chat.sending ? (
+              <div className="chat-bubble-assistant flex justify-start">
+                <div className="rounded-2xl bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-muted shadow-bloom">
+                  <span className="inline-flex gap-1.5">
+                    <span className="chat-dot">●</span>
+                    <span className="chat-dot">●</span>
+                    <span className="chat-dot">●</span>
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -53,25 +262,7 @@ export function WorkspaceChat({
           ) : null}
         </div>
 
-        <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-bloom sm:p-8">
-          <label className="block space-y-3">
-            <span className="text-sm font-medium text-on-surface">Ask BBAI</span>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                type="text"
-                placeholder="e.g. What tasks are overdue?"
-                aria-label="Ask BBAI"
-                className="sm:flex-1"
-              />
-              <Button type="button" disabled className="sm:shrink-0">
-                Send
-              </Button>
-            </div>
-          </label>
-          <p className="mt-3 text-xs text-on-surface-muted">
-            Chat is coming soon — use the prompts below to explore what BBAI will handle.
-          </p>
-        </div>
+        {composer}
       </div>
     </div>
   );
