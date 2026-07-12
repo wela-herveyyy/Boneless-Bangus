@@ -36,12 +36,11 @@ export function useMcpMarketplace() {
   const [loading, setLoading] = useState<boolean>(true);
 
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<McpCategory | "all">("all");
-
   const [view, setView] = useState<McpView>("list");
   const [editingServer, setEditingServer] = useState<McpServer | null>(null);
   const [form, setFormRaw] = useState<McpFormState>(EMPTY_MCP_FORM);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [activeCategory, setActiveCategory] = useState<McpCategory | "all" | "my-servers">("all");
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -78,6 +77,7 @@ export function useMcpMarketplace() {
         name: s.name,
         description: s.description,
         author: s.user?.name || "Custom",
+        userId: s.userId || s.user?.id || "",
         category: s.category?.slug || "dev-tools",
         categoryId: s.categoryId,
         configTemplate: typeof s.configTemplate === "string"
@@ -90,10 +90,19 @@ export function useMcpMarketplace() {
     });
   }, [rawServers, userConfig]);
 
+  const myServersCount = useMemo(() => {
+    return servers.filter((s) => s.userId && s.userId === currentUserId).length;
+  }, [servers, currentUserId]);
+
   const filteredServers = useMemo(() => {
     const q = query.trim().toLowerCase();
     return servers.filter((server) => {
-      const matchesCategory = activeCategory === "all" || server.category === activeCategory;
+      const matchesCategory =
+        activeCategory === "all"
+          ? true
+          : activeCategory === "my-servers"
+            ? server.userId === currentUserId
+            : server.category === activeCategory;
       const matchesQuery =
         !q ||
         server.name.toLowerCase().includes(q) ||
@@ -101,7 +110,7 @@ export function useMcpMarketplace() {
         server.author.toLowerCase().includes(q);
       return matchesCategory && matchesQuery;
     });
-  }, [servers, query, activeCategory]);
+  }, [servers, query, activeCategory, currentUserId]);
 
   const enabledCount = useMemo(() => servers.filter((s) => s.enabled).length, [servers]);
 
@@ -248,6 +257,7 @@ export function useMcpMarketplace() {
     activeCategory,
     setActiveCategory,
     enabledCount,
+    myServersCount,
     toggleServer,
     view,
     form,

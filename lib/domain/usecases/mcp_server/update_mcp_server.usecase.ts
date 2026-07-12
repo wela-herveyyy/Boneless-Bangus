@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { mcpServer, mcpServerTool } from "@/database/schema";
 import type { McpResult, McpServerDetailed, UpdateMcpInput } from "@/lib/entities/mcp_server.type";
-import { getMcpCatalogueUseCase } from "./get_mcp_catalogue.usecase";
+import { fetchMcpServerByIdFromDb, getMcpCatalogueUseCase } from "./get_mcp_catalogue.usecase";
 
 function parseSchema(val: unknown): Record<string, unknown> | null {
   if (!val) return null;
@@ -67,8 +67,7 @@ export async function updateMcpServerUseCase(
 
     revalidateTag("mcp_catalogue", "hours");
 
-    const catalogue = await getMcpCatalogueUseCase();
-    const updated = catalogue.find((s) => s.id === input.id);
+    const updated = await fetchMcpServerByIdFromDb(input.id);
 
     if (!updated) {
       return { ok: false, error: "Server updated but failed to retrieve details." };

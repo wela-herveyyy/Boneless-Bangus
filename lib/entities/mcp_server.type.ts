@@ -90,6 +90,7 @@ export type McpServer = {
   name: string;
   description: string;
   author: string;
+  userId?: string;
   category: string;
   categoryId?: string;
   configTemplate: string;

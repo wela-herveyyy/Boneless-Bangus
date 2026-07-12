@@ -34,3 +34,29 @@ export async function getMcpCatalogueUseCase(): Promise<McpServerDetailed[]> {
     return [];
   }
 }
+
+export async function fetchMcpServerByIdFromDb(id: string): Promise<McpServerDetailed | undefined> {
+  try {
+    const server = await database.query.mcpServer.findFirst({
+      where: (mcpServer, { eq }) => eq(mcpServer.id, id),
+      with: {
+        category: true,
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        tools: {
+          orderBy: (tools, { asc }) => [asc(tools.displayOrder), asc(tools.name)],
+        },
+      },
+    });
+    return server as McpServerDetailed | undefined;
+  } catch (error) {
+    console.error("Failed to fetch MCP server by ID:", error);
+    return undefined;
+  }
+}

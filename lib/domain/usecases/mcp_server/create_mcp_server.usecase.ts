@@ -2,7 +2,7 @@ import { revalidateTag } from "next/cache";
 import { database } from "@/database";
 import { mcpServer, mcpServerTool } from "@/database/schema";
 import type { CreateMcpInput, McpResult, McpServerDetailed } from "@/lib/entities/mcp_server.type";
-import { getMcpCatalogueUseCase } from "./get_mcp_catalogue.usecase";
+import { fetchMcpServerByIdFromDb, getMcpCatalogueUseCase } from "./get_mcp_catalogue.usecase";
 
 export type CreateMcpServerWithUser = CreateMcpInput & {
   userId: string;
@@ -63,8 +63,7 @@ export async function createMcpServerUseCase(
 
     revalidateTag("mcp_catalogue", "hours");
 
-    const catalogue = await getMcpCatalogueUseCase();
-    const created = catalogue.find((s) => s.id === serverId);
+    const created = await fetchMcpServerByIdFromDb(serverId);
 
     if (!created) {
       return { ok: false, error: "Server created but failed to retrieve details." };

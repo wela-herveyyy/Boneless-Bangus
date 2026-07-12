@@ -100,7 +100,9 @@ export function McpCataloguePage({ initialData }: McpCataloguePageProps) {
         <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServers.map((server) => {
             const raw = servers.find((s) => s.id === server.id);
-            const canManage = canManageAll || Boolean(raw && raw.id && server.author !== "Custom" && server.author === currentUserId);
+            const canManage = canManageAll || Boolean(
+              currentUserId && ((raw?.userId && raw.userId === currentUserId) || (server.userId && server.userId === currentUserId))
+            );
 
             return (
               <McpServerCard

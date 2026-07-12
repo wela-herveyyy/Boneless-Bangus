@@ -26,6 +26,7 @@ export function McpMarketplace() {
     activeCategory,
     setActiveCategory,
     toggleServer,
+    myServersCount,
     view,
     form,
     setFormField,
@@ -138,7 +139,7 @@ export function McpMarketplace() {
               </Button>
 
               {/* Category filters */}
-              <div className="flex gap-1.5 overflow-x-auto pt-0.5 pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pt-0.5 pb-1 no-scrollbar">
                 <button
                   type="button"
                   onClick={() => setActiveCategory("all")}
@@ -151,6 +152,23 @@ export function McpMarketplace() {
                 >
                   All
                 </button>
+                {currentUserId && myServersCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategory("my-servers")}
+                    className={[
+                      "shrink-0 rounded-full px-3.5 py-1 text-xs font-semibold transition-all flex items-center gap-1",
+                      activeCategory === "my-servers"
+                        ? "bg-primary text-on-primary shadow-sm"
+                        : "bg-surface-container-low text-on-surface-muted hover:bg-surface-container-high",
+                    ].join(" ")}
+                  >
+                    <span>My Servers</span>
+                    <span className="rounded-full bg-surface/30 px-1.5 py-0.2 text-[10px] font-bold">
+                      {myServersCount}
+                    </span>
+                  </button>
+                )}
                 {MCP_CATEGORIES.map((cat) => (
                   <button
                     key={cat.value}
@@ -181,6 +199,63 @@ export function McpMarketplace() {
                       : "Register your first MCP server to get started"}
                   </p>
                 </div>
+              ) : activeCategory === "all" && !query.trim() && myServersCount > 0 ? (
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5 px-1">
+                      <h4 className="text-[11px] font-bold text-on-surface-muted uppercase tracking-wider">
+                        Your Custom Servers ({myServersCount})
+                      </h4>
+                      <span className="text-[10px] text-primary font-semibold">Full Manage Access</span>
+                    </div>
+                    <ul className="space-y-3">
+                      {filteredServers
+                        .filter((s) => s.userId === currentUserId)
+                        .map((server) => (
+                          <McpServerCard
+                            key={server.id}
+                            server={server}
+                            canManage={
+                              canManageAll || Boolean(currentUserId && server.userId && server.userId === currentUserId)
+                            }
+                            onToggle={() => toggleServer(server.id)}
+                            onViewTools={() => setSelectedServerForTools(server)}
+                            onEdit={() => startEdit(server)}
+                            isPendingDelete={deletingServerId === server.id}
+                            onRequestDelete={() => requestDelete(server.id)}
+                            onCancelDelete={cancelDelete}
+                            onConfirmDelete={() => confirmDelete(server.id)}
+                          />
+                        ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-2 border-t border-outline/10">
+                    <h4 className="mb-2.5 px-1 text-[11px] font-bold text-on-surface-muted uppercase tracking-wider">
+                      Catalogue Servers
+                    </h4>
+                    <ul className="space-y-3">
+                      {filteredServers
+                        .filter((s) => s.userId !== currentUserId)
+                        .map((server) => (
+                          <McpServerCard
+                            key={server.id}
+                            server={server}
+                            canManage={
+                              canManageAll || Boolean(currentUserId && server.userId && server.userId === currentUserId)
+                            }
+                            onToggle={() => toggleServer(server.id)}
+                            onViewTools={() => setSelectedServerForTools(server)}
+                            onEdit={() => startEdit(server)}
+                            isPendingDelete={deletingServerId === server.id}
+                            onRequestDelete={() => requestDelete(server.id)}
+                            onCancelDelete={cancelDelete}
+                            onConfirmDelete={() => confirmDelete(server.id)}
+                          />
+                        ))}
+                    </ul>
+                  </div>
+                </div>
               ) : (
                 <ul className="space-y-3">
                   {filteredServers.map((server) => (
@@ -188,7 +263,7 @@ export function McpMarketplace() {
                       key={server.id}
                       server={server}
                       canManage={
-                        canManageAll || Boolean(currentUserId && server.author && server.author === currentUserId)
+                        canManageAll || Boolean(currentUserId && server.userId && server.userId === currentUserId)
                       }
                       onToggle={() => toggleServer(server.id)}
                       onViewTools={() => setSelectedServerForTools(server)}

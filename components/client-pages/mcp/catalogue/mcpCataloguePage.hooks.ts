@@ -32,6 +32,7 @@ export function useMcpCataloguePage({ initialData }: McpCataloguePageProps) {
         name: s.name,
         description: s.description,
         author: s.user?.name || "Custom",
+        userId: s.userId || s.user?.id || "",
         category: s.category?.slug || "dev-tools",
         categoryId: s.categoryId,
         configTemplate:
