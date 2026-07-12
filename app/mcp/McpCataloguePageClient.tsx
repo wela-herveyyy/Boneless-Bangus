@@ -1,92 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LuPlus, LuSearch, LuWrench, LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
-import { deleteMcpServerAction } from "@/lib/domain/actions/mcp_server.actions";
-import { USER_AI_CONFIG_DEFAULT, type McpDataPayload, type McpServer, type UserAiConfig } from "@/lib/entities/mcp_server.type";
-import { loadUserAiConfigFromIdb, saveUserAiConfigToIdb } from "@/lib/utils/mcp-idb";
-
-export type McpCataloguePageClientProps = {
-  initialData: McpDataPayload;
-};
+import type { McpServerToolSelect } from "@/lib/entities/mcp_server_tool.type";
+import {
+  useMcpCataloguePageClient,
+  type McpCataloguePageClientProps,
+} from "./mcpCataloguePageClient.hooks";
 
 export function McpCataloguePageClient({ initialData }: McpCataloguePageClientProps) {
-  const [rawServers, setRawServers] = useState(initialData.catalogue);
-  const [categories] = useState(initialData.categories);
-  const [currentUserId] = useState(initialData.currentUserId);
-  const [canManageAll] = useState(initialData.canManageAll);
-  const [userConfig, setUserConfig] = useState<UserAiConfig>(USER_AI_CONFIG_DEFAULT);
-
-  const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [selectedServerForTools, setSelectedServerForTools] = useState<McpServer | null>(null);
-
-  useEffect(() => {
-    loadUserAiConfigFromIdb().then(setUserConfig).catch(console.error);
-  }, []);
-
-  const servers: McpServer[] = useMemo(() => {
-    return rawServers.map((s) => {
-      const isEnabled = Boolean(userConfig.mcpServers && userConfig.mcpServers[s.slug]);
-      return {
-        id: s.id,
-        slug: s.slug,
-        name: s.name,
-        description: s.description,
-        author: s.user?.name || "Custom",
-        category: s.category?.slug || "dev-tools",
-        categoryId: s.categoryId,
-        configTemplate: typeof s.configTemplate === "string"
-          ? s.configTemplate
-          : JSON.stringify(s.configTemplate, null, 2),
-        configTemplateObj: s.configTemplate,
-        enabled: isEnabled,
-        tools: s.tools || [],
-      };
-    });
-  }, [rawServers, userConfig]);
-
-  const filteredServers = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return servers.filter((server) => {
-      const matchesCat = activeCategory === "all" || server.category === activeCategory;
-      const matchesQ =
-        !q ||
-        server.name.toLowerCase().includes(q) ||
-        server.description.toLowerCase().includes(q) ||
-        server.author.toLowerCase().includes(q);
-      return matchesCat && matchesQ;
-    });
-  }, [servers, query, activeCategory]);
-
-  const toggleServer = async (id: string) => {
-    const target = servers.find((s) => s.id === id);
-    if (!target) return;
-
-    const nextMcpServers = { ...(userConfig.mcpServers || {}) };
-    if (target.enabled) {
-      delete nextMcpServers[target.slug];
-    } else {
-      nextMcpServers[target.slug] = target.configTemplateObj || { url: "" };
-    }
-
-    const nextConfig = { ...userConfig, mcpServers: nextMcpServers };
-    setUserConfig(nextConfig);
-    await saveUserAiConfigToIdb(nextConfig);
-  };
-
-  const confirmDelete = async (id: string) => {
-    const res = await deleteMcpServerAction({ id });
-    if (res.ok) {
-      setRawServers((prev) => prev.filter((s) => s.id !== id));
-    }
-    setDeletingId(null);
-  };
+  const {
+    servers,
+    categories,
+    currentUserId,
+    canManageAll,
+    query,
+    setQuery,
+    activeCategory,
+    setActiveCategory,
+    deletingId,
+    setDeletingId,
+    selectedServerForTools,
+    setSelectedServerForTools,
+    filteredServers,
+    toggleServer,
+    confirmDelete,
+  } = useMcpCataloguePageClient({ initialData });
 
   return (
     <div className="space-y-6">
@@ -157,8 +99,8 @@ export function McpCataloguePageClient({ initialData }: McpCataloguePageClientPr
       ) : (
         <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredServers.map((server) => {
-            const raw = rawServers.find((s) => s.id === server.id);
-            const canManage = canManageAll || Boolean(raw && raw.userId === currentUserId);
+            const raw = servers.find((s) => s.id === server.id);
+            const canManage = canManageAll || Boolean(raw && raw.id && server.author !== "Custom" && server.author === currentUserId);
 
             return (
               <McpServerCard
@@ -213,14 +155,14 @@ export function McpCataloguePageClient({ initialData }: McpCataloguePageClientPr
                   No individual tools documented for this server yet.
                 </div>
               ) : (
-                selectedServerForTools.tools.map((tool: any) => (
+                selectedServerForTools.tools.map((tool: McpServerToolSelect) => (
                   <div
-                    key={tool.id || tool.toolName || tool.name}
+                    key={tool.id || tool.name}
                     className="rounded-2xl bg-surface-container-low p-4 space-y-2 border border-outline/10"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <code className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">
-                        {tool.toolName || tool.name}
+                        {tool.name}
                       </code>
                     </div>
                     <p className="text-xs text-on-surface leading-relaxed">

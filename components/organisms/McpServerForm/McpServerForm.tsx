@@ -2,23 +2,11 @@ import { LuChevronLeft, LuPlus, LuTrash2, LuWrench } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
-import {
-  MCP_CATEGORIES,
-  type McpFormState,
-} from "@/lib/entities/mcp_server.type";
+import { MCP_CATEGORIES } from "@/lib/entities/mcp_server.type";
+import { useMcpServerForm, type McpServerFormProps } from "./mcpServerForm.hooks";
 
 const FIELD_CLASS =
   "w-full rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none transition-colors input-glow focus:bg-surface-container-lowest placeholder:text-on-surface-muted";
-
-export type McpServerFormProps = {
-  mode: "create" | "edit";
-  form: McpFormState;
-  setFormField: (field: keyof McpFormState, value: unknown) => void;
-  saveState: "idle" | "saved" | "error";
-  onSave: () => void;
-  onCancel: () => void;
-  categories?: { id: string; slug: string; name: string }[];
-};
 
 export function McpServerForm({
   mode,
@@ -29,37 +17,14 @@ export function McpServerForm({
   onCancel,
   categories = [],
 }: McpServerFormProps) {
-  const saveLabel =
-    saveState === "saved"
-      ? "Saved!"
-      : saveState === "error"
-        ? "Check fields & JSON"
-        : "Save server";
-
-  const tools = form.tools || [];
-
-  const addTool = () => {
-    const next = [
-      ...tools,
-      {
-        name: "",
-        description: "",
-        inputSchema: '{\n  "type": "object",\n  "properties": {}\n}',
-      },
-    ];
-    setFormField("tools", next);
-  };
-
-  const removeTool = (index: number) => {
-    const next = tools.filter((_, i) => i !== index);
-    setFormField("tools", next);
-  };
-
-  const updateToolField = (index: number, field: string, val: string) => {
-    const next = [...tools];
-    next[index] = { ...next[index], [field]: val };
-    setFormField("tools", next);
-  };
+  const {
+    saveLabel,
+    tools,
+    addTool,
+    removeTool,
+    updateToolField,
+    formatInputSchema,
+  } = useMcpServerForm({ form, setFormField, saveState });
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto">
@@ -246,13 +211,7 @@ export function McpServerForm({
                 <div>
                   <Label className="text-xs">Input Schema (JSON)</Label>
                   <textarea
-                    value={
-                      typeof tool.inputSchema === "string"
-                        ? tool.inputSchema
-                        : tool.inputSchema
-                          ? JSON.stringify(tool.inputSchema, null, 2)
-                          : '{\n  "type": "object",\n  "properties": {}\n}'
-                    }
+                    value={formatInputSchema(tool.inputSchema)}
                     onChange={(e) => updateToolField(idx, "inputSchema", e.target.value)}
                     rows={3}
                     className={[FIELD_CLASS, "mt-1 bg-surface-container-low font-mono text-[11px] py-2 resize-y leading-5"].join(" ")}
