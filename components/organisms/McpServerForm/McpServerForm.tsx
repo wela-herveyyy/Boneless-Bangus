@@ -86,18 +86,6 @@ export function McpServerForm({
           />
         </label>
 
-        {/* Author */}
-        <label className="flex flex-col gap-1.5">
-          <Label>Author</Label>
-          <Input
-            type="text"
-            value={form.author}
-            onChange={(e) => setFormField("author", e.target.value)}
-            placeholder="e.g. Livro Systems"
-            aria-label="Server author"
-          />
-        </label>
-
         {/* Category */}
         <label className="flex flex-col gap-1.5">
           <Label>Category</Label>
