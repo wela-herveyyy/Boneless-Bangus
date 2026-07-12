@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "74b4e046-268d-475d-98aa-fbf8a9049bed",
-  "prevId": "5fb44285-3e10-4722-bbd9-aade2232bc4d",
+  "id": "b9cfa4d8-07f3-4796-9d80-497c3db48fcf",
+  "prevId": "74b4e046-268d-475d-98aa-fbf8a9049bed",
   "tables": {
     "account": {
       "name": "account",
@@ -196,8 +196,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "message": {
-      "name": "message",
+    "ai_message": {
+      "name": "ai_message",
       "columns": {
         "id": {
           "name": "id",
@@ -278,9 +278,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "message_conversation_id_ai_conversation_id_fk": {
-          "name": "message_conversation_id_ai_conversation_id_fk",
-          "tableFrom": "message",
+        "ai_message_conversation_id_ai_conversation_id_fk": {
+          "name": "ai_message_conversation_id_ai_conversation_id_fk",
+          "tableFrom": "ai_message",
           "tableTo": "ai_conversation",
           "columnsFrom": [
             "conversation_id"
@@ -293,8 +293,8 @@
         }
       },
       "compositePrimaryKeys": {
-        "message_id": {
-          "name": "message_id",
+        "ai_message_id": {
+          "name": "ai_message_id",
           "columns": [
             "id"
           ]
@@ -563,7 +563,9 @@
   "views": {},
   "_meta": {
     "schemas": {},
-    "tables": {},
+    "tables": {
+      "\"message\"": "\"ai_message\""
+    },
     "columns": {}
   },
   "internal": {
