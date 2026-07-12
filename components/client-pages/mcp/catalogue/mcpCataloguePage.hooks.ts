@@ -3,11 +3,11 @@ import { deleteMcpServerAction } from "@/lib/domain/actions/mcp_server.actions";
 import { USER_AI_CONFIG_DEFAULT, type McpDataPayload, type McpServer, type UserAiConfig } from "@/lib/entities/mcp_server.type";
 import { loadUserAiConfigFromIdb, saveUserAiConfigToIdb } from "@/lib/utils/mcp-idb";
 
-export type McpCataloguePageClientProps = {
+export type McpCataloguePageProps = {
   initialData: McpDataPayload;
 };
 
-export function useMcpCataloguePageClient({ initialData }: McpCataloguePageClientProps) {
+export function useMcpCataloguePage({ initialData }: McpCataloguePageProps) {
   const [rawServers, setRawServers] = useState(initialData.catalogue);
   const [categories] = useState(initialData.categories);
   const [currentUserId] = useState(initialData.currentUserId);

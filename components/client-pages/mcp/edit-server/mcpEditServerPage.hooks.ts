@@ -3,12 +3,12 @@ import { useRouter } from "next/navigation";
 import { updateMcpServerAction } from "@/lib/domain/actions/mcp_server.actions";
 import type { McpFormState, McpServerDetailed } from "@/lib/entities/mcp_server.type";
 
-export type McpEditServerClientProps = {
+export type McpEditServerPageProps = {
   server: McpServerDetailed;
   categories: { id: string; slug: string; name: string }[];
 };
 
-export function useMcpEditServerClient({ server, categories }: McpEditServerClientProps) {
+export function useMcpEditServerPage({ server, categories }: McpEditServerPageProps) {
   const router = useRouter();
 
   const initialCategorySlug =

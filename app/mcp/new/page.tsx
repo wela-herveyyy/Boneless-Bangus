@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
-import { McpNewServerClient } from "./McpNewServerClient";
+import { McpNewServerPage as McpNewServerView } from "@/components/client-pages/mcp/new-server/McpNewServerPage";
 
 export default async function McpNewPage() {
   const result = await getMcpDataAction();
@@ -17,7 +17,7 @@ export default async function McpNewPage() {
           Add an MCP server to the global catalogue and configure exposed tools.
         </p>
       </div>
-      <McpNewServerClient categories={result.data.categories} />
+      <McpNewServerView categories={result.data.categories} />
     </main>
   );
 }

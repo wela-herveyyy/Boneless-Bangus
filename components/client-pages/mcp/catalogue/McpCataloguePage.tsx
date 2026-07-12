@@ -7,11 +7,11 @@ import { Input } from "@/components/atoms/Input/Input";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
 import type { McpServerToolSelect } from "@/lib/entities/mcp_server_tool.type";
 import {
-  useMcpCataloguePageClient,
-  type McpCataloguePageClientProps,
-} from "./mcpCataloguePageClient.hooks";
+  useMcpCataloguePage,
+  type McpCataloguePageProps,
+} from "./mcpCataloguePage.hooks";
 
-export function McpCataloguePageClient({ initialData }: McpCataloguePageClientProps) {
+export function McpCataloguePage({ initialData }: McpCataloguePageProps) {
   const {
     servers,
     categories,
@@ -28,7 +28,7 @@ export function McpCataloguePageClient({ initialData }: McpCataloguePageClientPr
     filteredServers,
     toggleServer,
     confirmDelete,
-  } = useMcpCataloguePageClient({ initialData });
+  } = useMcpCataloguePage({ initialData });
 
   return (
     <div className="space-y-6">

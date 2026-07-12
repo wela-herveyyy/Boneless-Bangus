@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
-import { McpCataloguePageClient } from "./McpCataloguePageClient";
+import { McpCataloguePage as McpCatalogueView } from "@/components/client-pages/mcp/catalogue/McpCataloguePage";
 
 export default async function McpCataloguePage() {
   const result = await getMcpDataAction();
@@ -19,7 +19,7 @@ export default async function McpCataloguePage() {
           </p>
         </div>
       </div>
-      <McpCataloguePageClient
+      <McpCatalogueView
         initialData={result.data}
       />
     </main>

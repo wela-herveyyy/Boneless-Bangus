@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
-import { McpEditServerClient } from "./McpEditServerClient";
+import { McpEditServerPage as McpEditServerView } from "@/components/client-pages/mcp/edit-server/McpEditServerPage";
 
 type EditPageProps = {
   params: Promise<{ id: string }>;
@@ -34,7 +34,7 @@ export default async function McpEditPage({ params }: EditPageProps) {
           Update server details, connection configuration, and documented tools.
         </p>
       </div>
-      <McpEditServerClient server={server} categories={categories} />
+      <McpEditServerView server={server} categories={categories} />
     </main>
   );
 }

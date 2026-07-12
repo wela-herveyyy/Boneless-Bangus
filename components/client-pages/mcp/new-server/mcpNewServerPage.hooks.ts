@@ -3,11 +3,11 @@ import { useRouter } from "next/navigation";
 import { createMcpServerAction } from "@/lib/domain/actions/mcp_server.actions";
 import { EMPTY_MCP_FORM, type McpFormState } from "@/lib/entities/mcp_server.type";
 
-export type McpNewServerClientProps = {
+export type McpNewServerPageProps = {
   categories: { id: string; slug: string; name: string }[];
 };
 
-export function useMcpNewServerClient({ categories }: McpNewServerClientProps) {
+export function useMcpNewServerPage({ categories }: McpNewServerPageProps) {
   const router = useRouter();
   const [form, setForm] = useState<McpFormState>({
     ...EMPTY_MCP_FORM,
