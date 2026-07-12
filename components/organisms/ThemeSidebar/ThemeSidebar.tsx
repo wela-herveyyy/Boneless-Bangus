@@ -3,12 +3,12 @@
 import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiOutlineTrash, HiXMark } from "react-icons/hi2";
 import { RiTailwindCssLine } from "react-icons/ri";
 import { Button } from "@/components/atoms/Button/Button";
+import { useRightSidebar } from "@/components/molecules/RightSidebar/rightSidebar.hooks";
 import {
-  useRightSidebar,
   RightSidebarTrigger,
   RightSidebarBackdrop,
   RightSidebarPanel,
-} from "@/components/molecules/RightSidebar";
+} from "@/components/molecules/RightSidebar/RightSidebar";
 import { useThemeSidebar } from "./themeSidebar.hooks";
 
 export function ThemeSidebar() {

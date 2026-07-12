@@ -7,13 +7,13 @@ import { Input } from "@/components/atoms/Input/Input";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
 import { McpServerForm } from "@/components/organisms/McpServerForm/McpServerForm";
+import { useRightSidebar } from "@/components/molecules/RightSidebar/rightSidebar.hooks";
 import {
-  useRightSidebar,
   RightSidebarTrigger,
   RightSidebarBackdrop,
   RightSidebarPanel,
-} from "@/components/molecules/RightSidebar";
-import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal";
+} from "@/components/molecules/RightSidebar/RightSidebar";
+import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal/McpToolsPreviewModal";
 import { MCP_CATEGORIES, type McpServer, useMcpMarketplace } from "./mcpMarketplace.hooks";
 
 export function McpMarketplace() {

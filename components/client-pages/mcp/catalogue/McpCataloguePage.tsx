@@ -5,7 +5,7 @@ import { LuPlus, LuSearch, LuWrench, LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
-import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal";
+import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal/McpToolsPreviewModal";
 import type { McpServerToolSelect } from "@/lib/entities/mcp_server_tool.type";
 import {
   useMcpCataloguePage,
