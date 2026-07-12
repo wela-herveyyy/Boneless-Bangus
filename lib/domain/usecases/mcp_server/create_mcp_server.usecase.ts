@@ -51,8 +51,8 @@ export async function createMcpServerUseCase(
         const toolsToInsert = input.tools.map((t, idx) => ({
           id: crypto.randomUUID(),
           mcpServerId: serverId,
-          name: t.name.trim(),
-          description: t.description.trim(),
+          name: (t.name || "").trim(),
+          description: (t.description || "").trim(),
           inputSchema: parseSchema(t.inputSchema),
           displayOrder: idx,
           createdAt: new Date(),

@@ -106,7 +106,13 @@ export function useMcpMarketplace() {
   const enabledCount = useMemo(() => servers.filter((s) => s.enabled).length, [servers]);
 
   const setFormField = (field: keyof McpFormState, value: unknown) => {
-    setFormRaw((prev) => ({ ...prev, [field]: value as never }));
+    setFormRaw((prev) => {
+      if (field === "category" && typeof value === "string") {
+        const matchingCat = categories.find((c) => c.slug === value);
+        return { ...prev, category: value, categoryId: matchingCat ? matchingCat.id : prev.categoryId };
+      }
+      return { ...prev, [field]: value as never };
+    });
   };
 
   const toggleServer = async (idOrSlug: string) => {
@@ -126,7 +132,7 @@ export function useMcpMarketplace() {
   };
 
   const startCreate = () => {
-    const defaultCat = categories[0]?.id || "";
+    const defaultCat = categories.find((c) => c.slug === EMPTY_MCP_FORM.category)?.id || categories[0]?.id || "";
     setFormRaw({ ...EMPTY_MCP_FORM, categoryId: defaultCat });
     setSaveState("idle");
     setDeletingServerId(null);
@@ -180,7 +186,7 @@ export function useMcpMarketplace() {
       return;
     }
 
-    const targetCategoryId = categoryId || categories.find((c) => c.slug === category)?.id || categories[0]?.id || "";
+    const targetCategoryId = categories.find((c) => c.slug === category)?.id || categoryId || categories[0]?.id || "";
 
     if (view === "create") {
       const res = await createMcpServerAction({
@@ -192,6 +198,7 @@ export function useMcpMarketplace() {
         tools: tools || [],
       });
       if (!res.ok) {
+        console.error("Failed to create MCP server:", res.error);
         setSaveState("error");
         window.setTimeout(() => setSaveState("idle"), 2000);
         return;
@@ -206,6 +213,7 @@ export function useMcpMarketplace() {
         tools: tools || [],
       });
       if (!res.ok) {
+        console.error("Failed to update MCP server:", res.error);
         setSaveState("error");
         window.setTimeout(() => setSaveState("idle"), 2000);
         return;
