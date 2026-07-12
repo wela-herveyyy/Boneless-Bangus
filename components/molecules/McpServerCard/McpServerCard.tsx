@@ -2,6 +2,7 @@ import { LuCheck, LuPencil, LuTrash2, LuWrench } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import type { McpServer } from "@/lib/entities/mcp_server.type";
+import { useMcpServerCard } from "./mcpServerCard.hooks";
 
 export type McpServerCardProps = {
   server: McpServer;
@@ -26,7 +27,7 @@ export function McpServerCard({
   onConfirmDelete,
   canManage,
 }: McpServerCardProps) {
-  const toolsCount = server.tools?.length ?? 0;
+  const { toolsCount, toolsLabel } = useMcpServerCard(server);
 
   return (
     <li className="flex flex-col justify-between rounded-2xl bg-surface-container-low p-4 transition-colors hover:bg-surface-container-high/60 ghost-border">
@@ -51,9 +52,7 @@ export function McpServerCard({
               className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-surface-container-high transition-colors"
             >
               <LuWrench className="size-3" aria-hidden />
-              <span>
-                {toolsCount} {toolsCount === 1 ? "tool" : "tools"} included
-              </span>
+              <span>{toolsLabel}</span>
             </button>
           </div>
         )}

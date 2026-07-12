@@ -4,6 +4,7 @@ import { LuCheck, LuInfo, LuPower, LuTerminal, LuUser, LuWrench, LuX } from "rea
 import { Button } from "@/components/atoms/Button/Button";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import type { McpServer } from "@/lib/entities/mcp_server.type";
+import { useMcpToolsPreviewModal } from "./mcpToolsPreviewModal.hooks";
 
 export type McpToolsPreviewModalProps = {
   server: McpServer | null;
@@ -12,10 +13,8 @@ export type McpToolsPreviewModalProps = {
 };
 
 export function McpToolsPreviewModal({ server, onClose, onToggle }: McpToolsPreviewModalProps) {
+  const { tools, isEnabled } = useMcpToolsPreviewModal(server);
   if (!server) return null;
-
-  const tools = server.tools || [];
-  const isEnabled = Boolean(server.enabled);
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fade-in">
