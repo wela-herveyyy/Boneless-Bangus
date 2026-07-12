@@ -7,6 +7,12 @@ import { Input } from "@/components/atoms/Input/Input";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
 import { McpServerForm } from "@/components/organisms/McpServerForm/McpServerForm";
+import {
+  useRightSidebar,
+  RightSidebarTrigger,
+  RightSidebarBackdrop,
+  RightSidebarPanel,
+} from "@/components/molecules/RightSidebar";
 import { MCP_CATEGORIES, type McpServer, useMcpMarketplace } from "./mcpMarketplace.hooks";
 
 export function McpMarketplace() {
@@ -34,61 +40,28 @@ export function McpMarketplace() {
     confirmDelete,
   } = useMcpMarketplace();
 
-  const [hoverOpen, setHoverOpen] = useState(false);
-  const [pinnedOpen, setPinnedOpen] = useState(false);
   const [selectedServerForTools, setSelectedServerForTools] = useState<McpServer | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isOpen = hoverOpen || pinnedOpen;
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-
-  const scheduleClose = useCallback(() => {
-    clearCloseTimer();
-    closeTimer.current = setTimeout(() => {
-      if (!pinnedOpen) setHoverOpen(false);
-    }, 180);
-  }, [clearCloseTimer, pinnedOpen]);
-
-  const openFromHover = useCallback(() => {
-    clearCloseTimer();
-    setHoverOpen(true);
-  }, [clearCloseTimer]);
-
-  const togglePinned = useCallback(() => {
-    setPinnedOpen((current) => {
-      const next = !current;
-      if (next) setHoverOpen(true);
-      return next;
-    });
-  }, []);
-
-  const closeSidebar = useCallback(() => {
-    setPinnedOpen(false);
-    setHoverOpen(false);
-  }, []);
-
-  useEffect(() => {
-    return () => clearCloseTimer();
-  }, [clearCloseTimer]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (selectedServerForTools) setSelectedServerForTools(null);
-        else if (view !== "list") cancelForm();
-        else closeSidebar();
+  const sidebar = useRightSidebar("mcp", {
+    bodyClass: "bbai-mcp-sidebar-open",
+    onClose: () => {
+      if (selectedServerForTools) setSelectedServerForTools(null);
+      if (view !== "list") cancelForm();
+    },
+    onEscape: () => {
+      if (selectedServerForTools) {
+        setSelectedServerForTools(null);
+        return true;
       }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSidebar, cancelForm, isOpen, view, selectedServerForTools]);
+      if (view !== "list") {
+        cancelForm();
+        return true;
+      }
+      return false;
+    },
+  });
+
+  const { closeSidebar } = sidebar;
 
   const panelTitle =
     view === "create" ? "New Server" : view === "edit" ? "Edit Server" : "Explore MCP Servers";
@@ -101,46 +74,17 @@ export function McpMarketplace() {
 
   return (
     <>
-      {/* Trigger */}
-      <button
-        type="button"
-        aria-label={isOpen ? "Hide MCP Marketplace" : "Show MCP Marketplace"}
-        aria-expanded={isOpen}
-        onClick={togglePinned}
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        className={[
-          "mcp-marketplace-trigger fixed top-[calc(50%-3.5rem)] z-120 flex -translate-y-1/2 items-center justify-center",
-          "bg-surface-container-highest text-primary shadow-bloom ghost-border",
-          "size-12 transition-[right,transform,background-color] duration-300 ease-out hover:bg-primary hover:text-on-primary",
-          isOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
-        ].join(" ")}
-      >
-        <LuPackageSearch className="size-5" aria-hidden />
-      </button>
-
-      {/* Backdrop */}
-      <div
-        className={[
-          "mcp-marketplace-backdrop fixed inset-0 z-110 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300",
-          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-        ].join(" ")}
-        onClick={closeSidebar}
-        aria-hidden={!isOpen}
+      <RightSidebarTrigger
+        sidebar={sidebar}
+        icon={<LuPackageSearch className="size-5" aria-hidden />}
+        labelOpen="Hide MCP Marketplace"
+        labelClosed="Show MCP Marketplace"
+        topClass="top-[calc(50%-3.5rem)]"
       />
 
-      {/* Panel */}
-      <aside
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        aria-hidden={!isOpen}
-        className={[
-          "mcp-marketplace-panel fixed top-0 right-0 z-115 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
-          "bg-surface-container-lowest shadow-bloom ghost-border",
-          "transition-transform duration-300 ease-out",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-      >
+      <RightSidebarBackdrop sidebar={sidebar} />
+
+      <RightSidebarPanel sidebar={sidebar} className="mcp-marketplace-panel">
         {/* Header */}
         <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
           <div>
@@ -226,42 +170,30 @@ export function McpMarketplace() {
             </div>
 
             {/* Server list */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="mb-3 px-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-muted">
-                  Available Servers
-                </p>
-              </div>
-
+            <div className="flex-1 overflow-y-auto px-4 py-4">
               {filteredServers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-surface-container-low text-on-surface-muted">
-                    <LuPackageSearch className="size-5" aria-hidden />
-                  </span>
-                  <p className="text-sm font-medium text-on-surface">No servers found</p>
-                  <p className="mt-1 text-xs text-on-surface-muted">
-                    Try a different search or category.
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <LuSearch className="size-8 text-on-surface-muted/40 mb-2" aria-hidden />
+                  <p className="text-sm font-medium text-on-surface-muted">No servers found</p>
+                  <p className="text-xs text-on-surface-muted/70 mt-1">
+                    {query || activeCategory !== "all"
+                      ? "Try adjusting your search query or filters"
+                      : "Register your first MCP server to get started"}
                   </p>
-                  <Button
-                    onClick={startCreate}
-                    variant="secondary"
-                    className="mt-4 gap-2 px-4 py-2 text-sm"
-                  >
-                    <LuPlus className="size-4" aria-hidden />
-                    Add server
-                  </Button>
                 </div>
               ) : (
-                <ul className="space-y-3.5">
+                <ul className="space-y-3">
                   {filteredServers.map((server) => (
                     <McpServerCard
                       key={server.id}
                       server={server}
-                      canManage={canManageAll || Boolean(currentUserId && server.author && server.author === currentUserId)}
-                      isPendingDelete={deletingServerId === server.id}
+                      canManage={
+                        canManageAll || Boolean(currentUserId && server.author && server.author === currentUserId)
+                      }
                       onToggle={() => toggleServer(server.id)}
                       onViewTools={() => setSelectedServerForTools(server)}
                       onEdit={() => startEdit(server)}
+                      isPendingDelete={deletingServerId === server.id}
                       onRequestDelete={() => requestDelete(server.id)}
                       onCancelDelete={cancelDelete}
                       onConfirmDelete={() => confirmDelete(server.id)}
@@ -285,11 +217,11 @@ export function McpMarketplace() {
             categories={categories}
           />
         ) : null}
-      </aside>
+      </RightSidebarPanel>
 
       {/* Tools Preview Modal */}
       {selectedServerForTools && (
-        <div className="fixed inset-0 z-130 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fade-in">
           <div className="flex flex-col max-h-[85vh] w-full max-w-lg rounded-3xl bg-surface-container-lowest p-6 shadow-bloom border border-outline/20">
             <div className="flex items-start justify-between gap-4 border-b border-outline/10 pb-4">
               <div>

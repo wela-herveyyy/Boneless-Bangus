@@ -124,7 +124,7 @@ export function McpCataloguePage({ initialData }: McpCataloguePageProps) {
 
       {/* Tools Preview Modal */}
       {selectedServerForTools && (
-        <div className="fixed inset-0 z-130 flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm animate-fade-in">
           <div className="flex flex-col max-h-[85vh] w-full max-w-lg rounded-3xl bg-surface-container-lowest p-6 shadow-bloom border border-outline/20">
             <div className="flex items-start justify-between gap-4 border-b border-outline/10 pb-4">
               <div>
