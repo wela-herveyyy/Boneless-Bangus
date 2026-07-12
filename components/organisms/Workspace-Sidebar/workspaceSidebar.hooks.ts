@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  listConversationMessagesAction,
+  listConversationsAction,
+} from "@/lib/domain/actions/ai.actions";
 
 export type ChatHistoryItem = {
   id: string;
@@ -10,8 +14,35 @@ export type ChatHistoryItem = {
 
 export function useWorkspaceSidebar() {
   const [isOpen, setIsOpen] = useState(true);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [chatHistory] = useState<ChatHistoryItem[]>([]);
+  const [activeChatId, setActiveChatIdState] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  const refreshHistory = useCallback(async () => {
+    const result = await listConversationsAction();
+    if (result.ok) {
+      setChatHistory(
+        result.data.map((item) => ({
+          id: item.id,
+          title: item.title,
+          updatedAt: item.updatedAt,
+        })),
+      );
+    }
+    setLoadingHistory(false);
+  }, []);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory]);
+
+  const setActiveChatId = useCallback((id: string | null) => {
+    setActiveChatIdState(id);
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    setActiveChatIdState(null);
+  }, []);
 
   return {
     isOpen,
@@ -19,8 +50,12 @@ export function useWorkspaceSidebar() {
     closeSidebar: () => setIsOpen(false),
     toggleSidebar: () => setIsOpen((open) => !open),
     chatHistory,
+    loadingHistory,
     activeChatId,
     setActiveChatId,
+    startNewChat,
+    refreshHistory,
+    loadMessages: listConversationMessagesAction,
   };
 }
 

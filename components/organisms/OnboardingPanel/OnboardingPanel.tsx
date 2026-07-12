@@ -264,9 +264,6 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
                 <Link href="/workspace" className={`${primaryLinkClass} w-full`}>
                   Open BBAI workspace
                 </Link>
-                <Link href="/users" className={`${secondaryLinkClass} w-full`}>
-                  View users
-                </Link>
                 <Button type="button" variant="secondary" onClick={restart}>
                   Redo onboarding
                 </Button>

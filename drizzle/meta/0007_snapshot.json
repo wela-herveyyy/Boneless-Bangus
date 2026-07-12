@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "74b4e046-268d-475d-98aa-fbf8a9049bed",
-  "prevId": "5fb44285-3e10-4722-bbd9-aade2232bc4d",
+  "id": "86ee8bba-e642-4459-8534-f0034124b1a0",
+  "prevId": "f2c1bd29-9cf5-4d0a-b0f1-9d82ae12ed61",
   "tables": {
     "account": {
       "name": "account",
@@ -135,11 +135,123 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "ai_conversation": {
-      "name": "ai_conversation",
+    "mcp_category": {
+      "name": "mcp_category",
       "columns": {
         "id": {
           "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "display_order": {
+          "name": "display_order",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "mcp_category_slug_idx": {
+          "name": "mcp_category_slug_idx",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "mcp_category_id": {
+          "name": "mcp_category_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "mcp_category_slug_unique": {
+          "name": "mcp_category_slug_unique",
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "mcp_server": {
+      "name": "mcp_server",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
           "type": "varchar(36)",
           "primaryKey": false,
           "notNull": true,
@@ -152,6 +264,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "config_template": {
+          "name": "config_template",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp(3)",
@@ -169,11 +288,46 @@
           "default": "(now())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "mcp_server_slug_idx": {
+          "name": "mcp_server_slug_idx",
+          "columns": [
+            "slug"
+          ],
+          "isUnique": false
+        },
+        "mcp_server_categoryId_idx": {
+          "name": "mcp_server_categoryId_idx",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "mcp_server_userId_idx": {
+          "name": "mcp_server_userId_idx",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "ai_conversation_user_id_user_id_fk": {
-          "name": "ai_conversation_user_id_user_id_fk",
-          "tableFrom": "ai_conversation",
+        "mcp_server_category_id_mcp_category_id_fk": {
+          "name": "mcp_server_category_id_mcp_category_id_fk",
+          "tableFrom": "mcp_server",
+          "tableTo": "mcp_category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "mcp_server_user_id_user_id_fk": {
+          "name": "mcp_server_user_id_user_id_fk",
+          "tableFrom": "mcp_server",
           "tableTo": "user",
           "columnsFrom": [
             "user_id"
@@ -186,18 +340,25 @@
         }
       },
       "compositePrimaryKeys": {
-        "ai_conversation_id": {
-          "name": "ai_conversation_id",
+        "mcp_server_id": {
+          "name": "mcp_server_id",
           "columns": [
             "id"
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "mcp_server_slug_unique": {
+          "name": "mcp_server_slug_unique",
+          "columns": [
+            "slug"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
-    "message": {
-      "name": "message",
+    "mcp_server_tool": {
+      "name": "mcp_server_tool",
       "columns": {
         "id": {
           "name": "id",
@@ -206,58 +367,41 @@
           "notNull": true,
           "autoincrement": false
         },
-        "conversation_id": {
-          "name": "conversation_id",
+        "mcp_server_id": {
+          "name": "mcp_server_id",
           "type": "varchar(36)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "row_position": {
-          "name": "row_position",
-          "type": "int",
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": true,
-          "default": 0
+          "autoincrement": false
         },
-        "content": {
-          "name": "content",
+        "description": {
+          "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "agent_feedback": {
-          "name": "agent_feedback",
-          "type": "text",
+        "input_schema": {
+          "name": "input_schema",
+          "type": "json",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "input_tokens": {
-          "name": "input_tokens",
+        "display_order": {
+          "name": "display_order",
           "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "output_tokens": {
-          "name": "output_tokens",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "cost": {
-          "name": "cost",
-          "type": "decimal(10,2)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'0.000000'"
         },
         "created_at": {
           "name": "created_at",
@@ -266,24 +410,24 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(now())"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp(3)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "mcp_server_tool_serverId_idx": {
+          "name": "mcp_server_tool_serverId_idx",
+          "columns": [
+            "mcp_server_id"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
-        "message_conversation_id_ai_conversation_id_fk": {
-          "name": "message_conversation_id_ai_conversation_id_fk",
-          "tableFrom": "message",
-          "tableTo": "ai_conversation",
+        "mcp_server_tool_mcp_server_id_mcp_server_id_fk": {
+          "name": "mcp_server_tool_mcp_server_id_mcp_server_id_fk",
+          "tableFrom": "mcp_server_tool",
+          "tableTo": "mcp_server",
           "columnsFrom": [
-            "conversation_id"
+            "mcp_server_id"
           ],
           "columnsTo": [
             "id"
@@ -293,8 +437,8 @@
         }
       },
       "compositePrimaryKeys": {
-        "message_id": {
-          "name": "message_id",
+        "mcp_server_tool_id": {
+          "name": "mcp_server_tool_id",
           "columns": [
             "id"
           ]
