@@ -116,3 +116,29 @@ export const verification = mysqlTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const skillCategory = mysqlTable("skill_category", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { fsp: 3 })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const skill = mysqlTable("skill", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  categoryId: varchar("category_id", { length: 36 })
+    .notNull()
+    .references(() => skillCategory.id, { onDelete: "cascade" }),
+  authorId: varchar("author_id", { length: 36 })
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { fsp: 3 })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
