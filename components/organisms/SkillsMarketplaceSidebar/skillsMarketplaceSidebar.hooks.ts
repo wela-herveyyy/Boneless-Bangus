@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { getSkillsAction, createSkillAction } from "@/lib/domain/actions/skills.actions";
 import { 
   saveLocalRecordAction, 
   listLocalRecordsAction, 
   deleteLocalRecordAction 
 } from "@/lib/domain/actions/storage.actions";
-
 export type Skill = {
   id: string;
   name: string;
@@ -18,9 +17,28 @@ export type Skill = {
   localId?: number;
 };
 
-export function useSkillsMarketplaceSidebar() {
-  const [hoverOpen, setHoverOpen] = useState(false);
-  const [pinnedOpen, setPinnedOpen] = useState(false);
+export interface UseSkillsMarketplaceSidebarReturn {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  activeCategory: string;
+  setActiveCategory: (category: string) => void;
+  categories: string[];
+  filteredSkills: Skill[];
+  toggleInstall: (id: string) => Promise<void>;
+  isAddingFormOpen: boolean;
+  setIsAddingFormOpen: (open: boolean) => void;
+  newSkillForm: { name: string; description: string; category: string };
+  setNewSkillForm: React.Dispatch<React.SetStateAction<{ name: string; description: string; category: string }>>;
+  handleAddSkill: () => Promise<void>;
+  selectedSkillId: string | null;
+  setSelectedSkillId: (id: string | null) => void;
+  selectedSkill: Skill | null;
+  skillToUninstall: string | null;
+  confirmUninstall: () => Promise<void>;
+  cancelUninstall: () => void;
+}
+
+export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   
@@ -31,10 +49,6 @@ export function useSkillsMarketplaceSidebar() {
   const [skillToUninstall, setSkillToUninstall] = useState<string | null>(null);
 
   const categories = ["All", ...Array.from(new Set(skills.map((s) => s.category)))];
-
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isOpen = hoverOpen || pinnedOpen;
 
   const loadData = useCallback(async () => {
     const [skillsRes, localRes] = await Promise.all([
@@ -68,51 +82,6 @@ export function useSkillsMarketplaceSidebar() {
     loadData();
   }, [loadData]);
 
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-
-  const scheduleClose = useCallback(() => {
-    clearCloseTimer();
-    closeTimer.current = setTimeout(() => {
-      if (!pinnedOpen) setHoverOpen(false);
-    }, 180);
-  }, [clearCloseTimer, pinnedOpen]);
-
-  const openFromHover = useCallback(() => {
-    clearCloseTimer();
-    setHoverOpen(true);
-  }, [clearCloseTimer]);
-
-  const togglePinned = useCallback(() => {
-    setPinnedOpen((current) => {
-      const next = !current;
-      if (next) setHoverOpen(true);
-      return next;
-    });
-  }, []);
-
-  const closeSidebar = useCallback(() => {
-    setPinnedOpen(false);
-    setHoverOpen(false);
-  }, []);
-
-  useEffect(() => {
-    return () => clearCloseTimer();
-  }, [clearCloseTimer]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeSidebar();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSidebar, isOpen]);
-
   const filteredSkills = skills.filter((skill) => {
     const matchesSearch =
       skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -122,30 +91,43 @@ export function useSkillsMarketplaceSidebar() {
   });
 
   const toggleInstall = async (id: string) => {
-    const skill = skills.find((s) => s.id === id);
-    if (!skill) return;
+    const targetSkill = skills.find((s) => s.id === id);
+    if (!targetSkill) return;
 
-    if (skill.installed && skill.localId) {
-      setSkillToUninstall(id);
+    if (targetSkill.installed && targetSkill.localId) {
+      setSkillToUninstall(targetSkill.id);
+      return;
+    }
+
+    const payload = JSON.stringify({
+      id: targetSkill.id,
+      name: targetSkill.name,
+      installedAt: new Date().toISOString()
+    });
+
+    const res = await saveLocalRecordAction({
+      key: `installed-skill-${targetSkill.id}`,
+      value: payload,
+    });
+    if (res.ok) {
+      await loadData();
     } else {
-      const res = await saveLocalRecordAction({
-        key: `installed-skill-${id}`,
-        value: JSON.stringify(skill),
-      });
-      if (res.ok && res.data) {
-        setSkills(skills.map((s) => (s.id === id ? { ...s, installed: true, localId: res.data?.id } : s)));
-      }
+      console.error(res.error);
     }
   };
 
   const confirmUninstall = async () => {
     if (!skillToUninstall) return;
-    const skill = skills.find((s) => s.id === skillToUninstall);
-    if (!skill || !skill.localId) return;
-
-    await deleteLocalRecordAction({ id: skill.localId });
-    setSkills(skills.map((s) => (s.id === skillToUninstall ? { ...s, installed: false, localId: undefined } : s)));
-    setSkillToUninstall(null);
+    const targetSkill = skills.find((s) => s.id === skillToUninstall);
+    if (targetSkill && targetSkill.localId) {
+      const res = await deleteLocalRecordAction({ id: targetSkill.localId });
+      if (res.ok) {
+        setSkillToUninstall(null);
+        await loadData();
+      } else {
+        console.error(res.error);
+      }
+    }
   };
 
   const cancelUninstall = () => {
@@ -153,7 +135,9 @@ export function useSkillsMarketplaceSidebar() {
   };
 
   const handleAddSkill = async () => {
-    if (!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.category.trim()) return;
+    if (!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.category.trim()) {
+      return;
+    }
     
     const res = await createSkillAction({
       name: newSkillForm.name,
@@ -173,7 +157,6 @@ export function useSkillsMarketplaceSidebar() {
   const selectedSkill = skills.find((s) => s.id === selectedSkillId) || null;
 
   return {
-    isOpen,
     searchQuery,
     setSearchQuery,
     activeCategory,
@@ -181,10 +164,6 @@ export function useSkillsMarketplaceSidebar() {
     categories,
     filteredSkills,
     toggleInstall,
-    openFromHover,
-    scheduleClose,
-    togglePinned,
-    closeSidebar,
     isAddingFormOpen,
     setIsAddingFormOpen,
     newSkillForm,

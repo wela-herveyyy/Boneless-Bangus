@@ -1,17 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LuPackageSearch, LuPlus, LuSearch, LuWrench, LuX } from "react-icons/lu";
+import { LuPackageSearch, LuPlus, LuSearch, LuWrench } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { McpCategoryBadge } from "@/components/molecules/McpCategoryBadge/McpCategoryBadge";
 import { McpServerCard } from "@/components/molecules/McpServerCard/McpServerCard";
 import { McpServerForm } from "@/components/organisms/McpServerForm/McpServerForm";
-import { useRightSidebar } from "@/components/molecules/RightSidebar/rightSidebar.hooks";
 import {
+  useRightSidebar,
   RightSidebarTrigger,
   RightSidebarBackdrop,
   RightSidebarPanel,
+  RightSidebarHeader,
+  RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal/McpToolsPreviewModal";
 import { MCP_CATEGORIES, type McpServer, useMcpMarketplace } from "./mcpMarketplace.hooks";
@@ -87,25 +89,13 @@ export function McpMarketplace() {
       <RightSidebarBackdrop sidebar={sidebar} />
 
       <RightSidebarPanel sidebar={sidebar} className="mcp-marketplace-panel">
-        {/* Header */}
-        <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
-              {panelSubtitle}
-            </p>
-            <h2 className="font-display text-xl font-bold text-primary">{panelTitle}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={view !== "list" ? cancelForm : closeSidebar}
-              className="flex size-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-              aria-label={view !== "list" ? "Cancel and go back" : "Close MCP Marketplace"}
-            >
-              <LuX className="size-5" />
-            </button>
-          </div>
-        </header>
+        <RightSidebarHeader
+          sidebar={sidebar}
+          subtitle={panelSubtitle}
+          title={panelTitle}
+          onClose={view !== "list" ? cancelForm : closeSidebar}
+          closeLabel={view !== "list" ? "Cancel and go back" : "Close MCP Marketplace"}
+        />
 
         {/* List view */}
         {view === "list" ? (
