@@ -132,6 +132,7 @@ export const skill = mysqlTable("skill", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description").notNull(),
+  instructions: text("instructions").notNull(),
   categoryId: varchar("category_id", { length: 36 })
     .notNull()
     .references(() => skillCategory.id, { onDelete: "cascade" }),
