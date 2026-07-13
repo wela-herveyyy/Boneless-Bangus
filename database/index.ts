@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
+import * as schema from "./schema";
 
 
 const pool = mysql.createPool({
@@ -11,4 +12,4 @@ const pool = mysql.createPool({
   idleTimeout: 10_000,
 });
 
-export const database = drizzle(pool);
+export const database = drizzle(pool, { schema, mode: "default" });

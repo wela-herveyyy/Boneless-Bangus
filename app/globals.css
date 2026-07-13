@@ -222,20 +222,22 @@ html.bbai-lock-scroll body {
   mask-image: linear-gradient(to bottom, black 60%, transparent);
 }
 
-.theme-sidebar-panel {
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+.theme-sidebar-panel,
+.mcp-marketplace-panel,
+.right-sidebar-panel {
+  transition:
+    transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    translate 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.theme-sidebar-trigger {
+.theme-sidebar-trigger,
+.mcp-marketplace-trigger,
+.right-sidebar-trigger {
   transition:
     right 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.22s ease,
     background-color 0.22s ease,
     color 0.22s ease;
-}
-
-.theme-sidebar-trigger:hover {
-  transform: translateY(-50%) translateX(-4px) scale(1.05);
 }
 
 .theme-sidebar-content {

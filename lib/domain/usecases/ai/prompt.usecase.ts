@@ -11,6 +11,14 @@ Format every reply as Markdown so the UI can render it:
 - Use tables when comparing options
 - Do not wrap the entire reply in a single code fence`;
 
+export function buildSystemInstructionWithMcp(mcpServers?: Record<string, unknown>): string {
+  if (!mcpServers || typeof mcpServers !== "object" || Object.keys(mcpServers).length === 0) {
+    return BBAI_SYSTEM_CONTEXT;
+  }
+  const enabledNames = Object.keys(mcpServers).join(", ");
+  return `${BBAI_SYSTEM_CONTEXT}\n\nActive Model Context Protocol (MCP) servers available to the user: ${enabledNames}. Provide guidance compatible with these enabled capabilities when relevant.`;
+}
+
 export type CleanAiPromptResult = {
   content: string;
   usage: AiUsageMetrics;

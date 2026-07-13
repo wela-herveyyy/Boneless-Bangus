@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import Script from "next/script";
+import { McpMarketplace } from "@/components/organisms/McpMarketplace/McpMarketplace";
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
@@ -46,6 +47,7 @@ export default function RootLayout({
           {THEME_INIT_SCRIPT}
         </Script>
         {children}
+        <McpMarketplace />
         <ThemeSidebar />
         <SkillsMarketplaceSidebar />
       </body>

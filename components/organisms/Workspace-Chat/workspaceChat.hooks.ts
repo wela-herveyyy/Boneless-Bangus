@@ -22,6 +22,7 @@ import {
   GOOGLE_AI_MODEL_OPTIONS,
   type GoogleAiModel,
 } from "@/lib/entities/google_ai.type";
+import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
@@ -228,13 +229,29 @@ export function useWorkspaceChat(
 
   useEffect(() => {
     void (async () => {
-      const result = await listLocalRecordsAction();
-      if (!result.ok) return;
+      const [localRecordsResult, idbConfig] = await Promise.all([
+        listLocalRecordsAction(),
+        loadUserAiConfigFromIdb().catch(() => null),
+      ]);
 
-      const mcp = result.data.find((item) => item.key === CURSOR_MCP_STORAGE_KEY);
-      const sk = result.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
-      if (mcp) setMcpServers(parseMcpServers(mcp.value));
-      if (sk) setSkills(parseSkills(sk.value));
+      let serversFromRecords: Record<string, CursorMcpServerConfig> | undefined;
+      if (localRecordsResult.ok) {
+        const mcp = localRecordsResult.data.find((item) => item.key === CURSOR_MCP_STORAGE_KEY);
+        const sk = localRecordsResult.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
+        if (mcp) serversFromRecords = parseMcpServers(mcp.value);
+        if (sk) setSkills(parseSkills(sk.value));
+      }
+
+      const serversFromIdb = idbConfig?.mcpServers as Record<string, CursorMcpServerConfig> | undefined;
+
+      const mergedServers = {
+        ...(serversFromRecords ?? {}),
+        ...(serversFromIdb ?? {}),
+      };
+
+      if (Object.keys(mergedServers).length > 0) {
+        setMcpServers(mergedServers);
+      }
     })();
   }, []);
 
@@ -394,6 +411,7 @@ export function useWorkspaceChat(
             dbConversationId,
             name: user?.name,
             email: user?.email,
+            mcpServers,
           }),
         });
 
@@ -507,7 +525,7 @@ export function useWorkspaceChat(
         throw err;
       }
     },
-    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options],
+    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, mcpServers, options],
   );
 
   const send = useCallback(

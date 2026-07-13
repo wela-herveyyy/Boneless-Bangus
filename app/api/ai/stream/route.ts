@@ -3,6 +3,7 @@ import { createInteractionStream } from "@/lib/domain/services/google_ai.service
 import { insertAiMessage } from "@/lib/domain/services/ai_conversation.service";
 import {
   BBAI_SYSTEM_CONTEXT,
+  buildSystemInstructionWithMcp,
   cleanupAiPrompt,
   usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       dbConversationId?: string;
       name?: string;
       email?: string;
+      mcpServers?: Record<string, unknown>;
     };
 
     const message = body.message?.trim() ?? "";
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
             message,
             model: body.model,
             previousInteractionId: body.previousInteractionId,
-            systemInstruction: BBAI_SYSTEM_CONTEXT,
+            systemInstruction: buildSystemInstructionWithMcp(body.mcpServers),
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;

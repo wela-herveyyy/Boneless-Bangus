@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiOutlineTrash, HiXMark } from "react-icons/hi2";
 import { RiTailwindCssLine } from "react-icons/ri";
 import { Button } from "@/components/atoms/Button/Button";
+import { useRightSidebar } from "@/components/molecules/RightSidebar/rightSidebar.hooks";
+import {
+  RightSidebarTrigger,
+  RightSidebarBackdrop,
+  RightSidebarPanel,
+} from "@/components/molecules/RightSidebar/RightSidebar";
 import { useThemeSidebar } from "./themeSidebar.hooks";
 
 export function ThemeSidebar() {
@@ -32,11 +37,8 @@ export function ThemeSidebar() {
     isCustomPresetId,
   } = controls;
 
-  const [hoverOpen, setHoverOpen] = useState(false);
-  const [pinnedOpen, setPinnedOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isOpen = hoverOpen || pinnedOpen;
+  const sidebar = useRightSidebar("theme", { bodyClass: "bbai-theme-sidebar-open" });
+  const { closeSidebar } = sidebar;
 
   const renderPresetButton = (preset: (typeof presets)[number]) => {
     const isActive = presetId === preset.id;
@@ -86,91 +88,19 @@ export function ThemeSidebar() {
     );
   };
 
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  }, []);
-
-  const scheduleClose = useCallback(() => {
-    clearCloseTimer();
-    closeTimer.current = setTimeout(() => {
-      if (!pinnedOpen) setHoverOpen(false);
-    }, 180);
-  }, [clearCloseTimer, pinnedOpen]);
-
-  const openFromHover = useCallback(() => {
-    clearCloseTimer();
-    setHoverOpen(true);
-  }, [clearCloseTimer]);
-
-  const togglePinned = useCallback(() => {
-    setPinnedOpen((current) => {
-      const next = !current;
-      if (next) setHoverOpen(true);
-      return next;
-    });
-  }, []);
-
-  const closeSidebar = useCallback(() => {
-    setPinnedOpen(false);
-    setHoverOpen(false);
-  }, []);
-
-  useEffect(() => {
-    return () => clearCloseTimer();
-  }, [clearCloseTimer]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeSidebar();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSidebar, isOpen]);
-
   return (
     <>
-      <button
-        type="button"
-        aria-label={isOpen ? "Hide theme sidebar" : "Show theme sidebar"}
-        aria-expanded={isOpen}
-        onClick={togglePinned}
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        className={[
-          "theme-sidebar-trigger fixed top-1/2 z-120 flex -translate-y-1/2 items-center justify-center",
-          "bg-surface-container-highest text-primary shadow-bloom ghost-border",
-          "size-12 transition-[right,transform,background-color] duration-300 ease-out hover:bg-primary hover:text-on-primary",
-          isOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
-        ].join(" ")}
-      >
-        <RiTailwindCssLine className="size-6" aria-hidden />
-      </button>
-
-      <div
-        className={[
-          "theme-sidebar-backdrop fixed inset-0 z-110 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300",
-          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-        ].join(" ")}
-        onClick={closeSidebar}
-        aria-hidden={!isOpen}
+      <RightSidebarTrigger
+        sidebar={sidebar}
+        icon={<RiTailwindCssLine className="size-6" aria-hidden />}
+        labelOpen="Hide theme sidebar"
+        labelClosed="Show theme sidebar"
+        topClass="top-1/2"
       />
 
-      <aside
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        aria-hidden={!isOpen}
-        className={[
-          "theme-sidebar-panel fixed top-0 right-0 z-115 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
-          "bg-surface-container-lowest shadow-bloom ghost-border",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-      >
+      <RightSidebarBackdrop sidebar={sidebar} />
+
+      <RightSidebarPanel sidebar={sidebar} className="theme-sidebar-panel">
         <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Global theme</p>
@@ -278,7 +208,7 @@ export function ThemeSidebar() {
             </section>
           ) : null}
         </div>
-      </aside>
+      </RightSidebarPanel>
     </>
   );
 }
