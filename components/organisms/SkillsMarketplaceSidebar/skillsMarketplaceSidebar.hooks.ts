@@ -12,6 +12,7 @@ export type Skill = {
   id: string;
   name: string;
   description: string;
+  instructions: string;
   author: string;
   category: string;
   installed: boolean;
@@ -26,7 +27,7 @@ export function useSkillsMarketplaceSidebar() {
   
   const [skills, setSkills] = useState<Skill[]>([]);
   const [isAddingFormOpen, setIsAddingFormOpen] = useState(false);
-  const [newSkillForm, setNewSkillForm] = useState({ name: "", description: "", category: "" });
+  const [newSkillForm, setNewSkillForm] = useState({ name: "", description: "", instructions: "", category: "" });
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [skillToUninstall, setSkillToUninstall] = useState<string | null>(null);
 
@@ -55,6 +56,7 @@ export function useSkillsMarketplaceSidebar() {
         id: s.id,
         name: s.name,
         description: s.description,
+        instructions: (s as any).instructions || "",
         author: s.author.name,
         category: s.category.name,
         installed: localRecordsMap.has(s.id),
@@ -158,12 +160,13 @@ export function useSkillsMarketplaceSidebar() {
     const res = await createSkillAction({
       name: newSkillForm.name,
       description: newSkillForm.description,
+      instructions: newSkillForm.instructions,
       categoryName: newSkillForm.category.trim()
     });
 
     if (res.ok) {
       await loadData(); // refresh the list
-      setNewSkillForm({ name: "", description: "", category: "" });
+      setNewSkillForm({ name: "", description: "", instructions: "", category: "" });
       setIsAddingFormOpen(false);
     } else {
       console.error(res.error);
