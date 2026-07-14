@@ -28,6 +28,7 @@ export interface UseRightSidebarReturn {
   isOpen: boolean;
   pinnedOpen: boolean;
   hoverOpen: boolean;
+  isSwitching: boolean;
   isOtherRightSidebarOpen: boolean;
   isAnyRightSidebarOpen: boolean;
   openFromHover: () => void;
@@ -37,10 +38,12 @@ export interface UseRightSidebarReturn {
   closeSidebar: () => void;
 }
 
+const globalOpenSidebars: Record<string, boolean> = {};
+
 /**
  * Reusable DRY hook for right-sidebar behavior, coordinating state synchronization,
  * hover opening with scheduled close timers, pinning, Escape key handling, and
- * cross-sidebar bbai event broadcasting.
+ * cross-sidebar bbai event broadcasting with instant switching transitions when crossing sidebars.
  */
 export function useRightSidebar(
   id: string,
@@ -48,10 +51,21 @@ export function useRightSidebar(
 ): UseRightSidebarReturn {
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const closeTimeoutRef = useRef<number | null>(null);
-  const [isOtherRightSidebarOpen, setIsOtherRightSidebarOpen] = useState(false);
+  const [otherOpenSidebars, setOtherOpenSidebars] = useState<Record<string, boolean>>(() => ({
+    ...globalOpenSidebars,
+  }));
 
   const isOpen = hoverOpen || pinnedOpen;
+  const isOpenRef = useRef(isOpen);
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  const isOtherRightSidebarOpen = Object.entries(otherOpenSidebars).some(
+    ([sourceId, open]) => sourceId !== id && Boolean(open)
+  );
   const isAnyRightSidebarOpen = isOpen || isOtherRightSidebarOpen;
   const closeDelayMs = options?.closeDelayMs ?? 180;
 
@@ -66,23 +80,67 @@ export function useRightSidebar(
     clearCloseTimer();
     setPinnedOpen(false);
     setHoverOpen(false);
+    globalOpenSidebars[id] = false;
+    window.dispatchEvent(
+      new CustomEvent("bbai:right-sidebar-state", {
+        detail: { source: id, isOpen: false },
+      })
+    );
     options?.onClose?.();
-  }, [clearCloseTimer, options]);
+  }, [clearCloseTimer, id, options]);
 
   const togglePinned = useCallback(() => {
-    setPinnedOpen((prev) => {
-      const next = !prev;
-      if (!next) {
-        setHoverOpen(false);
+    const nextPinned = !pinnedOpen;
+    if (nextPinned) {
+      const switching = isOtherRightSidebarOpen;
+      if (switching) {
+        setIsSwitching(true);
       }
-      return next;
-    });
-  }, []);
+      window.dispatchEvent(
+        new CustomEvent("bbai:close-right-sidebar", {
+          detail: { sourceId: id, isSwitching: switching },
+        })
+      );
+      setPinnedOpen(true);
+      globalOpenSidebars[id] = true;
+      window.dispatchEvent(
+        new CustomEvent("bbai:right-sidebar-state", {
+          detail: { source: id, isOpen: true },
+        })
+      );
+    } else {
+      setPinnedOpen(false);
+      setHoverOpen(false);
+      globalOpenSidebars[id] = false;
+      window.dispatchEvent(
+        new CustomEvent("bbai:right-sidebar-state", {
+          detail: { source: id, isOpen: false },
+        })
+      );
+    }
+  }, [id, pinnedOpen, isOtherRightSidebarOpen]);
 
   const openFromHover = useCallback(() => {
     clearCloseTimer();
+    if (!isOpen) {
+      const switching = isOtherRightSidebarOpen;
+      if (switching) {
+        setIsSwitching(true);
+      }
+      window.dispatchEvent(
+        new CustomEvent("bbai:close-right-sidebar", {
+          detail: { sourceId: id, isSwitching: switching },
+        })
+      );
+      globalOpenSidebars[id] = true;
+      window.dispatchEvent(
+        new CustomEvent("bbai:right-sidebar-state", {
+          detail: { source: id, isOpen: true },
+        })
+      );
+    }
     setHoverOpen(true);
-  }, [clearCloseTimer]);
+  }, [clearCloseTimer, id, isOpen, isOtherRightSidebarOpen]);
 
   const scheduleClose = useCallback(() => {
     clearCloseTimer();
@@ -96,8 +154,15 @@ export function useRightSidebar(
   // Synchronize close and state changes across other right sidebars via CustomEvent
   useEffect(() => {
     const handleCloseOthers = (event: Event) => {
-      const customEvent = event as CustomEvent<string>;
-      if (customEvent.detail !== id && isOpen) {
+      const customEvent = event as CustomEvent<{ sourceId: string; isSwitching?: boolean } | string>;
+      const detail = customEvent.detail;
+      const targetId = typeof detail === "string" ? detail : detail?.sourceId;
+      const switching = typeof detail === "object" ? Boolean(detail?.isSwitching) : false;
+
+      if (targetId && targetId !== id && isOpenRef.current) {
+        if (switching) {
+          setIsSwitching(true);
+        }
         closeSidebar();
       }
     };
@@ -105,7 +170,8 @@ export function useRightSidebar(
     const handleStateChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ source: string; isOpen: boolean }>;
       if (customEvent.detail && customEvent.detail.source !== id) {
-        setIsOtherRightSidebarOpen(customEvent.detail.isOpen);
+        globalOpenSidebars[customEvent.detail.source] = customEvent.detail.isOpen;
+        setOtherOpenSidebars({ ...globalOpenSidebars });
       }
     };
 
@@ -115,27 +181,49 @@ export function useRightSidebar(
       window.removeEventListener("bbai:close-right-sidebar", handleCloseOthers);
       window.removeEventListener("bbai:right-sidebar-state", handleStateChange);
     };
-  }, [id, isOpen, closeSidebar]);
+  }, [id, closeSidebar]);
 
-  // Broadcast state changes and toggle optional body class
+  // Reset switching flag after transition frame completes
+  useEffect(() => {
+    if (isSwitching) {
+      const timer = window.setTimeout(() => {
+        setIsSwitching(false);
+      }, 60);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isSwitching]);
+
+  // Toggle optional body class
   useEffect(() => {
     if (options?.bodyClass) {
       document.body.classList.toggle(options.bodyClass, isOpen);
+      return () => {
+        document.body.classList.remove(options.bodyClass!);
+      };
     }
-    if (isOpen) {
-      window.dispatchEvent(new CustomEvent("bbai:close-right-sidebar", { detail: id }));
-    }
+  }, [isOpen, options?.bodyClass]);
+
+  // Broadcast state changes across all right sidebars without re-running when other sidebars change
+  useEffect(() => {
+    globalOpenSidebars[id] = isOpen;
     window.dispatchEvent(
       new CustomEvent("bbai:right-sidebar-state", {
         detail: { source: id, isOpen },
       })
     );
+  }, [id, isOpen]);
+
+  // Broadcast closed state only upon actual component unmounting
+  useEffect(() => {
     return () => {
-      if (options?.bodyClass) {
-        document.body.classList.remove(options.bodyClass);
-      }
+      globalOpenSidebars[id] = false;
+      window.dispatchEvent(
+        new CustomEvent("bbai:right-sidebar-state", {
+          detail: { source: id, isOpen: false },
+        })
+      );
     };
-  }, [id, isOpen, options?.bodyClass]);
+  }, [id]);
 
   // Handle Escape key
   useEffect(() => {
@@ -157,6 +245,7 @@ export function useRightSidebar(
     isOpen,
     pinnedOpen,
     hoverOpen,
+    isSwitching,
     isOtherRightSidebarOpen,
     isAnyRightSidebarOpen,
     openFromHover,

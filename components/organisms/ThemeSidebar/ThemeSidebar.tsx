@@ -1,13 +1,15 @@
 "use client";
 
-import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiOutlineTrash, HiXMark } from "react-icons/hi2";
+import { HiOutlineClipboardDocument, HiOutlinePaintBrush, HiOutlineTrash } from "react-icons/hi2";
 import { RiTailwindCssLine } from "react-icons/ri";
 import { Button } from "@/components/atoms/Button/Button";
-import { useRightSidebar } from "@/components/molecules/RightSidebar/rightSidebar.hooks";
 import {
+  useRightSidebar,
   RightSidebarTrigger,
   RightSidebarBackdrop,
   RightSidebarPanel,
+  RightSidebarHeader,
+  RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useThemeSidebar } from "./themeSidebar.hooks";
 
@@ -38,7 +40,6 @@ export function ThemeSidebar() {
   } = controls;
 
   const sidebar = useRightSidebar("theme", { bodyClass: "bbai-theme-sidebar-open" });
-  const { closeSidebar } = sidebar;
 
   const renderPresetButton = (preset: (typeof presets)[number]) => {
     const isActive = presetId === preset.id;
@@ -101,22 +102,14 @@ export function ThemeSidebar() {
       <RightSidebarBackdrop sidebar={sidebar} />
 
       <RightSidebarPanel sidebar={sidebar} className="theme-sidebar-panel">
-        <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Global theme</p>
-            <h2 className="font-display text-lg font-semibold text-primary">Tailwind tokens</h2>
-          </div>
-          <button
-            type="button"
-            onClick={closeSidebar}
-            className="flex size-9 items-center justify-center bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-            aria-label="Close theme sidebar"
-          >
-            <HiXMark className="size-5" />
-          </button>
-        </header>
+        <RightSidebarHeader
+          sidebar={sidebar}
+          subtitle="Global theme"
+          title="Tailwind tokens"
+          closeLabel="Close theme sidebar"
+        />
 
-        <div className="bbai-scroll theme-sidebar-content min-h-0 flex flex-1 flex-col gap-5 overflow-y-auto p-5">
+        <RightSidebarContent className="theme-sidebar-content">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Presets</p>
             {!ready ? (
@@ -207,7 +200,7 @@ export function ThemeSidebar() {
               </div>
             </section>
           ) : null}
-        </div>
+        </RightSidebarContent>
       </RightSidebarPanel>
     </>
   );
