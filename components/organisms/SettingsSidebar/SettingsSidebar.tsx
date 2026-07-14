@@ -1,11 +1,13 @@
 "use client";
 
-import { LuSettings, LuX } from "react-icons/lu";
+import { LuSettings } from "react-icons/lu";
 import { useSettingsSidebar, type SettingsTab } from "./settingsSidebar.hooks";
 import {
   RightSidebarTrigger,
   RightSidebarBackdrop,
   RightSidebarPanel,
+  RightSidebarHeader,
+  RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { SkillsTab } from "./SkillsTab";
 import { McpTab } from "./McpTab";
@@ -21,31 +23,18 @@ export function SettingsSidebar() {
         icon={<LuSettings className="size-6" aria-hidden />}
         labelOpen="Hide settings sidebar"
         labelClosed="Show settings sidebar"
-        topClass="top-[calc(50%+5.5rem)]"
+        topClass="top-[calc(50%+7rem)]"
       />
       
       <RightSidebarBackdrop sidebar={sidebar} />
 
       <RightSidebarPanel sidebar={sidebar} className="settings-sidebar-panel">
-        {/* Header */}
-        <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
-              Workspace Settings
-            </p>
-            <h2 className="font-display text-xl font-bold text-primary">Settings</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={closeSidebar}
-              className="flex size-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-              aria-label="Close Settings"
-            >
-              <LuX className="size-5" />
-            </button>
-          </div>
-        </header>
+        <RightSidebarHeader
+          sidebar={sidebar}
+          subtitle="Workspace Settings"
+          title="Settings"
+          closeLabel="Close Settings"
+        />
 
         {/* Tabs */}
         <div className="flex space-x-1 border-b border-primary/10 px-5 pt-3">
@@ -74,9 +63,9 @@ export function SettingsSidebar() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <RightSidebarContent>
           {activeTab === "skills" ? <SkillsTab /> : <McpTab />}
-        </div>
+        </RightSidebarContent>
       </RightSidebarPanel>
     </>
   );
