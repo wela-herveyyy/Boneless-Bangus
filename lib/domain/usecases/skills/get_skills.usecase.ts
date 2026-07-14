@@ -15,6 +15,7 @@ export async function getSkillsUsecase(): Promise<SkillWithDetails[]> {
         id: skill.id,
         name: skill.name,
         description: skill.description,
+        instructions: skill.instructions,
         categoryId: skill.categoryId,
         authorId: skill.authorId,
         createdAt: skill.createdAt,

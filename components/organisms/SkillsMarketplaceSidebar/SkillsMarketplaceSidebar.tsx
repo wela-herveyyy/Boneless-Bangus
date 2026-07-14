@@ -1,9 +1,17 @@
 "use client";
 
-import { HiOutlinePlus, HiXMark, HiOutlineCubeTransparent } from "react-icons/hi2";
+import { HiOutlinePlus, HiOutlineCubeTransparent } from "react-icons/hi2";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { useSkillsMarketplaceSidebar } from "./skillsMarketplaceSidebar.hooks";
+import {
+  useRightSidebar,
+  RightSidebarTrigger,
+  RightSidebarBackdrop,
+  RightSidebarPanel,
+  RightSidebarHeader,
+  RightSidebarContent,
+} from "@/components/molecules/RightSidebar/RightSidebar";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import { SkillDetailsModal } from "@/components/molecules/SkillDetailsModal/SkillDetailsModal";
 import { UninstallSkillModal } from "@/components/molecules/UninstallSkillModal/UninstallSkillModal";
@@ -11,7 +19,6 @@ import { MarketplaceSkillCard } from "@/components/molecules/MarketplaceSkillCar
 
 export function SkillsMarketplaceSidebar() {
   const {
-    isOpen,
     searchQuery,
     setSearchQuery,
     activeCategory,
@@ -19,10 +26,6 @@ export function SkillsMarketplaceSidebar() {
     categories,
     filteredSkills,
     toggleInstall,
-    openFromHover,
-    scheduleClose,
-    togglePinned,
-    closeSidebar,
     isAddingFormOpen,
     setIsAddingFormOpen,
     newSkillForm,
@@ -36,61 +39,50 @@ export function SkillsMarketplaceSidebar() {
     cancelUninstall,
   } = useSkillsMarketplaceSidebar();
 
+  const sidebar = useRightSidebar("skills", {
+    bodyClass: "bbai-skills-sidebar-open",
+    onClose: () => {
+      if (selectedSkillId) setSelectedSkillId(null);
+      if (isAddingFormOpen) setIsAddingFormOpen(false);
+    },
+    onEscape: () => {
+      if (skillToUninstall) {
+        cancelUninstall();
+        return true;
+      }
+      if (selectedSkillId) {
+        setSelectedSkillId(null);
+        return true;
+      }
+      if (isAddingFormOpen) {
+        setIsAddingFormOpen(false);
+        return true;
+      }
+      return false;
+    },
+  });
+
   return (
     <>
-      <button
-        type="button"
-        aria-label={isOpen ? "Hide skills marketplace" : "Show skills marketplace"}
-        aria-expanded={isOpen}
-        onClick={togglePinned}
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        className={[
-          "skills-sidebar-trigger fixed top-[calc(50%+2rem)] z-120 flex items-center justify-center",
-          "bg-surface-container-highest text-primary shadow-bloom ghost-border",
-          "size-12 transition-[right,transform,background-color] duration-300 ease-out hover:bg-primary hover:text-on-primary",
-          isOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
-        ].join(" ")}
-      >
-        <HiOutlineCubeTransparent className="size-6" aria-hidden />
-      </button>
-
-      <div
-        className={[
-          "skills-sidebar-backdrop fixed inset-0 z-110 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300",
-          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
-        ].join(" ")}
-        onClick={closeSidebar}
-        aria-hidden={!isOpen}
+      <RightSidebarTrigger
+        sidebar={sidebar}
+        icon={<HiOutlineCubeTransparent className="size-6" aria-hidden />}
+        labelOpen="Hide skills marketplace"
+        labelClosed="Show skills marketplace"
+        topClass="top-[calc(50%+3.5rem)]"
       />
 
-      <aside
-        onMouseEnter={openFromHover}
-        onMouseLeave={scheduleClose}
-        aria-hidden={!isOpen}
-        className={[
-          "skills-sidebar-panel fixed top-0 right-0 z-115 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
-          "bg-surface-container-lowest shadow-bloom ghost-border",
-          "transition-transform duration-300 ease-out",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-      >
-        <header className="flex items-start justify-between gap-3 bg-surface-container-low p-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">Skills Marketplace</p>
-            <h2 className="font-display text-lg font-semibold text-primary">Explore Skills for Automation</h2>
-          </div>
-          <button
-            type="button"
-            onClick={closeSidebar}
-            className="flex size-9 items-center justify-center bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-            aria-label="Close skills marketplace"
-          >
-            <HiXMark className="size-5" />
-          </button>
-        </header>
+      <RightSidebarBackdrop sidebar={sidebar} />
 
-        <div className="flex flex-col gap-5 overflow-y-auto p-5">
+      <RightSidebarPanel sidebar={sidebar} className="skills-marketplace-panel">
+        <RightSidebarHeader
+          sidebar={sidebar}
+          subtitle="Skills Marketplace"
+          title="Explore Skills for Automation"
+          closeLabel="Close skills marketplace"
+        />
+
+        <RightSidebarContent className="skills-marketplace-content">
           <div className="space-y-3">
             <Input
               type="text"
@@ -141,8 +133,8 @@ export function SkillsMarketplaceSidebar() {
               )}
             </div>
           </div>
-        </div>
-      </aside>
+        </RightSidebarContent>
+      </RightSidebarPanel>
 
       <AddSkillModal
         isOpen={isAddingFormOpen}

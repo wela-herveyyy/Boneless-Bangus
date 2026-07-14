@@ -3,6 +3,8 @@ import type { UserRole } from "./users.type";
 import type { McpCategorySelect } from "./mcp_category.type";
 import type { McpServerToolSelect, McpToolInput } from "./mcp_server_tool.type";
 
+export type { McpCategorySelect, McpServerToolSelect, McpToolInput };
+
 export type McpServerSelect = typeof mcpServer.$inferSelect;
 export type McpServerInsert = typeof mcpServer.$inferInsert;
 

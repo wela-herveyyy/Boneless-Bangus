@@ -1,6 +1,6 @@
 "use client";
 
-import { LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen } from "react-icons/lu";
+import { LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen, LuSettings } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { signOutAction } from "@/lib/domain/actions/auth.actions";
 import { formatChatDate, getInitials, type ChatHistoryItem } from "./workspaceSidebar.hooks";
@@ -120,12 +120,14 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
             </div>
           </div>
 
-          <form action={signOutAction}>
-            <Button type="submit" variant="secondary" className="w-full gap-2">
-              <LuLogOut className="size-4" aria-hidden />
-              Log out
-            </Button>
-          </form>
+          <div className="flex flex-col gap-2">
+            <form action={signOutAction}>
+              <Button type="submit" variant="secondary" className="w-full gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
+                <LuLogOut className="size-4" aria-hidden />
+                Log out
+              </Button>
+            </form>
+          </div>
         </div>
       </aside>
 

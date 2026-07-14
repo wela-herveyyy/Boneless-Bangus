@@ -6,8 +6,8 @@ import { Input } from "@/components/atoms/Input/Input";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  newSkillForm: { name: string; description: string; category: string };
-  setNewSkillForm: (form: { name: string; description: string; category: string }) => void;
+  newSkillForm: { name: string; description: string; instructions: string; category: string };
+  setNewSkillForm: (form: { name: string; description: string; instructions: string; category: string }) => void;
   onSubmit: () => void;
   disabled: boolean;
 }
@@ -18,7 +18,7 @@ export function AddSkillModal({ isOpen, onClose, newSkillForm, setNewSkillForm, 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
       <div
-        className="flex w-full max-w-md flex-col gap-5 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border"
+        className="flex w-full max-w-md flex-col gap-5 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-skill-title"
@@ -30,7 +30,7 @@ export function AddSkillModal({ isOpen, onClose, newSkillForm, setNewSkillForm, 
           <button
             type="button"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-full bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
             aria-label="Close modal"
           >
             <HiXMark className="size-5" />
@@ -57,12 +57,21 @@ export function AddSkillModal({ isOpen, onClose, newSkillForm, setNewSkillForm, 
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-on-surface">Description</span>
+            <span className="text-sm font-medium text-on-surface">Short Description</span>
             <textarea
-              placeholder="What does this skill do?"
+              placeholder="Brief summary of the skill..."
               value={newSkillForm.description}
               onChange={(e) => setNewSkillForm({ ...newSkillForm, description: e.target.value })}
-              className="input-glow min-h-[300px] w-full resize-y rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none transition-colors focus:bg-surface-container-lowest placeholder:text-on-surface-muted"
+              className="input-glow min-h-[80px] w-full resize-y rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none transition-colors focus:bg-surface-container-lowest placeholder:text-on-surface-muted"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-on-surface">Instructions / Prompt</span>
+            <textarea
+              placeholder="You are an expert at..."
+              value={newSkillForm.instructions}
+              onChange={(e) => setNewSkillForm({ ...newSkillForm, instructions: e.target.value })}
+              className="input-glow min-h-[200px] w-full resize-y rounded-xl bg-surface-container-low px-4 py-3 text-sm text-on-surface outline-none transition-colors focus:bg-surface-container-lowest placeholder:text-on-surface-muted"
             />
           </label>
         </div>

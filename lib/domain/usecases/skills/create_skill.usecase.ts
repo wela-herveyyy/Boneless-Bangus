@@ -9,6 +9,7 @@ import { SkillInsert, SkillCategoryInsert } from "@/lib/entities/skills.type";
 export type CreateSkillInput = {
   name: string;
   description: string;
+  instructions: string;
   categoryName: string;
   authorId: string;
 };
@@ -34,6 +35,7 @@ export async function createSkillUsecase(input: CreateSkillInput): Promise<void>
     id: randomUUID(),
     name: input.name,
     description: input.description,
+    instructions: input.instructions,
     categoryId: category.id,
     authorId: input.authorId,
   };

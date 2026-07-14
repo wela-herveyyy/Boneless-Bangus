@@ -6,7 +6,7 @@ import type { Skill } from "@/components/organisms/SkillsMarketplaceSidebar/skil
 interface Props {
   skill: Skill | null;
   onClose: () => void;
-  onToggleInstall: (id: string) => void;
+  onToggleInstall?: (id: string) => void;
 }
 
 export function SkillDetailsModal({ skill, onClose, onToggleInstall }: Props) {
@@ -38,29 +38,40 @@ export function SkillDetailsModal({ skill, onClose, onToggleInstall }: Props) {
         </div>
 
         <div className="space-y-4 text-sm text-on-surface">
-          <p className="leading-relaxed">{skill.description}</p>
+          <div>
+            <span className="font-semibold text-primary block mb-1">Description</span>
+            <p className="leading-relaxed text-on-surface-muted">{skill.description}</p>
+          </div>
+          <div>
+            <span className="font-semibold text-primary block mb-1">Instructions</span>
+            <p className="leading-relaxed bg-surface-container-low p-3 rounded-xl border border-primary/10 whitespace-pre-wrap max-h-48 overflow-y-auto">
+              {skill.instructions}
+            </p>
+          </div>
           
           <div className="flex items-center gap-2 text-xs text-on-surface-muted">
             <span className="font-medium">Author:</span> {skill.author}
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-primary/10 pt-4">
-          <Button
-            variant={skill.installed ? "secondary" : "primary"}
-            onClick={() => onToggleInstall(skill.id)}
-            className="w-full px-5 py-2 text-sm sm:w-auto"
-          >
-            {skill.installed ? (
-              <>
-                <HiOutlineCheck className="mr-2 inline size-4" />
-                Installed
-              </>
-            ) : (
-              "Install Skill"
-            )}
-          </Button>
-        </div>
+        {onToggleInstall && (
+          <div className="flex justify-end gap-3 border-t border-primary/10 pt-4">
+            <Button
+              variant={skill.installed ? "secondary" : "primary"}
+              onClick={() => onToggleInstall(skill.id)}
+              className="w-full px-5 py-2 text-sm sm:w-auto"
+            >
+              {skill.installed ? (
+                <>
+                  <HiOutlineCheck className="mr-2 inline size-4" />
+                  Installed
+                </>
+              ) : (
+                "Install Skill"
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

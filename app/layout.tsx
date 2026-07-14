@@ -4,6 +4,7 @@ import Script from "next/script";
 import { McpMarketplace } from "@/components/organisms/McpMarketplace/McpMarketplace";
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
+import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
 import "./globals.css";
 
@@ -50,6 +51,7 @@ export default function RootLayout({
         <McpMarketplace />
         <ThemeSidebar />
         <SkillsMarketplaceSidebar />
+        <SettingsSidebar />
       </body>
     </html>
   );
