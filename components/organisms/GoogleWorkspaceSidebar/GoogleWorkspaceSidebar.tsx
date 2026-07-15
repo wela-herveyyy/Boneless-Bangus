@@ -14,6 +14,8 @@ import {
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useGoogleWorkspaceSidebar } from "./googleWorkspaceSidebar.hooks";
 import { WorkspaceCapabilityCard } from "./WorkspaceCapabilityCard";
+import { WorkspaceCalendarWidget } from "./WorkspaceCalendarWidget";
+import { WorkspaceEmailsWidget } from "./WorkspaceEmailsWidget";
 
 export function GoogleWorkspaceSidebar() {
   const sidebar = useRightSidebar("google_workspace", { bodyClass: "bbai-google-workspace-sidebar-open" });
@@ -148,26 +150,38 @@ export function GoogleWorkspaceSidebar() {
                   <span className="text-[10px] text-on-surface-variant/70">Toggle AI access per API</span>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  <WorkspaceCapabilityCard
-                    capability="calendar"
-                    title="Google Calendar"
-                    description="Allow AI agents to create, schedule, and organize meetings or reminders directly in your primary Google Calendar."
-                    enabled={authRecord.calendarEnabled}
-                    isConnected={authRecord.isConnected}
-                    isToggling={togglingCapability === "calendar"}
-                    onToggle={handleToggleCapability}
-                  />
+                <div className="flex flex-col gap-4">
+                  <div className="space-y-1">
+                    <WorkspaceCapabilityCard
+                      capability="calendar"
+                      title="Google Calendar"
+                      description="Allow AI agents to create, schedule, and organize meetings or reminders directly in your primary Google Calendar."
+                      enabled={authRecord.calendarEnabled}
+                      isConnected={authRecord.isConnected}
+                      isToggling={togglingCapability === "calendar"}
+                      onToggle={handleToggleCapability}
+                    />
+                    <WorkspaceCalendarWidget
+                      enabled={authRecord.calendarEnabled}
+                      isConnected={authRecord.isConnected}
+                    />
+                  </div>
 
-                  <WorkspaceCapabilityCard
-                    capability="email"
-                    title="Gmail API"
-                    description="Allow AI agents to draft and send emails securely via Gmail on your behalf to contacts or project stakeholders."
-                    enabled={authRecord.emailEnabled}
-                    isConnected={authRecord.isConnected}
-                    isToggling={togglingCapability === "email"}
-                    onToggle={handleToggleCapability}
-                  />
+                  <div className="space-y-1 pt-2 border-t border-border/30">
+                    <WorkspaceCapabilityCard
+                      capability="email"
+                      title="Gmail API"
+                      description="Allow AI agents to draft and send emails securely via Gmail on your behalf to contacts or project stakeholders."
+                      enabled={authRecord.emailEnabled}
+                      isConnected={authRecord.isConnected}
+                      isToggling={togglingCapability === "email"}
+                      onToggle={handleToggleCapability}
+                    />
+                    <WorkspaceEmailsWidget
+                      enabled={authRecord.emailEnabled}
+                      isConnected={authRecord.isConnected}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
