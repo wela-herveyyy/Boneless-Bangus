@@ -10,21 +10,40 @@ export async function getRecentEmails(userId: string): Promise<EmailMessageSumma
 
   try {
     const accessToken = await refreshAndGetAccessToken(userId);
-    const listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=6";
 
-    const listRes = await fetch(listUrl, {
+    // Try fetching from inbox first
+    let listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=8&q=in:inbox";
+    let listRes = await fetch(listUrl, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
     if (!listRes.ok) {
-      console.error("Failed to fetch Gmail message list:", listRes.statusText);
+      if (listRes.status === 403 || listRes.status === 401) {
+        throw new Error("Gmail Read permission missing (403/401). Please click Disconnect and Connect again to grant read access.");
+      }
+      const errText = await listRes.text();
+      console.error("Failed to fetch Gmail message list:", listRes.status, listRes.statusText, errText);
       return [];
     }
 
-    const listData = await listRes.json();
-    const messages = Array.isArray(listData.messages) ? listData.messages : [];
+    let listData = await listRes.json();
+    let messages = Array.isArray(listData.messages) ? listData.messages : [];
+
+    // Fallback: if inbox query returns 0 messages, query all messages without q=in:inbox filter
+    if (messages.length === 0) {
+      listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=8";
+      listRes = await fetch(listUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (listRes.ok) {
+        listData = await listRes.json();
+        messages = Array.isArray(listData.messages) ? listData.messages : [];
+      }
+    }
 
     if (messages.length === 0) {
       return [];
@@ -62,6 +81,10 @@ export async function getRecentEmails(userId: string): Promise<EmailMessageSumma
     return details.filter((item): item is EmailMessageSummary => item !== null);
   } catch (error) {
     console.error("Error in getRecentEmails:", error);
+    // If it's a permission/scope error, re-throw so the UI displays clear instruction to the user
+    if (error instanceof Error && (error.message.includes("403") || error.message.includes("401") || error.message.includes("permission"))) {
+      throw error;
+    }
     return [];
   }
 }
