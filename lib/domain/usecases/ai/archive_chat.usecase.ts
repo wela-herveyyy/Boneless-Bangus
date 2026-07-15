@@ -1,4 +1,4 @@
-import { loadArchivedChats, ARCHIVE_STORAGE_KEY } from "@/lib/domain/services/archive_storage.service";
+import { loadArchivedChats, ARCHIVE_STORAGE_KEY } from "./load_archived_chats.usecase";
 
 export function archiveChatLocally(chatId: string): void {
   if (typeof window === "undefined") {
