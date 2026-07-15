@@ -28,8 +28,8 @@ export interface UseSkillsMarketplaceSidebarReturn {
   toggleInstall: (id: string) => Promise<void>;
   isAddingFormOpen: boolean;
   setIsAddingFormOpen: (open: boolean) => void;
-  newSkillForm: { name: string; description: string; category: string };
-  setNewSkillForm: React.Dispatch<React.SetStateAction<{ name: string; description: string; category: string }>>;
+  newSkillForm: { name: string; description: string; instructions: string; category: string };
+  setNewSkillForm: React.Dispatch<React.SetStateAction<{ name: string; description: string; instructions: string; category: string }>>;
   handleAddSkill: () => Promise<void>;
   selectedSkillId: string | null;
   setSelectedSkillId: (id: string | null) => void;
