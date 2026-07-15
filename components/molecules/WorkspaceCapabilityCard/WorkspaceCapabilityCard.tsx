@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { HiOutlineCalendar, HiOutlineEnvelope } from "react-icons/hi2";
+import { HiOutlineCalendar, HiOutlineEnvelope, HiOutlineVideoCamera } from "react-icons/hi2";
 import type { WorkspaceCapability } from "@/lib/entities/google_workspace_auth.type";
 
 interface WorkspaceCapabilityCardProps {
@@ -23,7 +23,12 @@ export function WorkspaceCapabilityCard({
   isToggling,
   onToggle,
 }: WorkspaceCapabilityCardProps) {
-  const Icon = capability === "calendar" ? HiOutlineCalendar : HiOutlineEnvelope;
+  const Icon =
+    capability === "calendar"
+      ? HiOutlineCalendar
+      : capability === "meet"
+      ? HiOutlineVideoCamera
+      : HiOutlineEnvelope;
 
   return (
     <div

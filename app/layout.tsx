@@ -5,7 +5,7 @@ import { McpMarketplace } from "@/components/organisms/McpMarketplace/McpMarketp
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
-import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar";
+import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
 import "./globals.css";
 

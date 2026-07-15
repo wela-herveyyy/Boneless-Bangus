@@ -13,10 +13,10 @@ import {
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useGoogleWorkspaceSidebar } from "./googleWorkspaceSidebar.hooks";
-import { WorkspaceCapabilityCard } from "./WorkspaceCapabilityCard";
-import { WorkspaceCalendarWidget } from "./WorkspaceCalendarWidget";
-import { WorkspaceEmailsWidget } from "./WorkspaceEmailsWidget";
-import { WorkspaceMeetWidget } from "./WorkspaceMeetWidget";
+import { WorkspaceCapabilityCard } from "@/components/molecules/WorkspaceCapabilityCard/WorkspaceCapabilityCard";
+import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalendarWidget/WorkspaceCalendarWidget";
+import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
+import { WorkspaceMeetWidget } from "@/components/organisms/WorkspaceMeetWidget/WorkspaceMeetWidget";
 
 export function GoogleWorkspaceSidebar() {
   const sidebar = useRightSidebar("google_workspace", { bodyClass: "bbai-google-workspace-sidebar-open" });
