@@ -5,7 +5,8 @@ import {
   listConversationMessagesAction,
   listConversationsAction,
 } from "@/lib/domain/actions/ai.actions";
-import { isChatArchived, archiveChatLocally } from "@/lib/domain/usecases/ai/archive_chat.usecase";
+import { archiveChatLocally } from "@/lib/domain/usecases/ai/archive_chat.usecase";
+import { isChatArchived } from "@/lib/domain/usecases/ai/is_chat_archived.usecase";
 
 export type ChatHistoryItem = {
   id: string;
