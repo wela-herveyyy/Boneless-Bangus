@@ -11,7 +11,9 @@ export async function toggleGoogleWorkspaceCapability(
   const updateData: Partial<typeof googleWorkspaceAuth.$inferInsert> =
     capability === "calendar"
       ? { calendarEnabled: enabled }
-      : { emailEnabled: enabled };
+      : capability === "email"
+      ? { emailEnabled: enabled }
+      : { meetEnabled: enabled };
 
   await database
     .update(googleWorkspaceAuth)

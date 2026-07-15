@@ -9,10 +9,11 @@ export type GoogleWorkspaceAuthRecord = {
   email?: string;
   calendarEnabled: boolean;
   emailEnabled: boolean;
+  meetEnabled: boolean;
   tokenExpiresAt?: Date | null;
 };
 
-export type WorkspaceCapability = "calendar" | "email";
+export type WorkspaceCapability = "calendar" | "email" | "meet";
 
 export const GOOGLE_WORKSPACE_PERMISSION = {
   WORKSPACE_MANAGE: "workspace:manage",
@@ -48,6 +49,22 @@ export type GenerateCalendarEventInput = {
   description?: string;
   start: string; // ISO 8601 string
   end: string; // ISO 8601 string
+  addGoogleMeet?: boolean;
+};
+
+export type GenerateMeetInput = {
+  summary: string;
+  start?: string; // ISO 8601 string
+  end?: string; // ISO 8601 string
+};
+
+export type MeetSummary = {
+  id: string;
+  summary: string;
+  hangoutLink: string;
+  start: string;
+  end: string;
+  htmlLink?: string;
 };
 
 export type GenerateEmailInput = {

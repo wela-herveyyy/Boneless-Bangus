@@ -5,7 +5,7 @@ import { refreshAndGetAccessToken } from "./refresh_and_get_access_token.usecase
 export async function executeCalendarAction(
   userId: string,
   input: GenerateCalendarEventInput
-): Promise<{ id: string; htmlLink?: string; summary: string }> {
+): Promise<{ id: string; htmlLink?: string; summary: string; hangoutLink?: string }> {
   const status = await getGoogleWorkspaceAuth(userId);
   if (!status.isConnected) {
     throw new Error("Google Workspace account is not connected.");
@@ -16,7 +16,11 @@ export async function executeCalendarAction(
 
   const accessToken = await refreshAndGetAccessToken(userId);
 
-  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+  const url = input.addGoogleMeet
+    ? "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1"
+    : "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -27,6 +31,16 @@ export async function executeCalendarAction(
       description: input.description || "",
       start: { dateTime: input.start },
       end: { dateTime: input.end },
+      ...(input.addGoogleMeet && {
+        conferenceData: {
+          createRequest: {
+            requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            conferenceSolutionKey: {
+              type: "hangoutsMeet",
+            },
+          },
+        },
+      }),
     }),
   });
 
@@ -41,5 +55,6 @@ export async function executeCalendarAction(
     id: data.id,
     htmlLink: data.htmlLink,
     summary: data.summary || input.summary,
+    hangoutLink: data.hangoutLink || data.conferenceData?.entryPoints?.[0]?.uri,
   };
 }

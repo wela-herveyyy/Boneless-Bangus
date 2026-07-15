@@ -10,6 +10,7 @@ export async function getGoogleWorkspaceAuth(userId: string): Promise<GoogleWork
         email: googleWorkspaceAuth.email,
         calendarEnabled: googleWorkspaceAuth.calendarEnabled,
         emailEnabled: googleWorkspaceAuth.emailEnabled,
+        meetEnabled: googleWorkspaceAuth.meetEnabled,
         tokenExpiresAt: googleWorkspaceAuth.tokenExpiresAt,
       })
       .from(googleWorkspaceAuth)
@@ -22,6 +23,7 @@ export async function getGoogleWorkspaceAuth(userId: string): Promise<GoogleWork
         isConnected: false,
         calendarEnabled: true,
         emailEnabled: true,
+        meetEnabled: true,
         tokenExpiresAt: null,
       };
     }
@@ -31,6 +33,7 @@ export async function getGoogleWorkspaceAuth(userId: string): Promise<GoogleWork
       email: record.email,
       calendarEnabled: record.calendarEnabled,
       emailEnabled: record.emailEnabled,
+      meetEnabled: record.meetEnabled ?? true,
       tokenExpiresAt: record.tokenExpiresAt,
     };
   } catch (error) {
@@ -39,6 +42,7 @@ export async function getGoogleWorkspaceAuth(userId: string): Promise<GoogleWork
       isConnected: false,
       calendarEnabled: true,
       emailEnabled: true,
+      meetEnabled: true,
       tokenExpiresAt: null,
     };
   }
