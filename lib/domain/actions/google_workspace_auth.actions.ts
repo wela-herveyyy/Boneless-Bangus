@@ -4,6 +4,8 @@ import { auth } from "@/lib/domain/services/auth.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import {
   canManageGoogleWorkspaceAuth,
+  type CalendarEventSummary,
+  type EmailMessageSummary,
   type GenerateCalendarEventInput,
   type GenerateEmailInput,
   type GoogleWorkspaceAuthRecord,
@@ -15,6 +17,8 @@ import {
   generateCalendarEventService,
   generateEmailService,
   getGoogleWorkspaceAuthStatusService,
+  getRecentCalendarEventsService,
+  getRecentEmailsService,
   toggleGoogleWorkspaceCapabilityService,
 } from "@/lib/domain/services/google_workspace_auth.service";
 
@@ -139,5 +143,47 @@ export async function generateEmailAction(
   } catch (error) {
     const err = getErrorMessage(error);
     return { ok: false, error: err };
+  }
+}
+
+export async function getRecentCalendarEventsAction(): Promise<
+  GoogleWorkspaceResult<CalendarEventSummary[]>
+> {
+  const action = "google_workspace:calendar_events_list";
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+
+    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+      return { ok: false, error: "Not authorized." };
+    }
+
+    const events = await getRecentCalendarEventsService(userSession.user.id);
+    return { ok: true, data: events };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getRecentEmailsAction(): Promise<
+  GoogleWorkspaceResult<EmailMessageSummary[]>
+> {
+  const action = "google_workspace:emails_list";
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+
+    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+      return { ok: false, error: "Not authorized." };
+    }
+
+    const emails = await getRecentEmailsService(userSession.user.id);
+    return { ok: true, data: emails };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
   }
 }

@@ -4,7 +4,11 @@ import { disconnectGoogleWorkspaceAuth } from "../usecases/google_workspace_auth
 import { toggleGoogleWorkspaceCapability } from "../usecases/google_workspace_auth/toggle_google_workspace_capability.usecase";
 import { executeCalendarAction } from "../usecases/google_workspace_auth/execute_calendar_action.usecase";
 import { executeEmailAction } from "../usecases/google_workspace_auth/execute_email_action.usecase";
+import { getRecentCalendarEvents } from "../usecases/google_workspace_auth/get_recent_calendar_events.usecase";
+import { getRecentEmails } from "../usecases/google_workspace_auth/get_recent_emails.usecase";
 import type {
+  CalendarEventSummary,
+  EmailMessageSummary,
   GenerateCalendarEventInput,
   GenerateEmailInput,
   GoogleWorkspaceAuthRecord,
@@ -37,4 +41,12 @@ export async function generateCalendarEventService(userId: string, input: Genera
 
 export async function generateEmailService(userId: string, input: GenerateEmailInput) {
   return executeEmailAction(userId, input);
+}
+
+export async function getRecentCalendarEventsService(userId: string): Promise<CalendarEventSummary[]> {
+  return getRecentCalendarEvents(userId);
+}
+
+export async function getRecentEmailsService(userId: string): Promise<EmailMessageSummary[]> {
+  return getRecentEmails(userId);
 }

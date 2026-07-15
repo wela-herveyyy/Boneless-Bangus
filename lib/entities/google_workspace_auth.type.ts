@@ -58,6 +58,22 @@ export type GenerateEmailInput = {
   bcc?: string;
 };
 
+export type CalendarEventSummary = {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  htmlLink?: string;
+};
+
+export type EmailMessageSummary = {
+  id: string;
+  subject: string;
+  from: string;
+  snippet: string;
+  date: string;
+};
+
 export type GoogleWorkspaceResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
