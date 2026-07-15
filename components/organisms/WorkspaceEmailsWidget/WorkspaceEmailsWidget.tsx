@@ -66,8 +66,19 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
       </div>
 
       {error && (
-        <div className="mt-3 rounded-lg bg-error/10 p-2.5 text-[11px] text-error">
-          {error}
+        <div className="mt-3 rounded-lg bg-error/10 border border-error/30 p-3 text-[11px] text-error space-y-2">
+          <p className="font-medium leading-relaxed">{error}</p>
+          {(error.includes("403") || error.includes("401") || error.includes("permission") || error.includes("Disconnect")) && (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = "/api/workspace/oauth/init";
+              }}
+              className="inline-flex items-center justify-center w-full gap-1.5 px-3 py-2 rounded-md bg-error text-on-error font-semibold hover:opacity-90 transition-opacity shadow-xs text-xs"
+            >
+              <span>Re-Connect Google to Grant Read Access →</span>
+            </button>
+          )}
         </div>
       )}
 
