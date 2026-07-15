@@ -5,6 +5,7 @@ import {
   listConversationMessagesAction,
   listConversationsAction,
 } from "@/lib/domain/actions/ai.actions";
+import { isChatArchived, archiveChatLocally } from "@/lib/domain/usecases/ai/archive_chat.usecase";
 
 export type ChatHistoryItem = {
   id: string;
@@ -22,15 +23,7 @@ export function useWorkspaceSidebar() {
   const refreshHistory = useCallback(async () => {
     const result = await listConversationsAction();
     if (result.ok) {
-      let archivedIds: string[] = [];
-      if (typeof window !== "undefined") {
-        try {
-          const stored = localStorage.getItem("bbai_archived_chats");
-          if (stored) archivedIds = JSON.parse(stored);
-        } catch (e) {}
-      }
-
-      const activeChats = result.data.filter((chat) => !archivedIds.includes(chat.id));
+      const activeChats = result.data.filter((chat) => !isChatArchived(chat.id));
 
       setChatHistory(
         activeChats.map((item) => ({
@@ -65,26 +58,13 @@ export function useWorkspaceSidebar() {
 
   const confirmArchive = useCallback(() => {
     if (chatToArchiveId) {
-      if (typeof window !== "undefined") {
-        let archivedIds: string[] = [];
-        try {
-          const stored = localStorage.getItem("bbai_archived_chats");
-          if (stored) archivedIds = JSON.parse(stored);
-        } catch (e) {}
-
-        if (!archivedIds.includes(chatToArchiveId)) {
-          archivedIds.push(chatToArchiveId);
-          localStorage.setItem("bbai_archived_chats", JSON.stringify(archivedIds));
-        }
-      }
+      archiveChatLocally(chatToArchiveId);
 
       setChatHistory((prev) => prev.filter((chat) => chat.id !== chatToArchiveId));
-      if (activeChatId === chatToArchiveId) {
-        setActiveChatIdState(null);
-      }
+      setActiveChatIdState((prev) => (prev === chatToArchiveId ? null : prev));
       setChatToArchiveId(null);
     }
-  }, [chatToArchiveId, activeChatId]);
+  }, [chatToArchiveId]);
 
   return {
     isOpen,
