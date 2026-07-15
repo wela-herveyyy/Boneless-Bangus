@@ -16,6 +16,7 @@ import { useGoogleWorkspaceSidebar } from "./googleWorkspaceSidebar.hooks";
 import { WorkspaceCapabilityCard } from "./WorkspaceCapabilityCard";
 import { WorkspaceCalendarWidget } from "./WorkspaceCalendarWidget";
 import { WorkspaceEmailsWidget } from "./WorkspaceEmailsWidget";
+import { WorkspaceMeetWidget } from "./WorkspaceMeetWidget";
 
 export function GoogleWorkspaceSidebar() {
   const sidebar = useRightSidebar("google_workspace", { bodyClass: "bbai-google-workspace-sidebar-open" });
@@ -163,6 +164,22 @@ export function GoogleWorkspaceSidebar() {
                     />
                     <WorkspaceCalendarWidget
                       enabled={authRecord.calendarEnabled}
+                      isConnected={authRecord.isConnected}
+                    />
+                  </div>
+
+                  <div className="space-y-1 pt-2 border-t border-border/30">
+                    <WorkspaceCapabilityCard
+                      capability="meet"
+                      title="Google Meet"
+                      description="Allow AI agents to instantly provision video conference links and schedule meetings right in Google Meet."
+                      enabled={authRecord.meetEnabled}
+                      isConnected={authRecord.isConnected}
+                      isToggling={togglingCapability === "meet"}
+                      onToggle={handleToggleCapability}
+                    />
+                    <WorkspaceMeetWidget
+                      enabled={authRecord.meetEnabled}
                       isConnected={authRecord.isConnected}
                     />
                   </div>

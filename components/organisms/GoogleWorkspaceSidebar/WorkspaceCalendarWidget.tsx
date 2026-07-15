@@ -27,6 +27,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [addGoogleMeet, setAddGoogleMeet] = useState(true);
 
   const loadEvents = useCallback(async () => {
     if (!isConnected || !enabled) return;
@@ -40,7 +41,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
         setError(res.error);
       }
     } catch (err) {
-      setError("Failed to load upcoming events.");
+      setError("Failed to fetch calendar events.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +69,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
         summary: summary.trim(),
         start: startIso,
         end: endIso,
+        addGoogleMeet,
       });
 
       if (res.ok) {
@@ -185,6 +187,18 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
                 className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="addGoogleMeetCheck"
+              checked={addGoogleMeet}
+              onChange={(e) => setAddGoogleMeet(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary size-3.5"
+            />
+            <label htmlFor="addGoogleMeetCheck" className="text-[11px] text-on-surface-variant select-none cursor-pointer">
+              Include Google Meet video link
+            </label>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button
