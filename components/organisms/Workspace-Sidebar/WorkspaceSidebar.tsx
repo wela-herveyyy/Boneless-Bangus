@@ -1,6 +1,7 @@
 "use client";
 
-import { LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen, LuSettings } from "react-icons/lu";
+import { LuArchive, LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen, LuSettings } from "react-icons/lu";
+import { ArchiveChatModal } from "@/components/molecules/ArchiveChatModal/ArchiveChatModal";
 import { Button } from "@/components/atoms/Button/Button";
 import { signOutAction } from "@/lib/domain/actions/auth.actions";
 import { formatChatDate, getInitials, type ChatHistoryItem } from "./workspaceSidebar.hooks";
@@ -13,6 +14,10 @@ type WorkspaceSidebarControls = {
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   startNewChat: () => void;
+  chatToArchiveId?: string | null;
+  promptArchive?: (id: string) => void;
+  cancelArchive?: () => void;
+  confirmArchive?: () => void;
 };
 
 type WorkspaceSidebarProps = {
@@ -30,6 +35,10 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
     activeChatId,
     setActiveChatId,
     startNewChat,
+    chatToArchiveId,
+    promptArchive,
+    cancelArchive,
+    confirmArchive,
   } = sidebar;
 
   return (
@@ -84,22 +93,32 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
                 const isActive = chat.id === activeChatId;
 
                 return (
-                  <li key={chat.id}>
+                  <li key={chat.id} className="group relative flex items-center">
                     <button
                       type="button"
                       onClick={() => setActiveChatId(chat.id)}
                       className={[
-                        "w-full rounded-xl px-3 py-3 text-left transition-colors",
+                        "w-full rounded-xl px-3 py-3 text-left transition-colors flex-1",
                         isActive
                           ? "bg-surface-container-high text-on-surface"
                           : "text-on-surface-muted hover:bg-surface-container-high/60 hover:text-on-surface",
                       ].join(" ")}
                     >
-                      <span className="block truncate text-sm font-medium">{chat.title}</span>
+                      <span className="block truncate pr-6 text-sm font-medium">{chat.title}</span>
                       <span className="mt-1 block text-xs text-on-surface-muted">
                         {formatChatDate(chat.updatedAt)}
                       </span>
                     </button>
+                    {promptArchive && (
+                      <button
+                        type="button"
+                        onClick={() => promptArchive(chat.id)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex p-2 rounded-lg text-on-surface-muted hover:text-red-400 hover:bg-surface-container-highest transition-colors"
+                        aria-label="Archive chat"
+                      >
+                        <LuArchive className="size-4" />
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -141,6 +160,14 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
           <LuPanelLeftOpen className="size-4" aria-hidden />
         </button>
       ) : null}
+
+      {cancelArchive && confirmArchive && (
+        <ArchiveChatModal
+          isOpen={!!chatToArchiveId}
+          onCancel={cancelArchive}
+          onConfirm={confirmArchive}
+        />
+      )}
     </>
   );
 }

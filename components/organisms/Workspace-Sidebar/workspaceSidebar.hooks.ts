@@ -5,6 +5,8 @@ import {
   listConversationMessagesAction,
   listConversationsAction,
 } from "@/lib/domain/actions/ai.actions";
+import { archiveChatLocally } from "@/lib/domain/usecases/ai/archive_chat.usecase";
+import { isChatArchived } from "@/lib/domain/usecases/ai/is_chat_archived.usecase";
 
 export type ChatHistoryItem = {
   id: string;
@@ -17,12 +19,15 @@ export function useWorkspaceSidebar() {
   const [activeChatId, setActiveChatIdState] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [chatToArchiveId, setChatToArchiveId] = useState<string | null>(null);
 
   const refreshHistory = useCallback(async () => {
     const result = await listConversationsAction();
     if (result.ok) {
+      const activeChats = result.data.filter((chat) => !isChatArchived(chat.id));
+
       setChatHistory(
-        result.data.map((item) => ({
+        activeChats.map((item) => ({
           id: item.id,
           title: item.title,
           updatedAt: item.updatedAt,
@@ -44,6 +49,24 @@ export function useWorkspaceSidebar() {
     setActiveChatIdState(null);
   }, []);
 
+  const promptArchive = useCallback((id: string) => {
+    setChatToArchiveId(id);
+  }, []);
+
+  const cancelArchive = useCallback(() => {
+    setChatToArchiveId(null);
+  }, []);
+
+  const confirmArchive = useCallback(() => {
+    if (chatToArchiveId) {
+      archiveChatLocally(chatToArchiveId);
+
+      setChatHistory((prev) => prev.filter((chat) => chat.id !== chatToArchiveId));
+      setActiveChatIdState((prev) => (prev === chatToArchiveId ? null : prev));
+      setChatToArchiveId(null);
+    }
+  }, [chatToArchiveId]);
+
   return {
     isOpen,
     openSidebar: () => setIsOpen(true),
@@ -56,6 +79,10 @@ export function useWorkspaceSidebar() {
     startNewChat,
     refreshHistory,
     loadMessages: listConversationMessagesAction,
+    chatToArchiveId,
+    promptArchive,
+    cancelArchive,
+    confirmArchive,
   };
 }
 
