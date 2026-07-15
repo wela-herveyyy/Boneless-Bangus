@@ -206,9 +206,43 @@ export const mcpServerTool = mysqlTable(
   (table) => [index("mcp_server_tool_serverId_idx").on(table.mcpServerId)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
+export const googleWorkspaceAuth = mysqlTable(
+  "google_workspace_auth",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .unique()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    refreshTokenEnc: text("refresh_token_enc").notNull(),
+    accessTokenEnc: text("access_token_enc"),
+    refreshTokenIv: varchar("refresh_token_iv", { length: 32 }).notNull(),
+    accessTokenIv: varchar("access_token_iv", { length: 32 }),
+    encryptionKeyVersion: int("encryption_key_version").notNull().default(1),
+    tokenExpiresAt: timestamp("token_expires_at", { fsp: 3 }),
+    calendarEnabled: boolean("calendar_enabled").default(true).notNull(),
+    emailEnabled: boolean("email_enabled").default(true).notNull(),
+    createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { fsp: 3 })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("google_workspace_auth_userId_idx").on(table.userId)],
+);
+
+export const userRelations = relations(user, ({ many, one }) => ({
   mcpServers: many(mcpServer),
   skills: many(skill),
+  googleWorkspaceAuth: one(googleWorkspaceAuth),
+}));
+
+export const googleWorkspaceAuthRelations = relations(googleWorkspaceAuth, ({ one }) => ({
+  user: one(user, {
+    fields: [googleWorkspaceAuth.userId],
+    references: [user.id],
+  }),
 }));
 
 export const skillCategoryRelations = relations(skillCategory, ({ many }) => ({
