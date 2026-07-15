@@ -223,6 +223,7 @@ export const googleWorkspaceAuth = mysqlTable(
     tokenExpiresAt: timestamp("token_expires_at", { fsp: 3 }),
     calendarEnabled: boolean("calendar_enabled").default(true).notNull(),
     emailEnabled: boolean("email_enabled").default(true).notNull(),
+    meetEnabled: boolean("meet_enabled").default(true).notNull(),
     createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { fsp: 3 })
       .defaultNow()
