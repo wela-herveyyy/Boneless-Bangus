@@ -17,12 +17,23 @@ export function useWorkspaceSidebar() {
   const [activeChatId, setActiveChatIdState] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [chatToArchiveId, setChatToArchiveId] = useState<string | null>(null);
 
   const refreshHistory = useCallback(async () => {
     const result = await listConversationsAction();
     if (result.ok) {
+      let archivedIds: string[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("bbai_archived_chats");
+          if (stored) archivedIds = JSON.parse(stored);
+        } catch (e) {}
+      }
+
+      const activeChats = result.data.filter((chat) => !archivedIds.includes(chat.id));
+
       setChatHistory(
-        result.data.map((item) => ({
+        activeChats.map((item) => ({
           id: item.id,
           title: item.title,
           updatedAt: item.updatedAt,
@@ -44,6 +55,37 @@ export function useWorkspaceSidebar() {
     setActiveChatIdState(null);
   }, []);
 
+  const promptArchive = useCallback((id: string) => {
+    setChatToArchiveId(id);
+  }, []);
+
+  const cancelArchive = useCallback(() => {
+    setChatToArchiveId(null);
+  }, []);
+
+  const confirmArchive = useCallback(() => {
+    if (chatToArchiveId) {
+      if (typeof window !== "undefined") {
+        let archivedIds: string[] = [];
+        try {
+          const stored = localStorage.getItem("bbai_archived_chats");
+          if (stored) archivedIds = JSON.parse(stored);
+        } catch (e) {}
+
+        if (!archivedIds.includes(chatToArchiveId)) {
+          archivedIds.push(chatToArchiveId);
+          localStorage.setItem("bbai_archived_chats", JSON.stringify(archivedIds));
+        }
+      }
+
+      setChatHistory((prev) => prev.filter((chat) => chat.id !== chatToArchiveId));
+      if (activeChatId === chatToArchiveId) {
+        setActiveChatIdState(null);
+      }
+      setChatToArchiveId(null);
+    }
+  }, [chatToArchiveId, activeChatId]);
+
   return {
     isOpen,
     openSidebar: () => setIsOpen(true),
@@ -56,6 +98,10 @@ export function useWorkspaceSidebar() {
     startNewChat,
     refreshHistory,
     loadMessages: listConversationMessagesAction,
+    chatToArchiveId,
+    promptArchive,
+    cancelArchive,
+    confirmArchive,
   };
 }
 
