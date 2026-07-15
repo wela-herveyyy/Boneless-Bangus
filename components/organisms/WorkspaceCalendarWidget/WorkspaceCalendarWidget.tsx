@@ -14,7 +14,7 @@ import {
 } from "react-icons/hi2";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
-import { useWorkspaceCalendarWidget } from "./workspaceCalendarWidget.hooks";
+import { useWorkspaceCalendarWidget, formatSelectedDateHeader } from "./workspaceCalendarWidget.hooks";
 
 interface Props {
   enabled: boolean;
@@ -62,43 +62,17 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
 
   return (
     <div className="mt-3 rounded-xl border border-border/60 bg-surface-container-low/50 p-4 shadow-sm transition-all space-y-3">
-      {/* Top Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <HiOutlineCalendar className="size-4 text-primary" />
-          <span className="text-xs font-semibold text-on-surface">{monthYearLabel}</span>
+      {/* Top Header - Row 1: Month Title & Navigation */}
+      <div className="flex items-center justify-between pb-2 border-b border-border/40 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <HiOutlineCalendar className="size-4 text-primary shrink-0" />
+          <span className="text-xs font-bold text-on-surface truncate">{monthYearLabel}</span>
         </div>
-        <div className="flex items-center gap-1">
-          {/* Grid / Agenda Switcher */}
-          <div className="flex items-center rounded-lg bg-surface-container/80 p-0.5 border border-border/40 mr-1">
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              className={[
-                "p-1 rounded-md text-xs transition-colors",
-                viewMode === "grid" ? "bg-primary text-on-primary shadow-2xs" : "text-on-surface-variant hover:text-on-surface",
-              ].join(" ")}
-              title="Calendar Grid View"
-            >
-              <HiOutlineSquares2X2 className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("agenda")}
-              className={[
-                "p-1 rounded-md text-xs transition-colors",
-                viewMode === "agenda" ? "bg-primary text-on-primary shadow-2xs" : "text-on-surface-variant hover:text-on-surface",
-              ].join(" ")}
-              title="Agenda List View"
-            >
-              <HiOutlineListBullet className="size-3.5" />
-            </button>
-          </div>
-
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={goToToday}
-            className="px-2 py-1 rounded-md text-[10px] font-semibold bg-surface-container hover:bg-surface border border-border/50 text-on-surface transition-colors"
+            className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-surface-container hover:bg-surface border border-border/50 text-on-surface transition-colors"
           >
             Today
           </button>
@@ -118,11 +92,45 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
           >
             <HiChevronRight className="size-4" />
           </button>
+        </div>
+      </div>
+
+      {/* Top Header - Row 2: View Controls & Quick Actions */}
+      <div className="flex items-center justify-between pt-0.5 pb-1 gap-2">
+        {/* Grid / Agenda Switcher */}
+        <div className="flex items-center rounded-lg bg-surface-container/80 p-0.5 border border-border/40 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={[
+              "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] transition-colors font-medium",
+              viewMode === "grid" ? "bg-primary text-on-primary shadow-2xs" : "text-on-surface-variant hover:text-on-surface",
+            ].join(" ")}
+            title="Calendar Grid View"
+          >
+            <HiOutlineSquares2X2 className="size-3.5" />
+            <span>Grid</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("agenda")}
+            className={[
+              "flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] transition-colors font-medium",
+              viewMode === "agenda" ? "bg-primary text-on-primary shadow-2xs" : "text-on-surface-variant hover:text-on-surface",
+            ].join(" ")}
+            title="Agenda List View"
+          >
+            <HiOutlineListBullet className="size-3.5" />
+            <span>List</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 min-w-0">
           <button
             type="button"
             onClick={loadEvents}
             disabled={loading}
-            className="p-1 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 ml-0.5"
+            className="p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 shrink-0"
             title="Refresh events"
           >
             <HiOutlineArrowPath className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -135,10 +143,10 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
               }
               setShowAddForm(!showAddForm);
             }}
-            className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-[11px] font-medium transition-colors ml-1"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 text-[11px] font-semibold transition-colors shrink-0 whitespace-nowrap"
           >
-            <HiPlus className="size-3" />
-            <span>Add</span>
+            <HiPlus className="size-3.5 shrink-0" />
+            <span>Quick Add</span>
           </button>
         </div>
       </div>
@@ -286,9 +294,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
       <div className="space-y-2 pt-1">
         <div className="flex items-center justify-between px-0.5">
           <span className="text-[11px] font-semibold text-on-surface-variant">
-            {selectedDate
-              ? `Events for ${new Date(`${selectedDate}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-              : "Upcoming Agenda"}
+            {formatSelectedDateHeader(selectedDate)}
           </span>
           {selectedDate && (
             <button

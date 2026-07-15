@@ -9,12 +9,47 @@ import type { CalendarEventSummary } from "@/lib/entities/google_workspace_auth.
 
 export interface CalendarDayCell {
   date: Date;
-  dateStr: string; // YYYY-MM-DD
+  dateStr: string; // YYYY-MM-DD in local timezone
   dayNumber: number;
   isCurrentMonth: boolean;
   isToday: boolean;
   hasEvents: boolean;
 }
+
+// Helper: format Date object as YYYY-MM-DD inside the browser's local timezone
+export const formatLocalDate = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+// Helper: parse API start string (whether ISO with UTC/offset or YYYY-MM-DD all-day) to local YYYY-MM-DD
+export const getEventLocalDateStr = (startStr: string): string => {
+  if (!startStr) return "";
+  if (startStr.length === 10 && !startStr.includes("T")) {
+    return startStr; // All-day event string e.g. YYYY-MM-DD
+  }
+  try {
+    const d = new Date(startStr);
+    if (isNaN(d.getTime())) return startStr.split("T")[0];
+    return formatLocalDate(d);
+  } catch {
+    return startStr.split("T")[0];
+  }
+};
+
+// Helper: format selectedDate string nicely without time shifting
+export const formatSelectedDateHeader = (dateStr: string | null): string => {
+  if (!dateStr) return "Upcoming Agenda";
+  try {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    return `Events for ${dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  } catch {
+    return `Events for ${dateStr}`;
+  }
+};
 
 export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolean) {
   const [events, setEvents] = useState<CalendarEventSummary[]>([]);
@@ -29,13 +64,13 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(() => {
-    return new Date().toISOString().split("T")[0];
+    return formatLocalDate(new Date());
   });
   const [viewMode, setViewMode] = useState<"grid" | "agenda">("grid");
 
   // Form State
   const [summary, setSummary] = useState("");
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(() => formatLocalDate(new Date()));
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [addGoogleMeet, setAddGoogleMeet] = useState(true);
@@ -62,7 +97,7 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
     loadEvents();
   }, [loadEvents]);
 
-  // Generate calendar days for currentMonth grid
+  // Generate calendar days for currentMonth grid using accurate local timezone date strings
   const calendarDays = useMemo<CalendarDayCell[]>(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -71,35 +106,35 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
     const prevMonthTotalDays = new Date(year, month, 0).getDate();
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = formatLocalDate(new Date());
     const days: CalendarDayCell[] = [];
 
     // Previous month filler days
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthTotalDays - i;
       const d = new Date(year, month - 1, dayNum);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(d);
       days.push({
         date: d,
         dateStr,
         dayNumber: dayNum,
         isCurrentMonth: false,
         isToday: dateStr === todayStr,
-        hasEvents: events.some((e) => e.start && e.start.startsWith(dateStr)),
+        hasEvents: events.some((e) => e.start && getEventLocalDateStr(e.start) === dateStr),
       });
     }
 
     // Current month days
     for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
       const d = new Date(year, month, dayNum);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(d);
       days.push({
         date: d,
         dateStr,
         dayNumber: dayNum,
         isCurrentMonth: true,
         isToday: dateStr === todayStr,
-        hasEvents: events.some((e) => e.start && e.start.startsWith(dateStr)),
+        hasEvents: events.some((e) => e.start && getEventLocalDateStr(e.start) === dateStr),
       });
     }
 
@@ -107,14 +142,14 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
     const remainingSlots = 42 - days.length;
     for (let dayNum = 1; dayNum <= remainingSlots; dayNum++) {
       const d = new Date(year, month + 1, dayNum);
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = formatLocalDate(d);
       days.push({
         date: d,
         dateStr,
         dayNumber: dayNum,
         isCurrentMonth: false,
         isToday: dateStr === todayStr,
-        hasEvents: events.some((e) => e.start && e.start.startsWith(dateStr)),
+        hasEvents: events.some((e) => e.start && getEventLocalDateStr(e.start) === dateStr),
       });
     }
 
@@ -132,7 +167,7 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
   const goToToday = useCallback(() => {
     const now = new Date();
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
-    setSelectedDate(now.toISOString().split("T")[0]);
+    setSelectedDate(formatLocalDate(now));
   }, []);
 
   const handleSelectDay = useCallback((dateStr: string) => {
@@ -142,7 +177,7 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
 
   const filteredEvents = useMemo(() => {
     if (!selectedDate) return events;
-    return events.filter((e) => e.start && e.start.startsWith(selectedDate));
+    return events.filter((e) => e.start && getEventLocalDateStr(e.start) === selectedDate);
   }, [events, selectedDate]);
 
   const handleCreateEvent = async (e: React.FormEvent) => {
