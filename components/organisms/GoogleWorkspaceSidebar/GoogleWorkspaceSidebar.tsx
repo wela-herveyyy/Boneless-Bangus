@@ -20,7 +20,6 @@ import {
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useGoogleWorkspaceSidebar, type GoogleWorkspaceTab } from "./googleWorkspaceSidebar.hooks";
-import { WorkspaceCapabilityCard } from "@/components/molecules/WorkspaceCapabilityCard/WorkspaceCapabilityCard";
 import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalendarWidget/WorkspaceCalendarWidget";
 import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
 import { WorkspaceMeetWidget } from "@/components/organisms/WorkspaceMeetWidget/WorkspaceMeetWidget";
@@ -115,15 +114,25 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                   Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
                 </p>
               </div>
-              <Button
-                type="button"
-                onClick={handleConnect}
-                variant="primary"
-                className="flex w-full items-center justify-center gap-2.5 shadow-sm"
-              >
-                <SiGoogle className="size-4" />
-                <span>Connect Google Account</span>
-              </Button>
+              <div className="flex flex-col w-full gap-2">
+                <Button
+                  type="button"
+                  onClick={handleConnect}
+                  variant="primary"
+                  className="flex w-full items-center justify-center gap-2.5 shadow-sm"
+                >
+                  <SiGoogle className="size-4" />
+                  <span>Connect Google Account</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                  variant="secondary"
+                  className="flex w-full items-center justify-center gap-2 text-xs"
+                >
+                  <span>Open API Integrations Settings ⚙️</span>
+                </Button>
+              </div>
             </div>
           ) : (
             /* Connected Account View */
@@ -140,15 +149,14 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                     <div className="text-[10px] text-primary">Connected Account</div>
                   </div>
                 </div>
-                <Button
+                <button
                   type="button"
-                  variant="danger"
-                  disabled={isDisconnecting}
-                  onClick={handleDisconnect}
-                  className="text-xs shrink-0 px-3 py-1.5"
+                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/15"
+                  title="Configure in API Integrations Settings"
                 >
-                  {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-                </Button>
+                  Configure ⚙️
+                </button>
               </div>
 
               {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
@@ -215,55 +223,88 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
               <div className="flex flex-col gap-3">
                 {activeTab === "calendar" && (
                   <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="calendar"
-                      title="Google Calendar"
-                      description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget."
-                      enabled={authRecord.calendarEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "calendar"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceCalendarWidget
-                      enabled={authRecord.calendarEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
+                    {authRecord.calendarEnabled ? (
+                      <WorkspaceCalendarWidget
+                        enabled={authRecord.calendarEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineCalendar className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Google Calendar Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Google Calendar anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="text-xs mt-1"
+                        >
+                          Configure in Settings ⚙️
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTab === "meet" && (
                   <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="meet"
-                      title="Google Meet"
-                      description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget."
-                      enabled={authRecord.meetEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "meet"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceMeetWidget
-                      enabled={authRecord.meetEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
+                    {authRecord.meetEnabled ? (
+                      <WorkspaceMeetWidget
+                        enabled={authRecord.meetEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineVideoCamera className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Google Meet Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Google Meet anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="text-xs mt-1"
+                        >
+                          Configure in Settings ⚙️
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTab === "email" && (
                   <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="email"
-                      title="Gmail API"
-                      description="Enable direct OAuth API integration to view recent messages from your inbox and compose emails directly via Gmail API."
-                      enabled={authRecord.emailEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "email"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceEmailsWidget
-                      enabled={authRecord.emailEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
+                    {authRecord.emailEnabled ? (
+                      <WorkspaceEmailsWidget
+                        enabled={authRecord.emailEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineEnvelope className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Gmail API Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Gmail anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="text-xs mt-1"
+                        >
+                          Configure in Settings ⚙️
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
