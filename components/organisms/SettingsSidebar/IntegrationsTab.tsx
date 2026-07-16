@@ -62,7 +62,7 @@ export function IntegrationsTab() {
 
       {/* Google Workspace Connection Status */}
       {!authRecord?.isConnected ? (
-        <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center shadow-inner">
+        <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center shadow-inner">
           <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
             <SiGoogle className="size-7" />
           </div>

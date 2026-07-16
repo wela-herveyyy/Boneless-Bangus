@@ -38,8 +38,8 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-border/60 bg-surface-container-low/50 p-4 shadow-sm transition-all">
-      <div className="flex items-center justify-between pb-3 border-b border-border/40">
+    <div className="mt-3 rounded-xl border border-primary/25 bg-surface-container-low/50 p-4 shadow-sm transition-all">
+      <div className="flex items-center justify-between pb-3 border-b border-primary/15">
         <div className="flex items-center gap-2">
           <HiOutlineVideoCamera className="size-4 text-primary" />
           <span className="text-xs font-semibold text-on-surface">Video Conferences</span>
@@ -71,7 +71,7 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
       )}
 
       {showScheduleForm && (
-        <form onSubmit={handleScheduleMeet} className="mt-3 p-3 rounded-lg bg-surface-container/60 border border-border/60 space-y-3 animate-fade-in">
+        <form onSubmit={handleScheduleMeet} className="mt-3 p-3 rounded-lg bg-surface-container/60 border border-primary/25 space-y-3 animate-fade-in">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-primary">Schedule Google Meet</span>
             <button
@@ -99,7 +99,7 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
             <div className="col-span-1">
@@ -109,7 +109,7 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
             <div className="col-span-1">
@@ -119,7 +119,7 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -162,7 +162,7 @@ export function WorkspaceMeetWidget({ enabled, isConnected }: Props) {
                   Ready
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2 rounded-md bg-surface-container/80 px-2.5 py-1.5 border border-border/40">
+              <div className="flex items-center justify-between gap-2 rounded-md bg-surface-container/80 px-2.5 py-1.5 border border-primary/20">
                 <span className="truncate font-mono text-[11px] text-primary">
                   {meet.hangoutLink.replace("https://", "")}
                 </span>

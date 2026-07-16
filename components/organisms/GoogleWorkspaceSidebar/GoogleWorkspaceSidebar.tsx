@@ -104,7 +104,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
             </div>
           ) : !authRecord?.isConnected ? (
             /* Disconnected / 1-Click Connect Card */
-            <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center shadow-inner">
+            <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center shadow-inner">
               <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
                 <SiGoogle className="size-7" />
               </div>
@@ -160,13 +160,13 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
               </div>
 
               {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
-              <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-border/40 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-primary/25 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                   type="button"
                   onClick={() => setActiveTab("calendar")}
                   className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
                     activeTab === "calendar"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      ? "bg-surface text-primary shadow-xs border border-primary/25"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
                   }`}
                 >
@@ -185,7 +185,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                   onClick={() => setActiveTab("meet")}
                   className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
                     activeTab === "meet"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      ? "bg-surface text-primary shadow-xs border border-primary/25"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
                   }`}
                 >
@@ -204,7 +204,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                   onClick={() => setActiveTab("email")}
                   className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
                     activeTab === "email"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      ? "bg-surface text-primary shadow-xs border border-primary/25"
                       : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
                   }`}
                 >
@@ -229,7 +229,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         isConnected={authRecord.isConnected}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
                         <HiOutlineCalendar className="size-8 text-on-surface-variant/60" />
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Google Calendar Disabled</h4>
@@ -258,7 +258,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         isConnected={authRecord.isConnected}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
                         <HiOutlineVideoCamera className="size-8 text-on-surface-variant/60" />
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Google Meet Disabled</h4>
@@ -287,7 +287,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         isConnected={authRecord.isConnected}
                       />
                     ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
                         <HiOutlineEnvelope className="size-8 text-on-surface-variant/60" />
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Gmail API Disabled</h4>
