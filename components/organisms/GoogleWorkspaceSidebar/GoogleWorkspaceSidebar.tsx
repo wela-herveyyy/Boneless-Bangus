@@ -2,6 +2,7 @@
 
 import React from "react";
 import { SiGoogle } from "react-icons/si";
+import { LuSettings } from "react-icons/lu";
 import {
   HiOutlineArrowPath,
   HiOutlineExclamationCircle,
@@ -130,52 +131,29 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                   variant="secondary"
                   className="flex w-full items-center justify-center gap-2 text-xs"
                 >
-                  <span>Open API Integrations Settings ⚙️</span>
+                  <LuSettings className="size-3.5 shrink-0" />
+                  <span>Open API Integrations Settings</span>
                 </Button>
               </div>
             </div>
           ) : (
             /* Connected Account View */
             <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-surface-container/80 p-3.5 shadow-sm">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-                    <SiGoogle className="size-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold text-on-surface">
-                      {authRecord.email}
-                    </div>
-                    <div className="text-[10px] text-primary">Connected Account</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
-                  className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-md bg-primary/10 hover:bg-primary/15"
-                  title="Configure in API Integrations Settings"
-                >
-                  Configure ⚙️
-                </button>
-              </div>
-
               {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
               <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-primary/25 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                   type="button"
                   onClick={() => setActiveTab("calendar")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
-                    activeTab === "calendar"
-                      ? "bg-surface text-primary shadow-xs border-primary/25"
-                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
-                  }`}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "calendar"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
                 >
                   <HiOutlineCalendar className="size-4 shrink-0" />
                   <span>Calendar</span>
                   <span
-                    className={`size-2 rounded-full shrink-0 transition-colors ${
-                      authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
+                    className={`size-2 rounded-full shrink-0 transition-colors ${authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
                     title={authRecord.calendarEnabled ? "Calendar Enabled" : "Calendar Disabled"}
                   />
                 </button>
@@ -183,18 +161,16 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 <button
                   type="button"
                   onClick={() => setActiveTab("meet")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
-                    activeTab === "meet"
-                      ? "bg-surface text-primary shadow-xs border-primary/25"
-                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
-                  }`}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "meet"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
                 >
                   <HiOutlineVideoCamera className="size-4 shrink-0" />
                   <span>Meet</span>
                   <span
-                    className={`size-2 rounded-full shrink-0 transition-colors ${
-                      authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
+                    className={`size-2 rounded-full shrink-0 transition-colors ${authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
                     title={authRecord.meetEnabled ? "Meet Enabled" : "Meet Disabled"}
                   />
                 </button>
@@ -202,18 +178,16 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 <button
                   type="button"
                   onClick={() => setActiveTab("email")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
-                    activeTab === "email"
-                      ? "bg-surface text-primary shadow-xs border-primary/25"
-                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
-                  }`}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "email"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
                 >
                   <HiOutlineEnvelope className="size-4 shrink-0" />
                   <span>Gmail</span>
                   <span
-                    className={`size-2 rounded-full shrink-0 ${
-                      authRecord.emailEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
+                    className={`size-2 rounded-full shrink-0 ${authRecord.emailEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
                     title={authRecord.emailEnabled ? "Gmail Enabled" : "Gmail Disabled"}
                   />
                 </button>
@@ -241,9 +215,10 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                           type="button"
                           variant="secondary"
                           onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
-                          className="text-xs mt-1"
+                          className="flex items-center gap-1.5 text-xs mt-1"
                         >
-                          Configure in Settings ⚙️
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
                         </Button>
                       </div>
                     )}
@@ -270,9 +245,10 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                           type="button"
                           variant="secondary"
                           onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
-                          className="text-xs mt-1"
+                          className="flex items-center gap-1.5 text-xs mt-1"
                         >
-                          Configure in Settings ⚙️
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
                         </Button>
                       </div>
                     )}
@@ -299,14 +275,39 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                           type="button"
                           variant="secondary"
                           onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
-                          className="text-xs mt-1"
+                          className="flex items-center gap-1.5 text-xs mt-1"
                         >
-                          Configure in Settings ⚙️
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
                         </Button>
                       </div>
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* Connected Account Card moved to the bottom */}
+              <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-surface-container/80 p-3.5 shadow-sm mt-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <SiGoogle className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-semibold text-on-surface">
+                      {authRecord.email}
+                    </div>
+                    <div className="text-[10px] text-primary">Connected Account</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/15 shrink-0"
+                  title="Configure in API Integrations Settings"
+                >
+                  <LuSettings className="size-3.5 shrink-0" />
+                  <span>Configure</span>
+                </button>
               </div>
             </div>
           )}
