@@ -2,7 +2,14 @@
 
 import React from "react";
 import { SiGoogle } from "react-icons/si";
-import { HiOutlineArrowPath, HiOutlineExclamationCircle, HiOutlineCheckCircle } from "react-icons/hi2";
+import {
+  HiOutlineArrowPath,
+  HiOutlineExclamationCircle,
+  HiOutlineCheckCircle,
+  HiOutlineCalendar,
+  HiOutlineVideoCamera,
+  HiOutlineEnvelope,
+} from "react-icons/hi2";
 import { Button } from "@/components/atoms/Button/Button";
 import {
   useRightSidebar,
@@ -12,7 +19,7 @@ import {
   RightSidebarHeader,
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
-import { useGoogleWorkspaceSidebar } from "./googleWorkspaceSidebar.hooks";
+import { useGoogleWorkspaceSidebar, type GoogleWorkspaceTab } from "./googleWorkspaceSidebar.hooks";
 import { WorkspaceCapabilityCard } from "@/components/molecules/WorkspaceCapabilityCard/WorkspaceCapabilityCard";
 import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalendarWidget/WorkspaceCalendarWidget";
 import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
@@ -21,6 +28,8 @@ import { WorkspaceMeetWidget } from "@/components/organisms/WorkspaceMeetWidget/
 export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useRightSidebar("google_workspace", { bodyClass: "bbai-google-workspace-sidebar-open" });
   const {
+    activeTab,
+    setActiveTab,
     authRecord,
     loading,
     error,
@@ -103,7 +112,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
               <div className="space-y-1.5">
                 <h3 className="font-semibold text-sm text-on-surface">Connect Google Workspace</h3>
                 <p className="text-xs leading-relaxed text-on-surface-variant">
-                  Authenticate securely via 1-Click OAuth (`Calendar` and `Gmail`) to grant your AI agent offline capabilities.
+                  Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
                 </p>
               </div>
               <Button
@@ -118,7 +127,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
             </div>
           ) : (
             /* Connected Account View */
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-surface-container/80 p-3.5 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -142,21 +151,74 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 </Button>
               </div>
 
-              {/* Capabilities List */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-0.5">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                    Enabled Capabilities
-                  </h3>
-                  <span className="text-[10px] text-on-surface-variant/70">Toggle AI access per API</span>
-                </div>
+              {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
+              <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-border/40 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("calendar")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                    activeTab === "calendar"
+                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                  }`}
+                >
+                  <HiOutlineCalendar className="size-4 shrink-0" />
+                  <span>Calendar</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 ${
+                      authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                    }`}
+                    title={authRecord.calendarEnabled ? "Calendar Enabled" : "Calendar Disabled"}
+                  />
+                </button>
 
-                <div className="flex flex-col gap-4">
-                  <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("meet")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                    activeTab === "meet"
+                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                  }`}
+                >
+                  <HiOutlineVideoCamera className="size-4 shrink-0" />
+                  <span>Meet</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 ${
+                      authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                    }`}
+                    title={authRecord.meetEnabled ? "Meet Enabled" : "Meet Disabled"}
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("email")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                    activeTab === "email"
+                      ? "bg-surface text-primary shadow-xs border border-border/50"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                  }`}
+                >
+                  <HiOutlineEnvelope className="size-4 shrink-0" />
+                  <span>Gmail</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 ${
+                      authRecord.emailEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                    }`}
+                    title={authRecord.emailEnabled ? "Gmail Enabled" : "Gmail Disabled"}
+                  />
+                </button>
+              </div>
+
+              {/* Active Tab Content */}
+              <div className="flex flex-col gap-3">
+                {activeTab === "calendar" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
                     <WorkspaceCapabilityCard
                       capability="calendar"
                       title="Google Calendar"
-                      description="Allow AI agents to create, schedule, and organize meetings or reminders directly in your primary Google Calendar."
+                      description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget."
                       enabled={authRecord.calendarEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "calendar"}
@@ -167,12 +229,14 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                       isConnected={authRecord.isConnected}
                     />
                   </div>
+                )}
 
-                  <div className="space-y-1 pt-2 border-t border-border/30">
+                {activeTab === "meet" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
                     <WorkspaceCapabilityCard
                       capability="meet"
                       title="Google Meet"
-                      description="Allow AI agents to instantly provision video conference links and schedule meetings right in Google Meet."
+                      description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget."
                       enabled={authRecord.meetEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "meet"}
@@ -183,12 +247,14 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                       isConnected={authRecord.isConnected}
                     />
                   </div>
+                )}
 
-                  <div className="space-y-1 pt-2 border-t border-border/30">
+                {activeTab === "email" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
                     <WorkspaceCapabilityCard
                       capability="email"
                       title="Gmail API"
-                      description="Allow AI agents to draft and send emails securely via Gmail on your behalf to contacts or project stakeholders."
+                      description="Enable direct OAuth API integration to view recent messages from your inbox and compose emails directly via Gmail API."
                       enabled={authRecord.emailEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "email"}
@@ -199,7 +265,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                       isConnected={authRecord.isConnected}
                     />
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

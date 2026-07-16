@@ -51,9 +51,13 @@ export const formatSelectedDateHeader = (dateStr: string | null): string => {
   }
 };
 
+// Module-level in-memory cache for calendar events
+let cachedCalendarEvents: CalendarEventSummary[] | null = null;
+let lastCalendarFetchTime = 0;
+
 export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolean) {
-  const [events, setEvents] = useState<CalendarEventSummary[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<CalendarEventSummary[]>(() => cachedCalendarEvents || []);
+  const [loading, setLoading] = useState<boolean>(() => cachedCalendarEvents === null);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -75,13 +79,25 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
   const [endTime, setEndTime] = useState("10:00");
   const [addGoogleMeet, setAddGoogleMeet] = useState(true);
 
-  const loadEvents = useCallback(async () => {
+  const loadEvents = useCallback(async (force = false) => {
     if (!isConnected || !enabled) return;
-    setLoading(true);
+    const now = Date.now();
+    // If cached and less than 5m old without forced reload, return instantly
+    if (cachedCalendarEvents !== null && !force && now - lastCalendarFetchTime < 300000) {
+      setEvents(cachedCalendarEvents);
+      setLoading(false);
+      return;
+    }
+
+    if (cachedCalendarEvents === null || force) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await getRecentCalendarEventsAction();
       if (res.ok) {
+        cachedCalendarEvents = res.data;
+        lastCalendarFetchTime = Date.now();
         setEvents(res.data);
       } else {
         setError(res.error);
@@ -94,7 +110,7 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
   }, [isConnected, enabled]);
 
   useEffect(() => {
-    loadEvents();
+    loadEvents(false);
   }, [loadEvents]);
 
   // Generate calendar days for currentMonth grid using accurate local timezone date strings
@@ -200,7 +216,7 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
       if (res.ok) {
         setSummary("");
         setShowAddForm(false);
-        await loadEvents();
+        await loadEvents(true);
       } else {
         setError(res.error);
       }

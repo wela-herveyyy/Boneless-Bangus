@@ -47,7 +47,7 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={loadEmails}
+            onClick={() => loadEmails(true)}
             disabled={loading}
             className="p-1 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50"
             title="Refresh inbox"

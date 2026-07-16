@@ -128,7 +128,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
         <div className="flex items-center gap-1.5 shrink-0 min-w-0">
           <button
             type="button"
-            onClick={loadEvents}
+            onClick={() => loadEvents(true)}
             disabled={loading}
             className="p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-50 shrink-0"
             title="Refresh events"

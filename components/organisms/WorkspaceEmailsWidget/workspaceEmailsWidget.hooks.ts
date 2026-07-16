@@ -7,9 +7,13 @@ import {
 } from "@/lib/domain/actions/google_workspace_auth.actions";
 import type { EmailMessageSummary } from "@/lib/entities/google_workspace_auth.type";
 
+// Module-level in-memory cache for emails
+let cachedEmails: EmailMessageSummary[] | null = null;
+let lastEmailsFetchTime = 0;
+
 export function useWorkspaceEmailsWidget(enabled: boolean, isConnected: boolean) {
-  const [emails, setEmails] = useState<EmailMessageSummary[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [emails, setEmails] = useState<EmailMessageSummary[]>(() => cachedEmails || []);
+  const [loading, setLoading] = useState<boolean>(() => cachedEmails === null);
   const [error, setError] = useState<string | null>(null);
   const [showComposeForm, setShowComposeForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -20,13 +24,25 @@ export function useWorkspaceEmailsWidget(enabled: boolean, isConnected: boolean)
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
-  const loadEmails = useCallback(async () => {
+  const loadEmails = useCallback(async (force = false) => {
     if (!isConnected || !enabled) return;
-    setLoading(true);
+    const now = Date.now();
+    // If cached and less than 5m old without forced reload, return instantly
+    if (cachedEmails !== null && !force && now - lastEmailsFetchTime < 300000) {
+      setEmails(cachedEmails);
+      setLoading(false);
+      return;
+    }
+
+    if (cachedEmails === null || force) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await getRecentEmailsAction();
       if (res.ok) {
+        cachedEmails = res.data;
+        lastEmailsFetchTime = Date.now();
         setEmails(res.data);
       } else {
         setError(res.error);
@@ -39,7 +55,7 @@ export function useWorkspaceEmailsWidget(enabled: boolean, isConnected: boolean)
   }, [isConnected, enabled]);
 
   useEffect(() => {
-    loadEmails();
+    loadEmails(false);
   }, [loadEmails]);
 
   const handleSendEmail = async (e: React.FormEvent) => {
@@ -62,7 +78,7 @@ export function useWorkspaceEmailsWidget(enabled: boolean, isConnected: boolean)
         setSubject("");
         setBody("");
         setShowComposeForm(false);
-        await loadEmails();
+        await loadEmails(true);
         setTimeout(() => setSuccessMsg(null), 4000);
       } else {
         setError(res.error);
