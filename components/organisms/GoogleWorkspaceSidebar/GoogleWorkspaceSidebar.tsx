@@ -2,6 +2,7 @@
 
 import React from "react";
 import { SiGoogle } from "react-icons/si";
+import { LuSettings } from "react-icons/lu";
 import {
   HiOutlineArrowPath,
   HiOutlineExclamationCircle,
@@ -20,7 +21,6 @@ import {
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useGoogleWorkspaceSidebar, type GoogleWorkspaceTab } from "./googleWorkspaceSidebar.hooks";
-import { WorkspaceCapabilityCard } from "@/components/molecules/WorkspaceCapabilityCard/WorkspaceCapabilityCard";
 import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalendarWidget/WorkspaceCalendarWidget";
 import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
 import { WorkspaceMeetWidget } from "@/components/organisms/WorkspaceMeetWidget/WorkspaceMeetWidget";
@@ -105,7 +105,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
             </div>
           ) : !authRecord?.isConnected ? (
             /* Disconnected / 1-Click Connect Card */
-            <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-border/60 bg-surface-container-low/40 p-6 text-center shadow-inner">
+            <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center shadow-inner">
               <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
                 <SiGoogle className="size-7" />
               </div>
@@ -115,20 +115,179 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                   Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
                 </p>
               </div>
-              <Button
-                type="button"
-                onClick={handleConnect}
-                variant="primary"
-                className="flex w-full items-center justify-center gap-2.5 shadow-sm"
-              >
-                <SiGoogle className="size-4" />
-                <span>Connect Google Account</span>
-              </Button>
+              <div className="flex flex-col w-full gap-2">
+                <Button
+                  type="button"
+                  onClick={handleConnect}
+                  variant="primary"
+                  className="flex w-full items-center justify-center gap-2.5 shadow-sm"
+                >
+                  <SiGoogle className="size-4" />
+                  <span>Connect Google Account</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                  variant="secondary"
+                  className="flex w-full items-center justify-center gap-2 text-xs"
+                >
+                  <LuSettings className="size-3.5 shrink-0" />
+                  <span>Open API Integrations Settings</span>
+                </Button>
+              </div>
             </div>
           ) : (
             /* Connected Account View */
             <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-surface-container/80 p-3.5 shadow-sm">
+              {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
+              <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-primary/25 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("calendar")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "calendar"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
+                >
+                  <HiOutlineCalendar className="size-4 shrink-0" />
+                  <span>Calendar</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 transition-colors ${authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
+                    title={authRecord.calendarEnabled ? "Calendar Enabled" : "Calendar Disabled"}
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("meet")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "meet"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
+                >
+                  <HiOutlineVideoCamera className="size-4 shrink-0" />
+                  <span>Meet</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 transition-colors ${authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
+                    title={authRecord.meetEnabled ? "Meet Enabled" : "Meet Disabled"}
+                  />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("email")}
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${activeTab === "email"
+                    ? "bg-surface text-primary shadow-xs border-primary/25"
+                    : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
+                    }`}
+                >
+                  <HiOutlineEnvelope className="size-4 shrink-0" />
+                  <span>Gmail</span>
+                  <span
+                    className={`size-2 rounded-full shrink-0 ${authRecord.emailEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
+                      }`}
+                    title={authRecord.emailEnabled ? "Gmail Enabled" : "Gmail Disabled"}
+                  />
+                </button>
+              </div>
+
+              {/* Active Tab Content */}
+              <div className="flex flex-col gap-3">
+                {activeTab === "calendar" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
+                    {authRecord.calendarEnabled ? (
+                      <WorkspaceCalendarWidget
+                        enabled={authRecord.calendarEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineCalendar className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Google Calendar Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Google Calendar anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="flex items-center gap-1.5 text-xs mt-1"
+                        >
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "meet" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
+                    {authRecord.meetEnabled ? (
+                      <WorkspaceMeetWidget
+                        enabled={authRecord.meetEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineVideoCamera className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Google Meet Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Google Meet anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="flex items-center gap-1.5 text-xs mt-1"
+                        >
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "email" && (
+                  <div className="space-y-1 animate-in fade-in duration-200">
+                    {authRecord.emailEnabled ? (
+                      <WorkspaceEmailsWidget
+                        enabled={authRecord.emailEnabled}
+                        isConnected={authRecord.isConnected}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center">
+                        <HiOutlineEnvelope className="size-8 text-on-surface-variant/60" />
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-on-surface">Gmail API Disabled</h4>
+                          <p className="text-xs leading-relaxed text-on-surface-variant">
+                            Enable direct OAuth API integration for Gmail anytime in your API Integrations settings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                          className="flex items-center gap-1.5 text-xs mt-1"
+                        >
+                          <LuSettings className="size-3.5 shrink-0" />
+                          <span>Configure in Settings</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Connected Account Card moved to the bottom */}
+              <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-surface-container/80 p-3.5 shadow-sm mt-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                     <SiGoogle className="size-4" />
@@ -140,132 +299,15 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                     <div className="text-[10px] text-primary">Connected Account</div>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={isDisconnecting}
-                  onClick={handleDisconnect}
-                  className="text-xs shrink-0 px-3 py-1.5"
-                >
-                  {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-                </Button>
-              </div>
-
-              {/* Segmented Tab Bar for Capabilities (Horizontally Scrollable for future expansion) */}
-              <div className="flex items-center gap-1.5 rounded-xl bg-surface-container-low p-1.5 border border-border/40 shadow-xs overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("calendar")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
-                    activeTab === "calendar"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
-                  }`}
+                  onClick={() => window.dispatchEvent(new CustomEvent("bbai:open-settings-integrations"))}
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/15 shrink-0"
+                  title="Configure in API Integrations Settings"
                 >
-                  <HiOutlineCalendar className="size-4 shrink-0" />
-                  <span>Calendar</span>
-                  <span
-                    className={`size-2 rounded-full shrink-0 ${
-                      authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
-                    title={authRecord.calendarEnabled ? "Calendar Enabled" : "Calendar Disabled"}
-                  />
+                  <LuSettings className="size-3.5 shrink-0" />
+                  <span>Configure</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("meet")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
-                    activeTab === "meet"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
-                  }`}
-                >
-                  <HiOutlineVideoCamera className="size-4 shrink-0" />
-                  <span>Meet</span>
-                  <span
-                    className={`size-2 rounded-full shrink-0 ${
-                      authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
-                    title={authRecord.meetEnabled ? "Meet Enabled" : "Meet Disabled"}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("email")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
-                    activeTab === "email"
-                      ? "bg-surface text-primary shadow-xs border border-border/50"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
-                  }`}
-                >
-                  <HiOutlineEnvelope className="size-4 shrink-0" />
-                  <span>Gmail</span>
-                  <span
-                    className={`size-2 rounded-full shrink-0 ${
-                      authRecord.emailEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
-                    }`}
-                    title={authRecord.emailEnabled ? "Gmail Enabled" : "Gmail Disabled"}
-                  />
-                </button>
-              </div>
-
-              {/* Active Tab Content */}
-              <div className="flex flex-col gap-3">
-                {activeTab === "calendar" && (
-                  <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="calendar"
-                      title="Google Calendar"
-                      description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget."
-                      enabled={authRecord.calendarEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "calendar"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceCalendarWidget
-                      enabled={authRecord.calendarEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
-                  </div>
-                )}
-
-                {activeTab === "meet" && (
-                  <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="meet"
-                      title="Google Meet"
-                      description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget."
-                      enabled={authRecord.meetEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "meet"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceMeetWidget
-                      enabled={authRecord.meetEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
-                  </div>
-                )}
-
-                {activeTab === "email" && (
-                  <div className="space-y-1 animate-in fade-in duration-200">
-                    <WorkspaceCapabilityCard
-                      capability="email"
-                      title="Gmail API"
-                      description="Enable direct OAuth API integration to view recent messages from your inbox and compose emails directly via Gmail API."
-                      enabled={authRecord.emailEnabled}
-                      isConnected={authRecord.isConnected}
-                      isToggling={togglingCapability === "email"}
-                      onToggle={handleToggleCapability}
-                    />
-                    <WorkspaceEmailsWidget
-                      enabled={authRecord.emailEnabled}
-                      isConnected={authRecord.isConnected}
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}

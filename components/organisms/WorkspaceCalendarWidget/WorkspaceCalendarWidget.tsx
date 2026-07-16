@@ -61,9 +61,9 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-border/60 bg-surface-container-low/50 p-4 shadow-sm transition-all space-y-3">
+    <div className="mt-3 rounded-xl border border-primary/25 bg-surface-container-low/50 p-4 shadow-sm transition-all space-y-3">
       {/* Top Header - Row 1: Month Title & Navigation */}
-      <div className="flex items-center justify-between pb-2 border-b border-border/40 gap-2">
+      <div className="flex items-center justify-between pb-2 border-b border-primary/15 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <HiOutlineCalendar className="size-4 text-primary shrink-0" />
           <span className="text-xs font-bold text-on-surface truncate">{monthYearLabel}</span>
@@ -72,7 +72,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
           <button
             type="button"
             onClick={goToToday}
-            className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-surface-container hover:bg-surface border border-border/50 text-on-surface transition-colors"
+            className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-surface-container hover:bg-surface border border-primary/20 text-on-surface transition-colors"
           >
             Today
           </button>
@@ -98,7 +98,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
       {/* Top Header - Row 2: View Controls & Quick Actions */}
       <div className="flex items-center justify-between pt-0.5 pb-1 gap-2">
         {/* Grid / Agenda Switcher */}
-        <div className="flex items-center rounded-lg bg-surface-container/80 p-0.5 border border-border/40 shrink-0">
+        <div className="flex items-center rounded-lg bg-surface-container/80 p-0.5 border border-primary/20 shrink-0">
           <button
             type="button"
             onClick={() => setViewMode("grid")}
@@ -158,7 +158,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
       )}
 
       {showAddForm && (
-        <form onSubmit={handleCreateEvent} className="p-3 rounded-lg bg-surface-container/60 border border-border/60 space-y-3 animate-fade-in">
+        <form onSubmit={handleCreateEvent} className="p-3 rounded-lg bg-surface-container/60 border border-primary/25 space-y-3 animate-fade-in">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-primary">New Calendar Event</span>
             <button
@@ -186,7 +186,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
             <div className="col-span-1">
@@ -196,7 +196,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
             <div className="col-span-1">
@@ -206,7 +206,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 required
-                className="w-full rounded-lg border border-border bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
+                className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest px-2 py-1.5 text-xs text-on-surface focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -320,7 +320,7 @@ export function WorkspaceCalendarWidget({ enabled, isConnected }: Props) {
             filteredEvents.map((evt) => (
               <div
                 key={evt.id}
-                className="group flex items-center justify-between rounded-lg bg-surface-container/40 p-2.5 hover:bg-surface-container/80 transition-colors border border-transparent hover:border-border/60"
+                className="group flex items-center justify-between rounded-lg bg-surface-container/40 p-2.5 hover:bg-surface-container/80 transition-colors border border-transparent hover:border-primary/25"
               >
                 <div className="min-w-0 flex-1 pr-2">
                   <div className="truncate text-xs font-medium text-on-surface group-hover:text-primary transition-colors">

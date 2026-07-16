@@ -38,8 +38,8 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-border/60 bg-surface-container-low/50 p-4 shadow-sm transition-all">
-      <div className="flex items-center justify-between pb-3 border-b border-border/40">
+    <div className="mt-3 rounded-xl border border-primary/25 bg-surface-container-low/50 p-4 shadow-sm transition-all">
+      <div className="flex items-center justify-between pb-3 border-b border-primary/15">
         <div className="flex items-center gap-2">
           <HiOutlineEnvelope className="size-4 text-primary" />
           <span className="text-xs font-semibold text-on-surface">Recent Emails</span>
@@ -89,7 +89,7 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
       )}
 
       {showComposeForm && (
-        <form onSubmit={handleSendEmail} className="mt-3 p-3 rounded-lg bg-surface-container/60 border border-border/60 space-y-3 animate-fade-in">
+        <form onSubmit={handleSendEmail} className="mt-3 p-3 rounded-lg bg-surface-container/60 border border-primary/25 space-y-3 animate-fade-in">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-primary">Quick Compose</span>
             <button
@@ -127,7 +127,7 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
               onChange={(e) => setBody(e.target.value)}
               required
               placeholder="Hi there, checking in on..."
-              className="w-full rounded-lg border border-border bg-surface-container-lowest p-2.5 text-xs text-on-surface focus:border-primary focus:outline-none custom-scrollbar"
+              className="w-full rounded-lg border border-primary/20 bg-surface-container-lowest p-2.5 text-xs text-on-surface focus:border-primary focus:outline-none custom-scrollbar"
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
@@ -163,7 +163,7 @@ export function WorkspaceEmailsWidget({ enabled, isConnected }: Props) {
           emails.map((msg) => (
             <div
               key={msg.id}
-              className="group flex flex-col rounded-lg bg-surface-container/40 p-2.5 hover:bg-surface-container/80 transition-colors border border-transparent hover:border-border/60"
+              className="group flex flex-col rounded-lg bg-surface-container/40 p-2.5 hover:bg-surface-container/80 transition-colors border border-transparent hover:border-primary/25"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">

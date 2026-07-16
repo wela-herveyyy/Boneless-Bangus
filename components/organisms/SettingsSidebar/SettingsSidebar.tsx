@@ -11,6 +11,7 @@ import {
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { SkillsTab } from "./SkillsTab";
 import { McpTab } from "./McpTab";
+import { IntegrationsTab } from "./IntegrationsTab";
 
 export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useSettingsSidebar();
@@ -37,11 +38,11 @@ export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
         />
 
         {/* Tabs */}
-        <div className="flex space-x-1 border-b border-primary/10 px-5 pt-3">
+        <div className="flex space-x-1 border-b border-primary/10 px-5 pt-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <button
             onClick={() => setActiveTab("skills")}
             className={[
-              "px-4 py-2 font-medium text-sm transition-colors focus-visible:outline-none border-b-2",
+              "px-4 py-2 font-medium text-sm shrink-0 transition-colors focus-visible:outline-none border-b-2",
               activeTab === "skills"
                 ? "border-primary text-primary"
                 : "border-transparent text-on-surface-muted hover:text-on-surface hover:border-on-surface/30",
@@ -52,7 +53,7 @@ export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
           <button
             onClick={() => setActiveTab("mcp")}
             className={[
-              "px-4 py-2 font-medium text-sm transition-colors focus-visible:outline-none border-b-2",
+              "px-4 py-2 font-medium text-sm shrink-0 transition-colors focus-visible:outline-none border-b-2",
               activeTab === "mcp"
                 ? "border-primary text-primary"
                 : "border-transparent text-on-surface-muted hover:text-on-surface hover:border-on-surface/30",
@@ -60,11 +61,28 @@ export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
           >
             Configured MCPs
           </button>
+          <button
+            onClick={() => setActiveTab("integrations")}
+            className={[
+              "px-4 py-2 font-medium text-sm shrink-0 transition-colors focus-visible:outline-none border-b-2",
+              activeTab === "integrations"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-muted hover:text-on-surface hover:border-on-surface/30",
+            ].join(" ")}
+          >
+            API Integrations
+          </button>
         </div>
 
         {/* Content */}
         <RightSidebarContent>
-          {activeTab === "skills" ? <SkillsTab /> : <McpTab />}
+          {activeTab === "skills" ? (
+            <SkillsTab />
+          ) : activeTab === "mcp" ? (
+            <McpTab />
+          ) : (
+            <IntegrationsTab />
+          )}
         </RightSidebarContent>
       </RightSidebarPanel>
     </>
