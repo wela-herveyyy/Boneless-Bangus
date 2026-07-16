@@ -7,7 +7,7 @@ import {
   GOOGLE_AI_AGENTS,
   GOOGLE_AI_DEFAULT_MODEL,
 } from "@/lib/entities/google_ai.type";
-import { connectMcpServers, executeMcpTool, type McpRuntimeSession } from "@/lib/domain/services/mcp_runtime.service";
+import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession } from "@/lib/domain/services/mcp_runtime.service";
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ATTEMPTS = 2;
@@ -56,7 +56,9 @@ export async function* createInteractionStream(
 
   // Connect to requested MCP servers before beginning stream
   let mcpSession: McpRuntimeSession | undefined;
-  let optionsTools: Array<{ functionDeclarations: Array<{ type: "function"; name: string; description?: string; parameters?: unknown; parametersJsonSchema?: unknown }> }> | undefined;
+  // Interactions API tools are a flat Array<FunctionT> — NOT the GenerateContent
+  // { functionDeclarations } wrapper. FunctionT also uses `parameters`, not `parametersJsonSchema`.
+  let optionsTools: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> | undefined;
 
   if (input.mcpServers && Array.isArray(input.mcpServers) && input.mcpServers.length > 0) {
     const connResult = await connectMcpServers(input.mcpServers, input.userId || "anonymous");
@@ -67,13 +69,12 @@ export async function* createInteractionStream(
     }
 
     if (connResult.tools.length > 0) {
-      const functionDeclarations = connResult.tools.map((t) => ({
+      optionsTools = connResult.tools.map((t) => ({
         type: "function" as const,
         name: t.namespacedName,
         description: t.description,
-        parametersJsonSchema: t.inputSchema ?? { type: "object", properties: {} },
+        parameters: sanitizeJsonSchema(t.inputSchema),
       }));
-      optionsTools = [{ functionDeclarations }];
     }
   }
 
@@ -96,7 +97,7 @@ export async function* createInteractionStream(
           ? await ai.interactions.create(
               {
                 agent: modelOrAgent,
-                input: currentInput as string,
+                input: currentInput as any,
                 environment: "remote",
                 stream: true,
                 agent_config: { type: "dynamic", thinking_summaries: "auto" } as any,
@@ -108,7 +109,7 @@ export async function* createInteractionStream(
             )
           : await ai.interactions.create({
               model: modelOrAgent,
-              input: currentInput as string,
+              input: currentInput as any,
               stream: true,
               ...(input.systemInstruction ? { system_instruction: input.systemInstruction } : {}),
               ...(optionsTools ? { tools: optionsTools as any } : {}),
@@ -134,7 +135,11 @@ export async function* createInteractionStream(
             requiresAction = true;
           }
 
-          // Extract function call steps from status updates or lifecycle events
+          // Extract function call steps from status updates or lifecycle events.
+          // IMPORTANT: only capture calls whose names are registered in our MCP toolLookup.
+          // Antigravity emits function_call steps for its own internal tools (bash, web search,
+          // etc.) that are managed server-side. Intercepting and submitting results for those
+          // call IDs causes the API to return 400 "invalid argument".
           const steps = (evtAny.interaction?.steps || []) as Array<{
             type?: string;
             id?: string;
@@ -142,7 +147,12 @@ export async function* createInteractionStream(
             arguments?: Record<string, unknown>;
           }>;
           for (const s of steps) {
-            if (s.type === "function_call" && s.id && s.name) {
+            if (
+              s.type === "function_call" &&
+              s.id &&
+              s.name &&
+              mcpSession?.toolLookup.has(s.name)
+            ) {
               pendingToolCalls.set(s.id, {
                 id: s.id,
                 name: s.name,
@@ -162,7 +172,13 @@ export async function* createInteractionStream(
             case "step.start":
             case "step.stop": {
               const s = evtAny.step;
-              if (s && s.type === "function_call" && s.id && s.name) {
+              if (
+                s &&
+                s.type === "function_call" &&
+                s.id &&
+                s.name &&
+                mcpSession?.toolLookup.has(s.name)
+              ) {
                 pendingToolCalls.set(s.id, {
                   id: s.id,
                   name: s.name,
@@ -185,7 +201,12 @@ export async function* createInteractionStream(
                 yield { type: "thinking", text: thought };
                 break;
               }
-              if (delta.type === "function_call" && delta.id && delta.name) {
+              if (
+                delta.type === "function_call" &&
+                delta.id &&
+                delta.name &&
+                mcpSession?.toolLookup.has(delta.name)
+              ) {
                 pendingToolCalls.set(delta.id, {
                   id: delta.id,
                   name: delta.name,
@@ -228,8 +249,10 @@ export async function* createInteractionStream(
 
         if (retriable) break;
 
-        // Check if tools were called or action required
-        if (pendingToolCalls.size > 0 || requiresAction) {
+        // Only proceed with tool-result round-trip when the model actually emitted calls.
+        // Checking requiresAction alone is insufficient — it can be set without any captured
+        // function_call steps, which would submit empty input and loop up to MAX_TOOL_TURNS.
+        if (pendingToolCalls.size > 0) {
           if (!currentInteractionId) {
             yield { type: "error", error: "Tool call requested without interaction id." };
             return;

@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
+import type { jsonSchemaValidator, JsonSchemaValidator } from "@modelcontextprotocol/sdk/validation";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
   McpServersPayloadSchema,
@@ -39,6 +41,87 @@ export type ExecuteToolResult = {
   ok: boolean;
   content: string;
 };
+
+/**
+ * Sanitizes and dereferences JSON schemas from third-party MCP servers (like Stitch).
+ * Resolves local $ref pointers against $defs/definitions, and replaces missing or dangling
+ * references with clean object definitions. Also strips $schema, $id, $defs, and definitions
+ * so Google AI API does not reject tool parameter declarations with "400 Request contains an invalid argument."
+ */
+export function sanitizeJsonSchema(schema?: Record<string, unknown> | null): Record<string, unknown> {
+  if (!schema || typeof schema !== "object") {
+    return { type: "object", properties: {} };
+  }
+
+  const defs = ((schema.$defs || (schema as any).definitions || {}) as Record<string, any>);
+
+  function cleanNode(node: any, visited = new Set<string>()): any {
+    if (!node || typeof node !== "object") return node;
+    if (Array.isArray(node)) return node.map((item) => cleanNode(item, visited));
+
+    if (typeof node.$ref === "string") {
+      const ref = node.$ref as string;
+      const refName = ref.replace(/^#\/(\$defs|definitions)\//, "");
+      if (visited.has(refName)) {
+        return { type: "object", description: `Circular reference to ${refName}` };
+      }
+      if (defs && typeof defs[refName] === "object" && defs[refName]) {
+        visited.add(refName);
+        const resolved = cleanNode(defs[refName], new Set(visited));
+        visited.delete(refName);
+        const { $ref, ...rest } = node;
+        return { ...resolved, ...cleanNode(rest, visited) };
+      } else {
+        const { $ref, ...rest } = node;
+        return {
+          type: "object",
+          description: `Reference to ${refName}`,
+          ...cleanNode(rest, visited),
+        };
+      }
+    }
+
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "$schema" || key === "$id" || key === "$defs" || key === "definitions") {
+        continue;
+      }
+      cleaned[key] = cleanNode(value, visited);
+    }
+    return cleaned;
+  }
+
+  const root = cleanNode(schema);
+  if (!root || typeof root !== "object") return { type: "object", properties: {} };
+  if (!root.type && root.properties) root.type = "object";
+  if (!root.properties && root.type === "object") root.properties = {};
+  return root;
+}
+
+/**
+ * Resilient JSON Schema validator provider that wraps AJV.
+ * Some third-party MCP servers (e.g. Stitch) return tool output schemas containing
+ * incomplete or dangling $ref targets (like #/$defs/ScreenInstance). Standard AJV
+ * compilation throws synchronously during listTools() outputSchema caching, causing
+ * tool discovery to fail completely. This catches such errors and returns a pass-through
+ * validator so tool discovery succeeds cleanly.
+ */
+class ResilientJsonSchemaValidator implements jsonSchemaValidator {
+  private inner = new AjvJsonSchemaValidator();
+  getValidator<T>(schema: any): JsonSchemaValidator<T> {
+    try {
+      const sanitized = sanitizeJsonSchema(schema);
+      return this.inner.getValidator(sanitized);
+    } catch (err) {
+      console.warn("[ResilientJsonSchemaValidator] Bypassing malformed outputSchema validator:", err);
+      return (input: unknown) => ({
+        valid: true,
+        data: input as T,
+        errorMessage: undefined,
+      });
+    }
+  }
+}
 
 /**
  * Connects to or retrieves pooled client sessions for all requested MCP servers.
@@ -108,7 +191,7 @@ export async function connectMcpServers(
 
         const client = new Client(
           { name: `bbai-client-${slug}`, version: "1.0.0" },
-          { capabilities: {} }
+          { capabilities: {}, jsonSchemaValidator: new ResilientJsonSchemaValidator() }
         );
 
         // Strict 10-second discovery timeout: on timeout immediately close client & transport
@@ -138,7 +221,7 @@ export async function connectMcpServers(
           const discoveredTools: DiscoveredTool[] = (listRes?.tools || []).map((t) => ({
             name: t.name,
             description: t.description,
-            inputSchema: t.inputSchema as Record<string, unknown> | undefined,
+            inputSchema: sanitizeJsonSchema(t.inputSchema as Record<string, unknown> | undefined),
           }));
 
           poolEntry = {

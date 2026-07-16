@@ -243,7 +243,8 @@ export function useWorkspaceChat(
         if (sk) setSkills(parseSkills(sk.value));
       }
 
-      const serversFromIdb = idbConfig?.mcpServers as Record<string, CursorMcpServerConfig> | undefined;
+      // IDB configs may contain richer auth shapes (credentialRef) not in CursorMcpServerConfig
+      const serversFromIdb = idbConfig?.mcpServers as Record<string, unknown> | undefined;
 
       const erpSid = localStorage.getItem("bbai_erp_sid");
       const erpMcp = buildErpMcpConfig(erpSid);

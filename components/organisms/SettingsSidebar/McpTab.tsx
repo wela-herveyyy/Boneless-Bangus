@@ -10,6 +10,11 @@ import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
 import type { UserAiConfig, McpServerDetailed } from "@/lib/entities/mcp_server.type";
 import { JsonTab } from "./JsonTab";
 
+/** Returns true if a value is already an opaque UUID credential reference. */
+function isCredentialRef(val: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+}
+
 async function migrateServerSecrets(
   slug: string,
   rawConfig: Record<string, unknown>,
@@ -24,7 +29,7 @@ async function migrateServerSecrets(
       const lower = key.toLowerCase();
       if (lower === "authorization" && val.startsWith("Bearer ")) {
         const token = val.slice(7).trim();
-        if (token && !token.startsWith("cred_")) {
+        if (token && !isCredentialRef(token)) {
           const res = await fetch("/api/mcp/credentials", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -42,7 +47,7 @@ async function migrateServerSecrets(
         lower.includes("token") ||
         lower.includes("secret")
       ) {
-        if (!val.startsWith("cred_")) {
+        if (!isCredentialRef(val)) {
           const res = await fetch("/api/mcp/credentials", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -78,7 +83,7 @@ async function migrateServerSecrets(
         lower.includes("secret") ||
         lower === "authorization"
       ) {
-        if (!val.startsWith("cred_")) {
+        if (!isCredentialRef(val)) {
           const res = await fetch("/api/mcp/credentials", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -115,7 +120,7 @@ export function McpTab() {
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Structured form fields
-  const [transport, setTransport] = useState<"stdio" | "sse">("sse");
+  const [transport, setTransport] = useState<"stdio" | "sse" | "streamable-http">("sse");
   const [url, setUrl] = useState("");
   const [command, setCommand] = useState("npx");
   const [args, setArgs] = useState("");
@@ -176,7 +181,13 @@ export function McpTab() {
 
       // Populate structured fields
       const isStdio = existing.transport === "stdio" || existing.command !== undefined;
-      setTransport(isStdio ? "stdio" : "sse");
+      if (isStdio) {
+        setTransport("stdio");
+      } else if (existing.transport === "streamable-http") {
+        setTransport("streamable-http");
+      } else {
+        setTransport("sse");
+      }
       setUrl(typeof existing.url === "string" ? existing.url : "");
       setCommand(typeof existing.command === "string" ? existing.command : "npx");
       setArgs(Array.isArray(existing.args) ? existing.args.join(" ") : "");
@@ -266,7 +277,7 @@ export function McpTab() {
         };
       } else {
         configObj = {
-          transport: "sse",
+          transport: transport as "sse" | "streamable-http",
           url: url.trim(),
           ...(Object.keys(kvObject).length > 0 ? { headers: kvObject } : {}),
         };
@@ -385,7 +396,7 @@ export function McpTab() {
                   <>
                     <div className="flex flex-col gap-1.5">
                       <span className="text-sm font-medium text-on-surface">Transport Type</span>
-                      <div className="flex gap-4">
+                      <div className="flex flex-wrap gap-4">
                         <label className="flex items-center gap-2 text-sm cursor-pointer">
                           <input
                             type="radio"
@@ -394,7 +405,17 @@ export function McpTab() {
                             checked={transport === "sse"}
                             onChange={() => setTransport("sse")}
                           />
-                          <LuGlobe className="text-primary" /> Remote SSE / HTTP
+                          <LuGlobe className="text-primary" /> Remote SSE
+                        </label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            name="transport"
+                            value="streamable-http"
+                            checked={transport === "streamable-http"}
+                            onChange={() => setTransport("streamable-http")}
+                          />
+                          <LuGlobe className="text-primary" /> Streamable HTTP
                         </label>
                         <label className="flex items-center gap-2 text-sm cursor-pointer">
                           <input
@@ -409,7 +430,7 @@ export function McpTab() {
                       </div>
                     </div>
 
-                    {transport === "sse" ? (
+                    {transport !== "stdio" ? (
                       <label className="flex flex-col gap-1.5">
                         <span className="text-sm font-medium text-on-surface">Server URL</span>
                         <Input
@@ -548,7 +569,11 @@ export function McpTab() {
               unknown
             >;
             const isStdio = cfg.transport === "stdio" || cfg.command !== undefined;
-            const transportLabel = isStdio ? "Stdio (Local)" : "SSE / HTTP (Remote)";
+            const transportLabel = isStdio
+              ? "Stdio (Local)"
+              : cfg.transport === "streamable-http"
+              ? "Streamable HTTP"
+              : "SSE / HTTP (Remote)";
 
             return (
               <div
