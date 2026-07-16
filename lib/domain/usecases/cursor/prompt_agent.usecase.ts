@@ -4,6 +4,8 @@ import type {
   PromptAgentInput,
   PromptAgentOutput,
 } from "@/lib/entities/cursor.type";
+import { getSession } from "../auth/get_session.usecase";
+import { getProfile } from "../profile/get_profile.usecase";
 
 export async function promptAgent(
   input: PromptAgentInput,
@@ -13,9 +15,19 @@ export async function promptAgent(
     return { ok: false, error: "Message is required." };
   }
 
-  const apiKey = process.env.CURSOR_API_KEY;
+  let apiKey = process.env.CURSOR_API_KEY;
+  const session = await getSession();
+  if (session?.user?.id) {
+    const profile = await getProfile(session.user.id);
+    if (profile.settings?.cursorApiKey) {
+      apiKey = profile.settings.cursorApiKey; // 1. Personal Key
+    } else if (profile.team?.cursorApiKey) {
+      apiKey = profile.team.cursorApiKey; // 2. Team Key
+    }
+  }
+
   if (!apiKey) {
-    return { ok: false, error: "CURSOR_API_KEY is not set." };
+    return { ok: false, error: "CURSOR_API_KEY is not set in environment or your profile." };
   }
 
   const who =
