@@ -23,6 +23,7 @@ import {
   type GoogleAiModel,
 } from "@/lib/entities/google_ai.type";
 import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
+import { buildErpMcpConfig, ERP_MCP_SERVER_KEY } from "@/lib/entities/erpnext.type";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
@@ -244,7 +245,11 @@ export function useWorkspaceChat(
 
       const serversFromIdb = idbConfig?.mcpServers as Record<string, CursorMcpServerConfig> | undefined;
 
-      const mergedServers = {
+      const erpSid = localStorage.getItem("bbai_erp_sid");
+      const erpMcp = buildErpMcpConfig(erpSid);
+
+      const mergedServers: Record<string, CursorMcpServerConfig> = {
+        ...(erpMcp ? { [ERP_MCP_SERVER_KEY]: erpMcp } : {}),
         ...(serversFromRecords ?? {}),
         ...(serversFromIdb ?? {}),
       };
