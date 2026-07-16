@@ -622,7 +622,7 @@ export function useWorkspaceChat(
 }
 
 export function getDisplayName(profile: OnboardingProfile | null, fallbackName: string) {
-  return profile?.name.trim() || fallbackName.trim() || "there";
+  return fallbackName.trim() || profile?.name.trim() || "there";
 }
 
 export { getFocusLabel, getTeamLabel };

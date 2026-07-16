@@ -6,9 +6,11 @@ import { LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
-import { updateApiKeysAction, joinTeamAction, leaveTeamAction } from "@/lib/domain/actions/profile.actions";
+import { updateApiKeysAction, joinTeamAction, leaveTeamAction, updatePersonalInfoAction } from "@/lib/domain/actions/profile.actions";
 
 type ProfileViewProps = {
+  userName: string;
+  userEmail: string;
   userSettings: {
     cursorApiKey: string | null;
     geminiApiKey: string | null;
@@ -21,18 +23,19 @@ type ProfileViewProps = {
 };
 
 type ConfirmState = {
-  type: "save_keys" | "join_team" | "leave_team";
+  type: "save_keys" | "join_team" | "leave_team" | "save_personal_info";
   formData: FormData;
 } | null;
 
-export function ProfileView({ userSettings, userTeam, onClose }: ProfileViewProps) {
+export function ProfileView({ userName, userEmail, userSettings, userTeam, onClose }: ProfileViewProps) {
   const router = useRouter();
+  const [personalInfoState, personalInfoAction] = useActionState(updatePersonalInfoAction, null);
   const [apiKeyState, apiKeysFormAction] = useActionState(updateApiKeysAction, null);
   const [joinState, joinFormAction] = useActionState(joinTeamAction, null);
   const [leaveState, leaveFormAction] = useActionState(leaveTeamAction, null);
 
   const [confirmAction, setConfirmAction] = useState<ConfirmState>(null);
-  const [editingKey, setEditingKey] = useState<"gemini" | "cursor" | null>(null);
+  const [editingKey, setEditingKey] = useState<"gemini" | "cursor" | "personal_info" | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
@@ -49,6 +52,15 @@ export function ProfileView({ userSettings, userTeam, onClose }: ProfileViewProp
     if (leaveState?.ok) setFeedback({ type: 'success', message: "Successfully left the team." });
     else if (leaveState?.error) setFeedback({ type: 'error', message: leaveState.error });
   }, [leaveState]);
+
+  useEffect(() => {
+    if (personalInfoState?.ok) {
+      setFeedback({ type: "success", message: "Personal information updated successfully!" });
+      setEditingKey(null);
+    } else if (personalInfoState?.error) {
+      setFeedback({ type: "error", message: personalInfoState.error });
+    }
+  }, [personalInfoState]);
 
   useEffect(() => {
     if (feedback) {
@@ -74,6 +86,7 @@ export function ProfileView({ userSettings, userTeam, onClose }: ProfileViewProp
       if (type === "save_keys") apiKeysFormAction(formData);
       if (type === "join_team") joinFormAction(formData);
       if (type === "leave_team") leaveFormAction(formData);
+      if (type === "save_personal_info") personalInfoAction(formData);
     });
   };
 
@@ -108,6 +121,64 @@ export function ProfileView({ userSettings, userTeam, onClose }: ProfileViewProp
           )}
 
           <div className="grid gap-6">
+            {/* Personal Info Section */}
+            <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-on-surface">Personal Information</h2>
+              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <Label className="text-on-surface font-semibold mb-0">Your Details</Label>
+                    <p className="text-sm text-on-surface-muted">Manage your personal information.</p>
+                  </div>
+                  {!editingKey || editingKey !== "personal_info" ? (
+                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-auto" onClick={() => setEditingKey("personal_info")}>
+                      Edit Info
+                    </Button>
+                  ) : null}
+                </div>
+
+                {editingKey === "personal_info" ? (
+                  <form action={(formData) => { setConfirmAction({ type: "save_personal_info", formData }); }} className="flex flex-col gap-4 mt-3 border-t border-outline-variant pt-4">
+                    <div className="space-y-1">
+                      <Label>Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        defaultValue={userName}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        defaultValue={userEmail}
+                        required
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>Cancel</Button>
+                      <Button type="submit" variant="primary">Save Changes</Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="grid gap-3 border-t border-outline-variant pt-4">
+                    <div>
+                      <p className="text-sm font-medium text-on-surface-muted">Name</p>
+                      <p className="text-base text-on-surface">{userName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-on-surface-muted">Email</p>
+                      <p className="text-base text-on-surface">{userEmail}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
             {/* Team Section */}
             <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-on-surface">Team Configuration</h2>
@@ -242,11 +313,13 @@ export function ProfileView({ userSettings, userTeam, onClose }: ProfileViewProp
           <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-lg font-display font-semibold text-on-surface mb-2">
               {confirmAction.type === "save_keys" && "Save API Keys?"}
+              {confirmAction.type === "save_personal_info" && "Save Personal Info?"}
               {confirmAction.type === "join_team" && "Join Team?"}
               {confirmAction.type === "leave_team" && "Leave Team?"}
             </h3>
             <p className="text-sm text-on-surface-muted mb-6">
               {confirmAction.type === "save_keys" && "Are you sure you want to update your API keys?"}
+              {confirmAction.type === "save_personal_info" && "Are you sure you want to update your personal information?"}
               {confirmAction.type === "join_team" && "Are you sure you want to join this team?"}
               {confirmAction.type === "leave_team" && "Are you sure you want to leave your current team?"}
             </p>

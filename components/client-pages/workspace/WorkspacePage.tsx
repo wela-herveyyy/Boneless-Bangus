@@ -63,6 +63,8 @@ export function WorkspacePage({ userName, userEmail, userSettings, userTeam }: W
       />
       {sidebar.isProfileOpen && (
         <ProfileView
+          userName={userName}
+          userEmail={userEmail}
           userSettings={userSettings}
           userTeam={userTeam}
           onClose={sidebar.closeProfile}
