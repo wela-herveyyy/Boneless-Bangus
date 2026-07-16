@@ -78,7 +78,7 @@ export async function connectMcpServers(
           ? `${config.command} ${config.args.join(" ")}`
           : config.url;
 
-      const poolKey = computePoolKey(slug, config.transport, urlOrCommand);
+      const poolKey = computePoolKey(userId, slug, config.transport, urlOrCommand);
       let poolEntry = await getPoolEntry(poolKey);
 
       if (!poolEntry) {

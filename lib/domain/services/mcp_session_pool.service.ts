@@ -17,11 +17,11 @@ const pool = new Map<string, PoolEntry>();
 const IDLE_EVICT_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
- * Computes the stable pool cache key for a server entry.
- * Team Edition uses shared connection pooling across trusted teammates.
+ * Computes the stable pool cache key for a server entry scoped per user.
+ * Each user gets their own isolated client pool entry.
  */
-export function computePoolKey(slug: string, transport: string, urlOrCommand: string): string {
-  return `${slug}:${transport}:${urlOrCommand}`;
+export function computePoolKey(userId: string, slug: string, transport: string, urlOrCommand: string): string {
+  return `${userId}:${slug}:${transport}:${urlOrCommand}`;
 }
 
 /**
