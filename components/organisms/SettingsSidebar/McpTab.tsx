@@ -10,6 +10,96 @@ import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
 import type { UserAiConfig, McpServerDetailed } from "@/lib/entities/mcp_server.type";
 import { JsonTab } from "./JsonTab";
 
+async function migrateServerSecrets(
+  slug: string,
+  rawConfig: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const config = { ...rawConfig };
+  let modified = false;
+
+  if (config.headers && typeof config.headers === "object") {
+    const headers = { ...(config.headers as Record<string, string>) };
+    for (const [key, val] of Object.entries(headers)) {
+      if (!val || typeof val !== "string") continue;
+      const lower = key.toLowerCase();
+      if (lower === "authorization" && val.startsWith("Bearer ")) {
+        const token = val.slice(7).trim();
+        if (token && !token.startsWith("cred_")) {
+          const res = await fetch("/api/mcp/credentials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, label: key, plaintext: token }),
+          });
+          const json = await res.json().catch(() => null);
+          if (json?.ok && json.credentialRef) {
+            config.auth = { type: "bearer", credentialRef: json.credentialRef };
+            delete headers[key];
+            modified = true;
+          }
+        }
+      } else if (
+        lower.includes("key") ||
+        lower.includes("token") ||
+        lower.includes("secret")
+      ) {
+        if (!val.startsWith("cred_")) {
+          const res = await fetch("/api/mcp/credentials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, label: key, plaintext: val }),
+          });
+          const json = await res.json().catch(() => null);
+          if (json?.ok && json.credentialRef) {
+            config.auth = {
+              type: "api-key",
+              headerName: key,
+              credentialRef: json.credentialRef,
+            };
+            delete headers[key];
+            modified = true;
+          }
+        }
+      }
+    }
+    if (modified) {
+      if (Object.keys(headers).length > 0) config.headers = headers;
+      else delete config.headers;
+    }
+  }
+
+  if (config.env && typeof config.env === "object") {
+    const env = { ...(config.env as Record<string, string>) };
+    for (const [key, val] of Object.entries(env)) {
+      if (!val || typeof val !== "string") continue;
+      const lower = key.toLowerCase();
+      if (
+        lower.includes("key") ||
+        lower.includes("token") ||
+        lower.includes("secret") ||
+        lower === "authorization"
+      ) {
+        if (!val.startsWith("cred_")) {
+          const res = await fetch("/api/mcp/credentials", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, label: key, plaintext: val }),
+          });
+          const json = await res.json().catch(() => null);
+          if (json?.ok && json.credentialRef) {
+            env[key] = json.credentialRef;
+            modified = true;
+          }
+        }
+      }
+    }
+    if (modified && Object.keys(env).length > 0) {
+      config.env = env;
+    }
+  }
+
+  return config;
+}
+
 export function McpTab() {
   const [userConfig, setUserConfig] = useState<UserAiConfig | null>(null);
   const [catalogueMap, setCatalogueMap] = useState<Record<string, McpServerDetailed>>({});
@@ -39,6 +129,26 @@ export function McpTab() {
       loadUserAiConfigFromIdb(),
       getMcpDataAction(),
     ]);
+
+    let migrated = false;
+    if (idbConfig?.mcpServers) {
+      const nextServers: Record<string, unknown> = {};
+      for (const [slug, raw] of Object.entries(idbConfig.mcpServers)) {
+        if (raw && typeof raw === "object") {
+          const cleaned = await migrateServerSecrets(slug, raw as Record<string, unknown>);
+          nextServers[slug] = cleaned;
+          if (JSON.stringify(cleaned) !== JSON.stringify(raw)) {
+            migrated = true;
+          }
+        } else {
+          nextServers[slug] = raw;
+        }
+      }
+      if (migrated) {
+        idbConfig.mcpServers = nextServers;
+        await saveUserAiConfigToIdb(idbConfig);
+      }
+    }
 
     setUserConfig(idbConfig);
 
@@ -163,11 +273,13 @@ export function McpTab() {
       }
     }
 
+    const cleanedConfig = await migrateServerSecrets(targetSlug, configObj);
+
     const nextMcpServers = { ...(userConfig.mcpServers || {}) };
     if (editingSlug && editingSlug !== targetSlug) {
       delete nextMcpServers[editingSlug];
     }
-    nextMcpServers[targetSlug] = configObj;
+    nextMcpServers[targetSlug] = cleanedConfig;
 
     const nextConfig = { ...userConfig, mcpServers: nextMcpServers };
     setUserConfig(nextConfig);
