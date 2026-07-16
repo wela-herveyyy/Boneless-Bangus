@@ -26,7 +26,7 @@ export function useWorkspaceMeetWidget() {
     setError(null);
     try {
       const res = await generateMeetAction({
-        summary: `Instant AI Video Meet (${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`,
+        summary: `Instant Video Meet (${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`,
       });
 
       if (res.ok) {

@@ -112,7 +112,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
               <div className="space-y-1.5">
                 <h3 className="font-semibold text-sm text-on-surface">Connect Google Workspace</h3>
                 <p className="text-xs leading-relaxed text-on-surface-variant">
-                  Authenticate securely via 1-Click OAuth (`Calendar` and `Gmail`) to grant your AI agent offline capabilities.
+                  Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
                 </p>
               </div>
               <Button
@@ -218,7 +218,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                     <WorkspaceCapabilityCard
                       capability="calendar"
                       title="Google Calendar"
-                      description="Allow AI agents to create, schedule, and organize meetings or reminders directly in your primary Google Calendar."
+                      description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget."
                       enabled={authRecord.calendarEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "calendar"}
@@ -236,7 +236,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                     <WorkspaceCapabilityCard
                       capability="meet"
                       title="Google Meet"
-                      description="Allow AI agents to instantly provision video conference links and schedule meetings right in Google Meet."
+                      description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget."
                       enabled={authRecord.meetEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "meet"}
@@ -254,7 +254,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                     <WorkspaceCapabilityCard
                       capability="email"
                       title="Gmail API"
-                      description="Allow AI agents to draft and send emails securely via Gmail on your behalf to contacts or project stakeholders."
+                      description="Enable direct OAuth API integration to view recent messages from your inbox and compose emails directly via Gmail API."
                       enabled={authRecord.emailEnabled}
                       isConnected={authRecord.isConnected}
                       isToggling={togglingCapability === "email"}
