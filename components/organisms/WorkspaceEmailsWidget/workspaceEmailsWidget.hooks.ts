@@ -27,8 +27,8 @@ export function useWorkspaceEmailsWidget(enabled: boolean, isConnected: boolean)
   const loadEmails = useCallback(async (force = false) => {
     if (!isConnected || !enabled) return;
     const now = Date.now();
-    // If cached and less than 60s old without forced reload, return instantly
-    if (cachedEmails !== null && !force && now - lastEmailsFetchTime < 60000) {
+    // If cached and less than 5m old without forced reload, return instantly
+    if (cachedEmails !== null && !force && now - lastEmailsFetchTime < 300000) {
       setEmails(cachedEmails);
       setLoading(false);
       return;

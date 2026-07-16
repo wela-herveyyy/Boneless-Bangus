@@ -25,8 +25,8 @@ export function useGoogleWorkspaceSidebar(isOpen: boolean) {
 
   const fetchAuthStatus = useCallback(async (force = false) => {
     const now = Date.now();
-    // If cached and less than 60s old without forced reload, return instantly
-    if (cachedAuthRecord && !force && now - lastAuthFetchTime < 60000) {
+    // If cached and less than 5m old without forced reload, return instantly
+    if (cachedAuthRecord && !force && now - lastAuthFetchTime < 300000) {
       setAuthRecord(cachedAuthRecord);
       setLoading(false);
       return;

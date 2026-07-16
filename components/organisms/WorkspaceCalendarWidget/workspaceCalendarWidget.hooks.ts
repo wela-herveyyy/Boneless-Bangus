@@ -82,8 +82,8 @@ export function useWorkspaceCalendarWidget(enabled: boolean, isConnected: boolea
   const loadEvents = useCallback(async (force = false) => {
     if (!isConnected || !enabled) return;
     const now = Date.now();
-    // If cached and less than 60s old without forced reload, return instantly
-    if (cachedCalendarEvents !== null && !force && now - lastCalendarFetchTime < 60000) {
+    // If cached and less than 5m old without forced reload, return instantly
+    if (cachedCalendarEvents !== null && !force && now - lastCalendarFetchTime < 300000) {
       setEvents(cachedCalendarEvents);
       setLoading(false);
       return;
