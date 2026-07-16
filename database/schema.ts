@@ -206,6 +206,22 @@ export const mcpServerTool = mysqlTable(
   (table) => [index("mcp_server_tool_serverId_idx").on(table.mcpServerId)],
 );
 
+export const mcpCredential = mysqlTable(
+  "mcp_credential",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    slug: varchar("slug", { length: 100 }).notNull(),
+    label: varchar("label", { length: 100 }).notNull(),
+    encryptedValue: text("encrypted_value").notNull(),
+    iv: varchar("iv", { length: 32 }).notNull(),
+    createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [index("mcp_credential_userId_idx").on(table.userId)],
+);
+
 export const googleWorkspaceAuth = mysqlTable(
   "google_workspace_auth",
   {
@@ -235,6 +251,7 @@ export const googleWorkspaceAuth = mysqlTable(
 
 export const userRelations = relations(user, ({ many, one }) => ({
   mcpServers: many(mcpServer),
+  mcpCredentials: many(mcpCredential),
   skills: many(skill),
   googleWorkspaceAuth: one(googleWorkspaceAuth),
 }));
@@ -281,5 +298,12 @@ export const mcpServerToolRelations = relations(mcpServerTool, ({ one }) => ({
   server: one(mcpServer, {
     fields: [mcpServerTool.mcpServerId],
     references: [mcpServer.id],
+  }),
+}));
+
+export const mcpCredentialRelations = relations(mcpCredential, ({ one }) => ({
+  user: one(user, {
+    fields: [mcpCredential.userId],
+    references: [user.id],
   }),
 }));
