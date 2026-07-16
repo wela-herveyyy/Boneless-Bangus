@@ -4,8 +4,11 @@ import { useState } from "react";
 import { generateMeetAction } from "@/lib/domain/actions/google_workspace_auth.actions";
 import type { MeetSummary } from "@/lib/entities/google_workspace_auth.type";
 
+// Module-level in-memory cache for created meets across tab/sidebar opens
+let cachedMeets: MeetSummary[] = [];
+
 export function useWorkspaceMeetWidget() {
-  const [createdMeets, setCreatedMeets] = useState<MeetSummary[]>([]);
+  const [createdMeets, setCreatedMeets] = useState<MeetSummary[]>(() => cachedMeets);
   const [loadingInstant, setLoadingInstant] = useState(false);
   const [submittingSchedule, setSubmittingSchedule] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +30,11 @@ export function useWorkspaceMeetWidget() {
       });
 
       if (res.ok) {
-        setCreatedMeets((prev) => [res.data, ...prev]);
+        setCreatedMeets((prev) => {
+          const updated = [res.data, ...prev];
+          cachedMeets = updated;
+          return updated;
+        });
       } else {
         setError(res.error);
       }
@@ -55,7 +62,11 @@ export function useWorkspaceMeetWidget() {
       });
 
       if (res.ok) {
-        setCreatedMeets((prev) => [res.data, ...prev]);
+        setCreatedMeets((prev) => {
+          const updated = [res.data, ...prev];
+          cachedMeets = updated;
+          return updated;
+        });
         setSummary("");
         setShowScheduleForm(false);
       } else {
