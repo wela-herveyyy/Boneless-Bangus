@@ -6,6 +6,7 @@ import { database } from "@/database";
 import { userSettings, team, userTeam } from "@/database/schema";
 import { auth } from "@/lib/domain/services/auth.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
+import { updateProfileService } from "@/lib/domain/services/profile.service";
 
 type ActionState = { ok: boolean; error?: string } | null;
 
@@ -123,6 +124,32 @@ export async function leaveTeamAction(prevState: ActionState, formData: FormData
       await database.update(userTeam)
         .set({ leftAt: new Date() as any })
         .where(eq(userTeam.id, activeTeamRelation.id));
+    }
+
+    await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
+    revalidatePath("/workspace");
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function updatePersonalInfoAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const action = "profile:update_personal_info";
+  try {
+    const userSession = await auth();
+    if (!userSession) {
+      await logAction({ userId: "anonymous", action, success: false, error: "Unauthorized" });
+      return { ok: false, error: "Unauthorized" };
+    }
+
+    const name = readField(formData, "name");
+    const email = readField(formData, "email");
+
+    const result = await updateProfileService(userSession.user.id, { name, email });
+
+    if (!result.ok) {
+      return { ok: false, error: result.error };
     }
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });

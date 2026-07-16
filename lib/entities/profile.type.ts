@@ -10,3 +10,12 @@ export type ProfileData = {
     geminiApiKey: string | null;
   } | null;
 };
+
+export type UpdateProfileInput = {
+  name: string;
+  email: string;
+};
+
+export type UpdateProfileOutput =
+  | { ok: true }
+  | { ok: false; error: string };
