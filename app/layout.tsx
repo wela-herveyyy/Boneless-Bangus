@@ -6,6 +6,7 @@ import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
 import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
+import { WorkspaceToolsSidebar } from "@/components/organisms/Workspace-Tools/WorkspaceTools";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
 import "./globals.css";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
         <SkillsMarketplaceSidebar />
         <SettingsSidebar />
         <GoogleWorkspaceSidebar />
+        <WorkspaceToolsSidebar />
       </body>
     </html>
   );

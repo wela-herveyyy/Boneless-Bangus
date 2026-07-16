@@ -43,3 +43,19 @@ export type ActionLogEntry = {
   role?: string;
   metadata?: Record<string, unknown>;
 };
+
+
+// ── Tool / Skill command registry ──────────────────────────────
+
+type ErpNextCommands = "comment_doctype" | "leave-application" | "get-user-info";
+type GwsCommands = "send-email" | "list-inbox";
+
+interface ToolSkillMap {
+  "erp-next": ErpNextCommands;
+  "gws": GwsCommands;
+}
+
+export type ToolSkill<T extends keyof ToolSkillMap = keyof ToolSkillMap> =
+  T extends unknown
+  ? { commandName: T; subCommand: ToolSkillMap[T] }
+  : never;

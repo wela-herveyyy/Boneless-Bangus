@@ -299,8 +299,8 @@ export function WorkspaceChat({
   return (
     <div
       className={[
-        "relative z-10 flex min-h-screen items-center justify-center px-6 py-12 transition-[margin] duration-300 ease-out",
-        sidebarOpen ? "ml-72" : "ml-0",
+          "relative z-10 flex min-h-screen items-center justify-center px-6 py-12 transition-[margin] duration-300 ease-out",
+          sidebarOpen ? "ml-72" : "ml-0",
       ].join(" ")}
     >
       <div className="w-full max-w-2xl space-y-8">
