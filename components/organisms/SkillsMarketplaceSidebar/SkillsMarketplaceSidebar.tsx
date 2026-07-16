@@ -17,7 +17,7 @@ import { SkillDetailsModal } from "@/components/molecules/SkillDetailsModal/Skil
 import { UninstallSkillModal } from "@/components/molecules/UninstallSkillModal/UninstallSkillModal";
 import { MarketplaceSkillCard } from "@/components/molecules/MarketplaceSkillCard/MarketplaceSkillCard";
 
-export function SkillsMarketplaceSidebar() {
+export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } = {}) {
   const {
     searchQuery,
     setSearchQuery,
@@ -69,7 +69,7 @@ export function SkillsMarketplaceSidebar() {
         icon={<HiOutlineCubeTransparent className="size-6" aria-hidden />}
         labelOpen="Hide skills marketplace"
         labelClosed="Show skills marketplace"
-        topClass="top-[calc(50%+3.5rem)]"
+        topOffset={topOffset}
       />
 
       <RightSidebarBackdrop sidebar={sidebar} />

@@ -13,7 +13,7 @@ import {
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import { useThemeSidebar } from "./themeSidebar.hooks";
 
-export function ThemeSidebar() {
+export function ThemeSidebar({ topOffset }: { topOffset?: string } = {}) {
   const controls = useThemeSidebar();
   const {
     ready,
@@ -96,7 +96,7 @@ export function ThemeSidebar() {
         icon={<RiTailwindCssLine className="size-6" aria-hidden />}
         labelOpen="Hide theme sidebar"
         labelClosed="Show theme sidebar"
-        topClass="top-1/2"
+        topOffset={topOffset}
       />
 
       <RightSidebarBackdrop sidebar={sidebar} />

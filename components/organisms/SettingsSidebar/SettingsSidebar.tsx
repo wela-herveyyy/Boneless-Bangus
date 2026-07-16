@@ -12,7 +12,7 @@ import {
 import { SkillsTab } from "./SkillsTab";
 import { McpTab } from "./McpTab";
 
-export function SettingsSidebar() {
+export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useSettingsSidebar();
   const { activeTab, setActiveTab, closeSidebar } = sidebar;
 
@@ -23,7 +23,7 @@ export function SettingsSidebar() {
         icon={<LuSettings className="size-6" aria-hidden />}
         labelOpen="Hide settings sidebar"
         labelClosed="Show settings sidebar"
-        topClass="top-[calc(50%+7rem)]"
+        topOffset={topOffset}
       />
       
       <RightSidebarBackdrop sidebar={sidebar} />

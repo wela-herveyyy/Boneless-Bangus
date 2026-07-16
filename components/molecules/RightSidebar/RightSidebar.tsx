@@ -14,10 +14,8 @@ export interface RightSidebarTriggerProps {
   icon: ReactNode;
   labelOpen: string;
   labelClosed: string;
-  /**
-   * Tailwind top position class. Defaults to "top-1/2".
-   */
-  topClass?: string;
+  /** CSS `top` value, e.g. `"50%"` or `"calc(50% - 7rem)"`. Defaults to `"50%"`. */
+  topOffset?: string;
   className?: string;
 }
 
@@ -30,7 +28,7 @@ export function RightSidebarTrigger({
   icon,
   labelOpen,
   labelClosed,
-  topClass = "top-1/2",
+  topOffset = "50%",
   className = "",
 }: RightSidebarTriggerProps) {
   const { isOpen, isSwitching, isAnyRightSidebarOpen, togglePinned, openFromHover, scheduleClose } = sidebar;
@@ -43,13 +41,13 @@ export function RightSidebarTrigger({
       onClick={togglePinned}
       onMouseEnter={openFromHover}
       onMouseLeave={scheduleClose}
+      style={{ top: topOffset }}
       className={[
-        "right-sidebar-trigger fixed z-[120] flex -translate-y-1/2 items-center justify-center",
+        "right-sidebar-trigger fixed z-120 flex -translate-y-1/2 items-center justify-center",
         "bg-surface-container-highest text-primary shadow-bloom ghost-border size-12 hover:bg-primary hover:text-on-primary",
-        topClass,
         isSwitching
           ? "transition-none duration-0"
-          : "transition-[right,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          : "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
         isAnyRightSidebarOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
         className,
       ]

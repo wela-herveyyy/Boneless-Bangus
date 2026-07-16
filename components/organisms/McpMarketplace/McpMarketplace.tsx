@@ -18,7 +18,7 @@ import {
 import { McpToolsPreviewModal } from "@/components/molecules/McpToolsPreviewModal/McpToolsPreviewModal";
 import { MCP_CATEGORIES, type McpServer, useMcpMarketplace } from "./mcpMarketplace.hooks";
 
-export function McpMarketplace() {
+export function McpMarketplace({ topOffset }: { topOffset?: string } = {}) {
   const {
     filteredServers,
     categories,
@@ -83,7 +83,7 @@ export function McpMarketplace() {
         icon={<LuPackageSearch className="size-5" aria-hidden />}
         labelOpen="Hide MCP Marketplace"
         labelClosed="Show MCP Marketplace"
-        topClass="top-[calc(50%-3.5rem)]"
+        topOffset={topOffset}
       />
 
       <RightSidebarBackdrop sidebar={sidebar} />

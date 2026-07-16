@@ -346,7 +346,7 @@ function ErpDashboardView({
 
 /* ── Main sidebar ───────────────────────────────────────── */
 
-export function WorkspaceToolsSidebar() {
+export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useToolsSidebar();
   const erp = useErpLogin();
 
@@ -357,7 +357,7 @@ export function WorkspaceToolsSidebar() {
         icon={<LuFingerprint className="size-6" aria-hidden />}
         labelOpen="Hide ERPNext tools"
         labelClosed="Show ERPNext tools"
-        topClass="top-[calc(50%-7rem)]"
+        topOffset={topOffset}
       />
 
       <RightSidebarBackdrop sidebar={sidebar} />
