@@ -18,7 +18,7 @@ import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalenda
 import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
 import { WorkspaceMeetWidget } from "@/components/organisms/WorkspaceMeetWidget/WorkspaceMeetWidget";
 
-export function GoogleWorkspaceSidebar() {
+export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useRightSidebar("google_workspace", { bodyClass: "bbai-google-workspace-sidebar-open" });
   const {
     authRecord,
@@ -41,7 +41,7 @@ export function GoogleWorkspaceSidebar() {
         icon={<SiGoogle className="size-5" aria-hidden />}
         labelOpen="Hide Workspace sidebar"
         labelClosed="Show Workspace sidebar"
-        topClass="top-[calc(50%-7rem)]"
+        topOffset={topOffset}
       />
 
       <RightSidebarBackdrop sidebar={sidebar} />
