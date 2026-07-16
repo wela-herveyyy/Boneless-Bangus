@@ -164,16 +164,16 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 <button
                   type="button"
                   onClick={() => setActiveTab("calendar")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
                     activeTab === "calendar"
-                      ? "bg-surface text-primary shadow-xs border border-primary/25"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                      ? "bg-surface text-primary shadow-xs border-primary/25"
+                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
                   }`}
                 >
                   <HiOutlineCalendar className="size-4 shrink-0" />
                   <span>Calendar</span>
                   <span
-                    className={`size-2 rounded-full shrink-0 ${
+                    className={`size-2 rounded-full shrink-0 transition-colors ${
                       authRecord.calendarEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
                     }`}
                     title={authRecord.calendarEnabled ? "Calendar Enabled" : "Calendar Disabled"}
@@ -183,16 +183,16 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 <button
                   type="button"
                   onClick={() => setActiveTab("meet")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
                     activeTab === "meet"
-                      ? "bg-surface text-primary shadow-xs border border-primary/25"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                      ? "bg-surface text-primary shadow-xs border-primary/25"
+                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
                   }`}
                 >
                   <HiOutlineVideoCamera className="size-4 shrink-0" />
                   <span>Meet</span>
                   <span
-                    className={`size-2 rounded-full shrink-0 ${
+                    className={`size-2 rounded-full shrink-0 transition-colors ${
                       authRecord.meetEnabled ? "bg-emerald-500 shadow-2xs" : "bg-on-surface-variant/30"
                     }`}
                     title={authRecord.meetEnabled ? "Meet Enabled" : "Meet Disabled"}
@@ -202,10 +202,10 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                 <button
                   type="button"
                   onClick={() => setActiveTab("email")}
-                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-all ${
+                  className={`flex shrink-0 min-w-fit items-center justify-center gap-1.5 rounded-lg py-2 px-3 text-xs font-medium transition-colors border ${
                     activeTab === "email"
-                      ? "bg-surface text-primary shadow-xs border border-primary/25"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-surface/50"
+                      ? "bg-surface text-primary shadow-xs border-primary/25"
+                      : "border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface/50 hover:border-primary/10"
                   }`}
                 >
                   <HiOutlineEnvelope className="size-4 shrink-0" />
