@@ -12,13 +12,22 @@ import {
   WorkspaceSidebar,
   WorkspaceSidebarFallback,
 } from "@/components/organisms/Workspace-Sidebar/WorkspaceSidebar";
+import { ProfileView } from "@/components/client-pages/profile/ProfileView";
 
 type WorkspacePageProps = {
   userName: string;
   userEmail: string;
+  userSettings: {
+    cursorApiKey: string | null;
+    geminiApiKey: string | null;
+  } | null;
+  userTeam: {
+    teamCode: string;
+    teamName: string;
+  } | null;
 };
 
-export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
+export function WorkspacePage({ userName, userEmail, userSettings, userTeam }: WorkspacePageProps) {
   const sidebar = useWorkspaceSidebar();
   const { profile, loading } = useWorkspaceProfile();
   const displayName = getDisplayName(profile, userName);
@@ -52,13 +61,20 @@ export function WorkspacePage({ userName, userEmail }: WorkspacePageProps) {
         activeChatId={sidebar.activeChatId}
         onConversationSaved={onConversationSaved}
       />
+      {sidebar.isProfileOpen && (
+        <ProfileView
+          userSettings={userSettings}
+          userTeam={userTeam}
+          onClose={sidebar.closeProfile}
+        />
+      )}
     </div>
   );
 }
 
 export function WorkspacePageFallback() {
   return (
-    <div className="relative h-screen overflow-hidden bg-surface">
+    <div className="relative h-screen overflow-hidden bg-surface flex">
       <FuturisticBackdrop />
       <WorkspaceSidebarFallback />
       <WorkspaceChatFallback />

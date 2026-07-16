@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { WorkspacePage } from "@/components/client-pages/workspace/WorkspacePage";
 import { getSession } from "@/lib/domain/services/auth.service";
+import { getProfileService } from "@/lib/domain/services/profile.service";
 
 export const metadata: Metadata = {
   title: "BBAI | Workspace",
@@ -15,5 +16,14 @@ export default async function Page() {
     redirect("/sign-in?callbackURL=/workspace");
   }
 
-  return <WorkspacePage userName={session.user.name} userEmail={session.user.email} />;
+  const profileData = await getProfileService(session.user.id);
+
+  return (
+    <WorkspacePage 
+      userName={session.user.name} 
+      userEmail={session.user.email} 
+      userSettings={profileData.settings}
+      userTeam={profileData.team}
+    />
+  );
 }
