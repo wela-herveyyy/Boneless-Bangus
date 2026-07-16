@@ -32,7 +32,22 @@ export const McpRemoteConfigSchema = z.object({
 
 export const McpServerConfigEntrySchema = z.object({
   slug: z.string().min(1).max(60), // capped low enough that slug + toolName fits Gemini's ~64-char function name limit
-  config: z.discriminatedUnion("transport", [McpStdioConfigSchema, McpRemoteConfigSchema]),
+  config: z.preprocess(
+    (val: unknown) => {
+      if (!val || typeof val !== "object") return val;
+      const obj = { ...(val as Record<string, unknown>) };
+      if (!obj.url && typeof obj.serverUrl === "string") obj.url = obj.serverUrl;
+      if (!obj.transport) {
+        if (typeof obj.url === "string" || typeof obj.serverUrl === "string") {
+          obj.transport = "sse";
+        } else if (typeof obj.command === "string") {
+          obj.transport = "stdio";
+        }
+      }
+      return obj;
+    },
+    z.discriminatedUnion("transport", [McpStdioConfigSchema, McpRemoteConfigSchema])
+  ),
 });
 
 export const McpServersPayloadSchema = z.array(McpServerConfigEntrySchema).max(20);

@@ -5,20 +5,22 @@ export type CursorResult<T = void> =
 export type CursorMcpServerConfig =
   | {
     type?: "stdio";
+    transport?: "stdio";
     command: string;
     args?: string[];
     env?: Record<string, string>;
     cwd?: string;
+    auth?: unknown;
+    [key: string]: unknown;
   }
   | {
     type?: "http" | "sse";
-    url: string;
+    transport?: "sse" | "streamable-http";
+    url?: string;
+    serverUrl?: string;
     headers?: Record<string, string>;
-    auth?: {
-      CLIENT_ID: string;
-      CLIENT_SECRET?: string;
-      scopes?: string[];
-    };
+    auth?: unknown;
+    [key: string]: unknown;
   };
 
 /** Skill body stored in IndexedDB (not filesystem SKILL.md). */
