@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       dbConversationId?: string;
       name?: string;
       email?: string;
-      mcpServers?: Record<string, unknown>;
+      mcpServers?: unknown[];
     };
 
     const message = body.message?.trim() ?? "";
@@ -67,6 +67,8 @@ export async function POST(request: Request) {
             model: body.model,
             previousInteractionId: body.previousInteractionId,
             systemInstruction: buildSystemInstructionWithMcp(body.mcpServers),
+            mcpServers: body.mcpServers,
+            userId: userSession.user.id,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -75,6 +77,14 @@ export async function POST(request: Request) {
             }
             if (event.type === "thinking" || event.type === "text") {
               if (event.type === "text") accumulated += event.text;
+              send(event);
+              continue;
+            }
+            if (
+              event.type === "tool_warning" ||
+              event.type === "tool_call" ||
+              event.type === "tool_result"
+            ) {
               send(event);
               continue;
             }
