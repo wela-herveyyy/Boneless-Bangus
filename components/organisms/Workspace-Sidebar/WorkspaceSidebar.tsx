@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { LuArchive, LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen, LuSettings } from "react-icons/lu";
 import { ArchiveChatModal } from "@/components/molecules/ArchiveChatModal/ArchiveChatModal";
 import { Button } from "@/components/atoms/Button/Button";
@@ -18,6 +19,9 @@ type WorkspaceSidebarControls = {
   promptArchive?: (id: string) => void;
   cancelArchive?: () => void;
   confirmArchive?: () => void;
+  isProfileOpen?: boolean;
+  openProfile?: () => void;
+  closeProfile?: () => void;
 };
 
 type WorkspaceSidebarProps = {
@@ -39,6 +43,7 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
     promptArchive,
     cancelArchive,
     confirmArchive,
+    openProfile,
   } = sidebar;
 
   return (
@@ -127,7 +132,11 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
         </div>
 
         <div className="space-y-3 p-4">
-          <div className="rounded-2xl bg-surface-container-high/80 p-4">
+          <button 
+            type="button" 
+            onClick={openProfile}
+            className="w-full text-left block rounded-2xl bg-surface-container-high/80 p-4 transition-colors hover:bg-surface-container-highest"
+          >
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-on-primary">
                 {getInitials(displayName)}
@@ -137,7 +146,7 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
                 <p className="truncate text-xs text-on-surface-muted">{userEmail}</p>
               </div>
             </div>
-          </div>
+          </button>
 
           <div className="flex flex-col gap-2">
             <form action={signOutAction}>

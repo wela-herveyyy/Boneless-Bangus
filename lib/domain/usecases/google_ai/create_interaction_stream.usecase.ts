@@ -7,6 +7,8 @@ import {
   GOOGLE_AI_AGENTS,
   GOOGLE_AI_DEFAULT_MODEL,
 } from "@/lib/entities/google_ai.type";
+import { getSession } from "../auth/get_session.usecase";
+import { getProfile } from "../profile/get_profile.usecase";
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ATTEMPTS = 2;
@@ -41,9 +43,19 @@ export async function* createInteractionStream(
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  let apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+  const session = await getSession();
+  if (session?.user?.id) {
+    const profile = await getProfile(session.user.id);
+    if (profile.settings?.geminiApiKey) {
+      apiKey = profile.settings.geminiApiKey; // 1. Personal Key
+    } else if (profile.team?.geminiApiKey) {
+      apiKey = profile.team.geminiApiKey; // 2. Team Key
+    }
+  }
+
   if (!apiKey) {
-    yield { type: "error", error: "GEMINI_API_KEY is not set." };
+    yield { type: "error", error: "GEMINI_API_KEY is not set in environment or your profile." };
     return;
   }
 

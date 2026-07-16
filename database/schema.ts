@@ -237,6 +237,9 @@ export const userRelations = relations(user, ({ many, one }) => ({
   mcpServers: many(mcpServer),
   skills: many(skill),
   googleWorkspaceAuth: one(googleWorkspaceAuth),
+  settings: one(userSettings),
+  managedTeams: many(team),
+  teams: many(userTeam),
 }));
 
 export const googleWorkspaceAuthRelations = relations(googleWorkspaceAuth, ({ one }) => ({
@@ -281,5 +284,75 @@ export const mcpServerToolRelations = relations(mcpServerTool, ({ one }) => ({
   server: one(mcpServer, {
     fields: [mcpServerTool.mcpServerId],
     references: [mcpServer.id],
+  }),
+}));
+
+export const team = mysqlTable("team", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  code: varchar("code", { length: 6 }).notNull().unique(),
+  managerId: varchar("manager_id", { length: 36 })
+    .notNull()
+    .references(() => user.id),
+  cursorApiKey: text("cursor_api_key"),
+  geminiApiKey: text("gemini_api_key"),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { fsp: 3 })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const userSettings = mysqlTable("user_settings", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 })
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  cursorApiKey: text("cursor_api_key"),
+  geminiApiKey: text("gemini_api_key"),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { fsp: 3 })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const userTeam = mysqlTable("user_team", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 })
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  teamId: varchar("team_id", { length: 36 })
+    .notNull()
+    .references(() => team.id, { onDelete: "cascade" }),
+  joinedAt: timestamp("joined_at", { fsp: 3 }).defaultNow().notNull(),
+  leftAt: timestamp("left_at", { fsp: 3 }),
+});
+
+export const teamRelations = relations(team, ({ one, many }) => ({
+  manager: one(user, {
+    fields: [team.managerId],
+    references: [user.id],
+  }),
+  members: many(userTeam),
+}));
+
+export const userSettingsRelations = relations(userSettings, ({ one }) => ({
+  user: one(user, {
+    fields: [userSettings.userId],
+    references: [user.id],
+  }),
+}));
+
+export const userTeamRelations = relations(userTeam, ({ one }) => ({
+  user: one(user, {
+    fields: [userTeam.userId],
+    references: [user.id],
+  }),
+  team: one(team, {
+    fields: [userTeam.teamId],
+    references: [team.id],
   }),
 }));

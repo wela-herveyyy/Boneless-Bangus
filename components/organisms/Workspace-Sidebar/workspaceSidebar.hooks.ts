@@ -20,6 +20,7 @@ export function useWorkspaceSidebar() {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [chatToArchiveId, setChatToArchiveId] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const refreshHistory = useCallback(async () => {
     const result = await listConversationsAction();
@@ -67,6 +68,9 @@ export function useWorkspaceSidebar() {
     }
   }, [chatToArchiveId]);
 
+  const openProfile = useCallback(() => setIsProfileOpen(true), []);
+  const closeProfile = useCallback(() => setIsProfileOpen(false), []);
+
   return {
     isOpen,
     openSidebar: () => setIsOpen(true),
@@ -83,6 +87,9 @@ export function useWorkspaceSidebar() {
     promptArchive,
     cancelArchive,
     confirmArchive,
+    isProfileOpen,
+    openProfile,
+    closeProfile,
   };
 }
 
