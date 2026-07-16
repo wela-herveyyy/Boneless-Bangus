@@ -56,7 +56,7 @@ export async function* createInteractionStream(
 
   // Connect to requested MCP servers before beginning stream
   let mcpSession: McpRuntimeSession | undefined;
-  let optionsTools: Array<{ functionDeclarations: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> }> | undefined;
+  let optionsTools: Array<{ functionDeclarations: Array<{ type: "function"; name: string; description?: string; parameters?: unknown; parametersJsonSchema?: unknown }> }> | undefined;
 
   if (input.mcpServers && Array.isArray(input.mcpServers) && input.mcpServers.length > 0) {
     const connResult = await connectMcpServers(input.mcpServers, input.userId || "anonymous");
@@ -71,7 +71,7 @@ export async function* createInteractionStream(
         type: "function" as const,
         name: t.namespacedName,
         description: t.description,
-        parameters: t.inputSchema,
+        parametersJsonSchema: t.inputSchema ?? { type: "object", properties: {} },
       }));
       optionsTools = [{ functionDeclarations }];
     }
