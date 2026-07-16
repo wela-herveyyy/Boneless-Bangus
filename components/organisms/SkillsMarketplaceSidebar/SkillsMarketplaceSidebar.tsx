@@ -142,7 +142,7 @@ export function SkillsMarketplaceSidebar() {
         newSkillForm={newSkillForm}
         setNewSkillForm={setNewSkillForm}
         onSubmit={handleAddSkill}
-        disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.category.trim()}
+        disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.instructions.trim() || !newSkillForm.category.trim()}
       />
 
       <SkillDetailsModal

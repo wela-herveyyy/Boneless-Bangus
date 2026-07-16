@@ -43,6 +43,26 @@ export async function auth(): Promise<ActionSession | null> {
   };
 }
 
+/** Authentication for route handlers using req.headers directly — avoids next/headers prerender errors. */
+export async function authFromHeaders(requestHeaders: Headers): Promise<ActionSession | null> {
+  const session = await getSessionFromHeaders(requestHeaders);
+
+  if (!session) {
+    return null;
+  }
+
+  const role = await getUserRole(session.user.id);
+
+  if (!role) {
+    return null;
+  }
+
+  return {
+    user: { ...session.user, role },
+    expired: false,
+  };
+}
+
 export async function signIn(input: SignInInput): Promise<AuthResult<AuthUser>> {
   return signInUseCase(input);
 }
