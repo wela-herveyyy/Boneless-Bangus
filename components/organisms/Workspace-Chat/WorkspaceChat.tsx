@@ -148,7 +148,7 @@ export function WorkspaceChat({
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
   useEffect(() => {
-    const hideTriggers = !chat.hasChat && !showRightTriggers;
+    const hideTriggers = !showRightTriggers;
     document.body.classList.toggle("hide-right-triggers", hideTriggers);
     return () => {
       document.body.classList.remove("hide-right-triggers");
@@ -196,6 +196,39 @@ export function WorkspaceChat({
         </p>
       ) : null}
     </form>
+  );
+
+  const rightSidebarToggles = (
+    <>
+      <button
+        type="button"
+        onClick={() => setShowRightTriggers(true)}
+        className={[
+          "fixed right-4 top-1/2 -translate-y-1/2 z-40 flex size-10 items-center justify-center rounded-xl bg-surface-container-lowest text-on-surface-muted shadow-bloom hover:text-primary",
+          showRightTriggers
+            ? "pointer-events-none opacity-0 translate-x-4 transition-all duration-200"
+            : "pointer-events-auto opacity-100 translate-x-0 transition-all duration-300 delay-150"
+        ].join(" ")}
+        aria-label="Show tools"
+      >
+        <LuMoveVertical className="size-5" aria-hidden />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setShowRightTriggers(false)}
+        className={[
+          "right-sidebar-trigger fixed right-0 z-[120] flex size-10 -translate-y-1/2 items-center justify-center",
+          "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
+          "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "md:hidden"
+        ].join(" ")}
+        aria-label="Hide tools"
+        style={{ top: "calc(50% + 12.25rem)" }}
+      >
+        <LuPanelRightClose className="size-5" aria-hidden />
+      </button>
+    </>
   );
 
   if (chat.hasChat) {
@@ -302,6 +335,7 @@ export function WorkspaceChat({
 
           <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </div>
+        {rightSidebarToggles}
       </div>
     );
   }
@@ -340,38 +374,7 @@ export function WorkspaceChat({
         {composer}
       </div>
 
-      {!chat.hasChat ? (
-        <button
-          type="button"
-          onClick={() => setShowRightTriggers(true)}
-          className={[
-            "fixed right-6 bottom-6 md:right-8 md:bottom-8 z-40 flex size-12 items-center justify-center rounded-full bg-surface-container-lowest text-on-surface-muted shadow-bloom hover:text-primary",
-            showRightTriggers
-              ? "pointer-events-none opacity-0 translate-y-4 transition-all duration-200"
-              : "pointer-events-auto opacity-100 translate-y-0 transition-all duration-300 delay-150"
-          ].join(" ")}
-          aria-label="Show tools"
-        >
-          <LuMoveVertical className="size-5" aria-hidden />
-        </button>
-      ) : null}
-
-      {!chat.hasChat ? (
-        <button
-          type="button"
-          onClick={() => setShowRightTriggers(false)}
-          className={[
-            "right-sidebar-trigger fixed right-0 z-[120] flex size-12 -translate-y-1/2 items-center justify-center",
-            "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
-            "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            "md:hidden"
-          ].join(" ")}
-          aria-label="Hide tools"
-          style={{ top: "calc(50% + 12.25rem)" }}
-        >
-          <LuPanelRightClose className="size-5" aria-hidden />
-        </button>
-      ) : null}
+      {rightSidebarToggles}
     </div>
   );
 }

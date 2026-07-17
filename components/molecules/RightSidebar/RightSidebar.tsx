@@ -44,7 +44,7 @@ export function RightSidebarTrigger({
       style={{ top: topOffset }}
       className={[
         "right-sidebar-trigger fixed z-120 flex -translate-y-1/2 items-center justify-center",
-        "bg-surface-container-highest text-primary shadow-bloom ghost-border size-12 hover:bg-primary hover:text-on-primary",
+        "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
         isSwitching
           ? "transition-none duration-0"
           : "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
