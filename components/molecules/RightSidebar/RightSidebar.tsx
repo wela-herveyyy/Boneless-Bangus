@@ -73,7 +73,7 @@ export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBa
   return (
     <div
       className={[
-        "fixed inset-0 z-[110] bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300",
+        "fixed inset-0 z-[110] bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         className,
       ]
