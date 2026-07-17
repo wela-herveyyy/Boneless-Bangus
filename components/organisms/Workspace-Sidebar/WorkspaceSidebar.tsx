@@ -54,10 +54,10 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
           isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         ].join(" ")}
         onClick={closeSidebar}
-        aria-hidden={!isOpen}
+        inert={!isOpen ? true : undefined}
       />
       <aside
-        aria-hidden={!isOpen}
+        inert={!isOpen ? true : undefined}
         className={[
           "fixed left-0 top-0 z-40 flex h-screen w-72 flex-col bg-surface-container-low/70 backdrop-blur-[20px] transition-transform duration-300 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full",

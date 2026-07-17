@@ -80,7 +80,7 @@ export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBa
         .filter(Boolean)
         .join(" ")}
       onClick={closeSidebar}
-      aria-hidden={!isOpen}
+      inert={!isOpen ? true : undefined}
     />
   );
 }
@@ -107,7 +107,7 @@ export function RightSidebarPanel({
     <aside
       onMouseEnter={openFromHover}
       onMouseLeave={scheduleClose}
-      aria-hidden={!isOpen}
+      inert={!isOpen ? true : undefined}
       className={[
         "right-sidebar-panel fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
         "bg-surface-container-lowest shadow-bloom ghost-border",
