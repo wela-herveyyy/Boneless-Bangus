@@ -236,6 +236,7 @@ html.bbai-lock-scroll body {
   transition:
     right 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.22s ease,
+    opacity 0.22s ease,
     background-color 0.22s ease,
     color 0.22s ease;
 }
@@ -378,4 +379,11 @@ html.bbai-lock-scroll body {
 
 .chat-dot:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+body.left-sidebar-open .right-sidebar-trigger,
+body.hide-right-triggers .right-sidebar-trigger {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(100%);
 }

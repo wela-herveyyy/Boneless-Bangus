@@ -48,10 +48,18 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
 
   return (
     <>
-      <aside
-        aria-hidden={!isOpen}
+      <div
         className={[
-          "fixed left-0 top-0 z-20 flex h-screen w-72 flex-col bg-surface-container-low/70 backdrop-blur-[20px] transition-transform duration-300 ease-out",
+          "fixed inset-0 z-30 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
+          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        ].join(" ")}
+        onClick={closeSidebar}
+        inert={!isOpen ? true : undefined}
+      />
+      <aside
+        inert={!isOpen ? true : undefined}
+        className={[
+          "fixed left-0 top-0 z-40 flex h-screen w-72 flex-col bg-surface-container-low/70 backdrop-blur-[20px] transition-transform duration-300 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
@@ -118,7 +126,7 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
                       <button
                         type="button"
                         onClick={() => promptArchive(chat.id)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex p-2 rounded-lg text-on-surface-muted hover:text-red-400 hover:bg-surface-container-highest transition-colors"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 flex md:hidden md:group-hover:flex p-2 rounded-lg text-on-surface-muted hover:text-red-400 hover:bg-surface-container-highest transition-colors"
                         aria-label="Archive chat"
                       >
                         <LuArchive className="size-4" />
@@ -159,16 +167,19 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
         </div>
       </aside>
 
-      {!isOpen ? (
-        <button
-          type="button"
-          onClick={openSidebar}
-          className="fixed left-4 top-1/2 z-20 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl bg-surface-container-lowest text-on-surface-muted shadow-bloom transition-colors hover:text-primary"
-          aria-label="Show sidebar"
-        >
-          <LuPanelLeftOpen className="size-4" aria-hidden />
-        </button>
-      ) : null}
+      <button
+        type="button"
+        onClick={openSidebar}
+        className={[
+          "fixed left-4 top-16 md:top-1/2 z-40 flex size-10 md:-translate-y-1/2 items-center justify-center rounded-xl bg-surface-container-lowest text-on-surface-muted shadow-bloom hover:text-primary",
+          isOpen
+            ? "pointer-events-none opacity-0 -translate-x-4 transition-all duration-200"
+            : "pointer-events-auto opacity-100 translate-x-0 transition-all duration-300 delay-150"
+        ].join(" ")}
+        aria-label="Show sidebar"
+      >
+        <LuPanelLeftOpen className="size-4" aria-hidden />
+      </button>
 
       {cancelArchive && confirmArchive && (
         <ArchiveChatModal
