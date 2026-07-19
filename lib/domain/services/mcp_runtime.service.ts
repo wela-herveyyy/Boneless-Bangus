@@ -10,7 +10,7 @@ import {
   type McpServerConfigEntry,
 } from "@/lib/domain/schemas/mcp_server_config.schema";
 import { resolveAuthHeaders } from "./mcp_credential.service";
-import { executeGmailRestTool } from "./gmail_rest_bridge.service";
+import { refreshAndGetAccessToken } from "../usecases/google_workspace_auth/refresh_and_get_access_token.usecase";
 import {
   computePoolKey,
   getPoolEntry,
@@ -224,10 +224,19 @@ export async function connectMcpServers(
         let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport;
 
         if (config.transport === "stdio") {
+          const env = { ...process.env, ...(config.env || {}), ...authMap } as Record<string, string>;
+          if (config.env?.INJECT_GOOGLE_WORKSPACE_TOKEN === "true") {
+            try {
+              const token = await refreshAndGetAccessToken(userId);
+              env.GOOGLE_WORKSPACE_ACCESS_TOKEN = token;
+            } catch (err) {
+              warnings.push({ slug, reason: `Failed to inject Google Workspace token: ${err instanceof Error ? err.message : String(err)}` });
+            }
+          }
           transport = new StdioClientTransport({
             command: config.command,
             args: config.args,
-            env: { ...process.env, ...(config.env || {}), ...authMap } as Record<string, string>,
+            env,
           });
         } else if (config.transport === "sse") {
           const combinedHeaders: Record<string, string> = { ...((config.headers as Record<string, string>) || {}), ...authMap };
@@ -353,10 +362,6 @@ export async function executeMcpTool(
     return { ok: false, content: `No active connection pool for server: ${lookup.slug}` };
   }
 
-  // Intercept gmail-mcp tools to execute via our transparent Gmail REST bridge
-  if (lookup.slug === "gmail-mcp" && poolEntry.authHeaders?.Authorization) {
-    return await executeGmailRestTool(lookup.toolName, args, poolEntry.authHeaders.Authorization);
-  }
 
   const timeoutMs = opts?.timeoutMs ?? 15_000;
   const controller = new AbortController();
