@@ -41,6 +41,13 @@ export async function saveCredential(
  * Enforces strong ownership check (userId MUST match). Never logs secret values.
  */
 export async function resolveCredential(ref: string, userId: string): Promise<string> {
+  if (!ref || typeof ref !== "string") return "";
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+  if (!isUuid) {
+    return ref;
+  }
+
   const rows = await database
     .select()
     .from(mcpCredential)
@@ -48,7 +55,7 @@ export async function resolveCredential(ref: string, userId: string): Promise<st
     .limit(1);
 
   if (rows.length === 0) {
-    throw new Error(`Credential not found: ${ref}`);
+    return ref;
   }
 
   const row = rows[0];
@@ -93,6 +100,15 @@ export async function resolveAuthHeaders(
       resolveCredential(auth.clientSecretRef, userId),
       resolveCredential(auth.refreshTokenRef, userId),
     ]);
+
+    console.log("[resolveAuthHeaders:oauth-refresh]", {
+      slug,
+      userId,
+      clientIdRef: auth.clientIdRef,
+      resolvedClientId: clientId?.slice(0, 20),
+      resolvedClientSecret: clientSecret?.slice(0, 6),
+      resolvedRefreshToken: refreshToken?.slice(0, 15),
+    });
 
     const res = await fetch(auth.tokenUrl, {
       method: "POST",

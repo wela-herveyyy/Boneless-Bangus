@@ -10,27 +10,32 @@ import {
 import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession } from "@/lib/domain/services/mcp_runtime.service";
 
 const AGENT_TIMEOUT_MS = 300_000;
-const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 4;
 const MAX_TOOL_TURNS = 6;
 
 function thoughtSummaryText(delta: { type: string; content?: unknown }): string | null {
   if (delta.type !== "thought_summary") return null;
   const content = delta.content;
-  if (
-    content &&
-    typeof content === "object" &&
-    "type" in content &&
-    (content as { type: string }).type === "text" &&
-    "text" in content &&
-    typeof (content as { text: unknown }).text === "string"
-  ) {
-    return (content as { text: string }).text;
+  if (typeof content === "string") return content;
+  if (content && typeof content === "object") {
+    const text = (content as { text?: unknown }).text;
+    if (typeof text === "string") return text;
   }
   return null;
 }
 
 function isRetriableGoogleError(message: string): boolean {
-  return /404|requested entity was not found|internal error/i.test(message);
+  return /404|429|requested entity was not found|internal error|too_many_requests|quota exceeded|resource_exhausted|overloaded|please retry in/i.test(message);
+}
+
+/** Ensure tool results submitted to remote agent are structured JSON objects rather than strings. */
+function formatToolResult(contentStr: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(contentStr);
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : { value: parsed };
+  } catch {
+    return { content: contentStr };
+  }
 }
 
 /** Yields normalized thinking / text / tools / lifecycle events from Interactions SSE. */
@@ -75,6 +80,7 @@ export async function* createInteractionStream(
         description: t.description,
         parameters: sanitizeJsonSchema(t.inputSchema),
       }));
+      console.log("[createInteractionStream:optionsTools]", JSON.stringify(optionsTools, null, 2));
     }
   }
 
@@ -93,24 +99,27 @@ export async function* createInteractionStream(
           ? { previous_interaction_id: previousInteractionId }
           : {};
 
+        const requestPayload = {
+          agent: modelOrAgent,
+          input: currentInput as any,
+          environment: "remote",
+          stream: true as const,
+          agent_config: { type: "dynamic", thinking_summaries: "auto" } as any,
+          ...(input.systemInstruction ? { system_instruction: input.systemInstruction } : {}),
+          ...(optionsTools ? { tools: optionsTools as any } : {}),
+          ...previous,
+        };
+        console.log(
+          "[createInteractionStream:requestPayload]",
+          JSON.stringify({ ...requestPayload, toolsCount: optionsTools?.length ?? 0, tools: undefined }, null, 2)
+        );
+
         const stream = isAgent
-          ? await ai.interactions.create(
-              {
-                agent: modelOrAgent,
-                input: currentInput as any,
-                environment: "remote",
-                stream: true,
-                agent_config: { type: "dynamic", thinking_summaries: "auto" } as any,
-                ...(input.systemInstruction ? { system_instruction: input.systemInstruction } : {}),
-                ...(optionsTools ? { tools: optionsTools as any } : {}),
-                ...previous,
-              },
-              { timeout: AGENT_TIMEOUT_MS },
-            )
+          ? await ai.interactions.create(requestPayload, { timeout: AGENT_TIMEOUT_MS })
           : await ai.interactions.create({
               model: modelOrAgent,
               input: currentInput as any,
-              stream: true,
+              stream: true as const,
               ...(input.systemInstruction ? { system_instruction: input.systemInstruction } : {}),
               ...(optionsTools ? { tools: optionsTools as any } : {}),
               ...previous,
@@ -125,7 +134,7 @@ export async function* createInteractionStream(
         let requiresAction = false;
         let finalTokens: { input?: number; output?: number; status?: string } = {};
 
-        for await (const event of stream) {
+        for await (const event of stream as any) {
           const evtAny = event as any;
           if (evtAny.interaction?.id) {
             currentInteractionId = evtAny.interaction.id;
@@ -285,7 +294,7 @@ export async function* createInteractionStream(
               type: "function_result",
               call_id: tc.id,
               name: tc.name,
-              result: result.content,
+              result: formatToolResult(result.content) as any,
               is_error: !result.ok,
             });
           }
@@ -317,9 +326,28 @@ export async function* createInteractionStream(
         break;
       }
     } catch (error) {
-      lastError = error instanceof Error ? error.message : "Google AI stream failed.";
+      const errMsg = error instanceof Error ? error.message : "Google AI stream failed.";
+      const errAny = error as any;
+      const details = errAny?.body || errAny?.error || errAny?.details || errAny?.response?.data;
+      const detailStr = details ? (typeof details === "string" ? details : JSON.stringify(details)) : "";
+      const toolNames = optionsTools?.map((t) => t.name) ?? [];
+      console.error(
+        "[createInteractionStream:error]",
+        errMsg,
+        "tools:",
+        JSON.stringify(toolNames),
+        detailStr ? `details: ${detailStr}` : ""
+      );
+      lastError = detailStr && detailStr !== "{}" ? `${errMsg} (${detailStr.slice(0, 300)})` : errMsg;
       if (!sawProgress && isRetriableGoogleError(lastError)) {
         retriable = lastError;
+      } else if (!sawProgress && previousInteractionId && /invalid argument|invalid_request|400/i.test(lastError)) {
+        console.warn(
+          "[createInteractionStream:retry]",
+          `Retrying clean turn without previousInteractionId after 400 error: ${lastError}`
+        );
+        previousInteractionId = undefined;
+        retriable = "Retrying without stale previousInteractionId";
       } else {
         yield { type: "error", error: lastError };
         return;
@@ -332,6 +360,29 @@ export async function* createInteractionStream(
       yield { type: "error", error: lastError };
       return;
     }
+
+    // Extract suggested retry delay from message (e.g. "Please retry in 7.120732142s") or use exponential backoff
+    let retryDelayMs = Math.pow(2, attempt) * 2000 + Math.random() * 1000;
+    const match = retriable.match(/retry in ([0-9.]+)s/i);
+    if (match && match[1]) {
+      const parsedSeconds = parseFloat(match[1]);
+      if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+        // Wait requested seconds plus 500ms buffer, capped at 20 seconds per attempt
+        retryDelayMs = Math.min(parsedSeconds * 1000 + 500, 20000);
+      }
+    }
+
+    console.log(
+      "[createInteractionStream:retry] Retrying attempt %d after %dms due to: %s",
+      attempt + 1,
+      Math.round(retryDelayMs),
+      retriable.slice(0, 150)
+    );
+    yield {
+      type: "thinking",
+      text: `Rate limit hit or temporary API issue. Automatically retrying in ${Math.ceil(retryDelayMs / 1000)}s...`,
+    };
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
 
     previousInteractionId = undefined;
   }
