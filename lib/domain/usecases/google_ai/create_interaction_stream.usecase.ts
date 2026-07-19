@@ -7,8 +7,17 @@ import {
   GOOGLE_AI_AGENTS,
   GOOGLE_AI_DEFAULT_MODEL,
 } from "@/lib/entities/google_ai.type";
-import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession } from "@/lib/domain/services/mcp_runtime.service";
+import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession, type NamespacedDiscoveredTool, type ExecuteToolResult } from "@/lib/domain/services/mcp_runtime.service";
 import { getGoogleWorkspaceAuth } from "@/lib/domain/usecases/google_workspace_auth/get_google_workspace_auth.usecase";
+import { refreshAndGetAccessToken } from "@/lib/domain/usecases/google_workspace_auth/refresh_and_get_access_token.usecase";
+import {
+  searchGmailThreadsUseCase,
+  getGmailThreadUseCase,
+  getGmailMessageUseCase,
+  listGmailDraftsUseCase,
+  createGmailDraftUseCase,
+} from "@/lib/domain/usecases/mcp_google_workspace/gmail.usecases";
+import { createCalendarEventUseCase } from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ATTEMPTS = 4;
@@ -27,6 +36,10 @@ function thoughtSummaryText(delta: { type: string; content?: unknown }): string 
 
 function isRetriableGoogleError(message: string): boolean {
   return /404|429|requested entity was not found|internal error|too_many_requests|quota exceeded|resource_exhausted|overloaded|please retry in/i.test(message);
+}
+
+function isTerminatedError(message: string): boolean {
+  return /\bterminated\b/i.test(message);
 }
 
 /** Ensure tool results submitted to remote agent are structured JSON objects rather than strings. */
@@ -66,27 +79,66 @@ export async function* createInteractionStream(
   // { functionDeclarations } wrapper. FunctionT also uses `parameters`, not `parametersJsonSchema`.
   let optionsTools: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> | undefined;
 
-  // Construct MCP Server list and conditionally inject Internal Google Workspace MCP
+  // Construct MCP Server list from any externally-passed servers
   const mcpServersList = Array.isArray(input.mcpServers) ? [...input.mcpServers] : [];
+
+  // Direct in-process Google Workspace tools — avoids HTTP loopback timeout
+  let inProcessGwTools: NamespacedDiscoveredTool[] | undefined;
+  let inProcessGwExecutor: ((toolName: string, args: Record<string, unknown>) => Promise<ExecuteToolResult>) | undefined;
+
   if (input.userId) {
     try {
       const auth = await getGoogleWorkspaceAuth(input.userId);
       if (auth.isConnected) {
-        // Inject the internal Google Workspace MCP
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        mcpServersList.push({
-          slug: "internal-google-workspace",
-          config: {
-            transport: "streamable-http",
-            url: `${appUrl}/api/mcp/google-workspace`,
-            headers: {
-              "x-inject-google-workspace-token": "true"
+        const slug = "internal_google_workspace";
+
+        const gwToolDefs = [
+          { name: "search_threads", description: "Search Gmail threads using standard Gmail query syntax.", inputSchema: { type: "object", properties: { query: { type: "string", description: "The search query (e.g., 'is:unread', 'from:boss@example.com')" }, maxResults: { type: "number", description: "Max threads to return (default 1)" } }, required: ["query"] } },
+          { name: "get_thread",     description: "Retrieve a specific Gmail thread and its messages by thread ID.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+          { name: "get_message",    description: "Retrieve a specific Gmail message by message ID.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+          { name: "list_drafts",    description: "List Gmail drafts (up to 20).", inputSchema: { type: "object", properties: { maxResults: { type: "number", description: "Optional max results" } } } },
+          { name: "create_draft",   description: "Create a new draft email.", inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] } },
+          { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", inputSchema: { type: "object", properties: { summary: { type: "string" }, description: { type: "string" }, start: { type: "string" }, end: { type: "string" }, addGoogleMeet: { type: "boolean" } }, required: ["summary", "start", "end"] } },
+        ];
+
+        inProcessGwTools = gwToolDefs.map((t) => ({
+          ...t,
+          inputSchema: sanitizeJsonSchema(t.inputSchema as Record<string, unknown>),
+          namespacedName: `${slug}__${t.name}`,
+          slug,
+          toolName: t.name,
+        }));
+
+        inProcessGwExecutor = async (toolName, args) => {
+          try {
+            const token = await refreshAndGetAccessToken(input.userId!);
+            let result: unknown;
+            switch (toolName) {
+              case "search_threads":        result = await searchGmailThreadsUseCase(token, args.query as string, args.maxResults as number | undefined); break;
+              case "get_thread":            result = await getGmailThreadUseCase(token, args.id as string); break;
+              case "get_message":           result = await getGmailMessageUseCase(token, args.id as string); break;
+              case "list_drafts":           result = await listGmailDraftsUseCase(token); break;
+              case "create_draft":         result = await createGmailDraftUseCase(token, args.to as string, args.subject as string, args.body as string); break;
+              case "create_calendar_event": result = await createCalendarEventUseCase(token, args.summary as string, (args.description as string) || "", args.start as string, args.end as string, args.addGoogleMeet as boolean | undefined); break;
+              default: return { ok: false, content: `Unknown tool: ${toolName}` };
             }
+            return { ok: true, content: JSON.stringify(result) };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Tool execution failed";
+            return { ok: false, content: msg };
           }
-        });
+        };
       }
     } catch (err) {
       console.warn("Failed to check or inject Google Workspace Auth:", err);
+    }
+  }
+
+  // Build in-process GW tool lookup for dispatch
+  const inProcessGwLookup = new Map<string, string>(); // namespacedName -> toolName
+  if (inProcessGwTools) {
+    for (const t of inProcessGwTools) {
+      inProcessGwLookup.set(t.namespacedName, t.toolName);
     }
   }
 
@@ -108,6 +160,18 @@ export async function* createInteractionStream(
       // console.log("[createInteractionStream:optionsTools]", JSON.stringify(optionsTools, null, 2));
     }
   }
+
+  // Merge in-process GW tools into optionsTools
+  if (inProcessGwTools && inProcessGwTools.length > 0) {
+    const gwFunctions = inProcessGwTools.map((t) => ({
+      type: "function" as const,
+      name: t.namespacedName,
+      description: t.description,
+      parameters: sanitizeJsonSchema(t.inputSchema),
+    }));
+    optionsTools = [...(optionsTools ?? []), ...gwFunctions];
+  }
+
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     let sawProgress = false;
@@ -185,7 +249,7 @@ export async function* createInteractionStream(
               s.type === "function_call" &&
               s.id &&
               s.name &&
-              mcpSession?.toolLookup.has(s.name)
+              (mcpSession?.toolLookup.has(s.name) || inProcessGwLookup.has(s.name))
             ) {
               pendingToolCalls.set(s.id, {
                 id: s.id,
@@ -211,7 +275,7 @@ export async function* createInteractionStream(
                 s.type === "function_call" &&
                 s.id &&
                 s.name &&
-                mcpSession?.toolLookup.has(s.name)
+                (mcpSession?.toolLookup.has(s.name) || inProcessGwLookup.has(s.name))
               ) {
                 pendingToolCalls.set(s.id, {
                   id: s.id,
@@ -239,7 +303,7 @@ export async function* createInteractionStream(
                 delta.type === "function_call" &&
                 delta.id &&
                 delta.name &&
-                mcpSession?.toolLookup.has(delta.name)
+                (mcpSession?.toolLookup.has(delta.name) || inProcessGwLookup.has(delta.name))
               ) {
                 pendingToolCalls.set(delta.id, {
                   id: delta.id,
@@ -258,6 +322,12 @@ export async function* createInteractionStream(
               };
               if (interaction?.status === "requires_action") {
                 requiresAction = true;
+              }
+              if (interaction?.status === "terminated" && previousInteractionId && !sawProgress) {
+                // Stale interaction chain — set retriable so we retry fresh
+                lastError = "terminated";
+                retriable = "Retrying as fresh conversation after terminated";
+                console.warn("[createInteractionStream:retry] Agent terminated stale chain, will retry fresh.");
               }
               break;
             }
@@ -302,15 +372,22 @@ export async function* createInteractionStream(
           }> = [];
 
           for (const tc of pendingToolCalls.values()) {
-            const lookup = mcpSession?.toolLookup.get(tc.name);
-            const slug = lookup?.slug || "unknown";
-            const toolName = lookup?.toolName || tc.name;
+            // Determine if this is an in-process GW tool or an MCP pool tool
+            const isInProcessGw = inProcessGwLookup.has(tc.name);
+            const gwToolName = inProcessGwLookup.get(tc.name);
+            const mcpLookup = mcpSession?.toolLookup.get(tc.name);
+            const slug = isInProcessGw ? "internal_google_workspace" : (mcpLookup?.slug || "unknown");
+            const toolName = isInProcessGw ? (gwToolName || tc.name) : (mcpLookup?.toolName || tc.name);
 
             yield { type: "tool_call", slug, toolName };
 
-            let result = { ok: false, content: "No active session" };
-            if (mcpSession) {
+            let result: ExecuteToolResult;
+            if (isInProcessGw && inProcessGwExecutor && gwToolName) {
+              result = await inProcessGwExecutor(gwToolName, tc.arguments);
+            } else if (mcpSession) {
               result = await executeMcpTool(mcpSession, tc.name, tc.arguments);
+            } else {
+              result = { ok: false, content: "No active session" };
             }
 
             yield { type: "tool_result", slug, toolName, ok: result.ok };
@@ -373,6 +450,13 @@ export async function* createInteractionStream(
         );
         previousInteractionId = undefined;
         retriable = "Retrying without stale previousInteractionId";
+      } else if (!sawProgress && previousInteractionId && isTerminatedError(lastError)) {
+        console.warn(
+          "[createInteractionStream:retry]",
+          `Agent terminated stale interaction chain — retrying as fresh conversation: ${lastError}`
+        );
+        previousInteractionId = undefined;
+        retriable = "Retrying as fresh conversation after terminated";
       } else {
         yield { type: "error", error: lastError };
         return;
