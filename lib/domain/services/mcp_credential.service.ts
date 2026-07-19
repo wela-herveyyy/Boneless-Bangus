@@ -1,8 +1,7 @@
-import { eq } from "drizzle-orm";
-import { database } from "@/database";
-import { mcpCredential } from "@/database/schema";
 import { encryptCredential, decryptCredential } from "@/lib/utils/credentialCrypto";
 import type { McpAuth } from "@/lib/domain/schemas/mcp_server_config.schema";
+import { saveMcpCredential } from "@/lib/domain/usecases/mcp_credential/save_mcp_credential.usecase";
+import { getMcpCredentialById } from "@/lib/domain/usecases/mcp_credential/get_mcp_credential.usecase";
 
 const oauthTokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
 
@@ -23,15 +22,14 @@ export async function saveCredential(
   const encrypted = encryptCredential(plaintext);
   const id = crypto.randomUUID();
 
-  await database.insert(mcpCredential).values({
+  await saveMcpCredential(
     id,
     userId,
     slug,
-    label: label.trim() || "API Key",
-    encryptedValue: encrypted.ciphertext,
-    iv: encrypted.iv,
-    createdAt: new Date(),
-  });
+    label.trim() || "API Key",
+    encrypted.ciphertext,
+    encrypted.iv
+  );
 
   return id;
 }
@@ -48,17 +46,12 @@ export async function resolveCredential(ref: string, userId: string): Promise<st
     return ref;
   }
 
-  const rows = await database
-    .select()
-    .from(mcpCredential)
-    .where(eq(mcpCredential.id, ref))
-    .limit(1);
+  const row = await getMcpCredentialById(ref);
 
-  if (rows.length === 0) {
+  if (!row) {
     return ref;
   }
 
-  const row = rows[0];
   if (row.userId !== userId) {
     throw new Error("Unauthorized: credential does not belong to current user.");
   }
