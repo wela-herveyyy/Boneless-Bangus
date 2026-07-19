@@ -134,10 +134,10 @@ export async function* createInteractionStream(
           ...(optionsTools ? { tools: optionsTools as any } : {}),
           ...previous,
         };
-        console.log(
-          "[createInteractionStream:requestPayload]",
-          JSON.stringify({ ...requestPayload, toolsCount: optionsTools?.length ?? 0, tools: undefined }, null, 2)
-        );
+        // console.log(
+        //   "[createInteractionStream:requestPayload]",
+        //   JSON.stringify({ ...requestPayload, toolsCount: optionsTools?.length ?? 0, tools: undefined }, null, 2)
+        // );
 
         const stream = isAgent
           ? await ai.interactions.create(requestPayload, { timeout: AGENT_TIMEOUT_MS })
