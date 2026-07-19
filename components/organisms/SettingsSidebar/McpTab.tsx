@@ -7,6 +7,7 @@ import { Portal } from "@/components/atoms/Portal/Portal";
 import { LuPlus, LuTrash2, LuPencil, LuCode, LuKey, LuTerminal, LuGlobe } from "react-icons/lu";
 import { loadUserAiConfigFromIdb, saveUserAiConfigToIdb } from "@/lib/utils/mcp-idb";
 import { getMcpDataAction } from "@/lib/domain/actions/mcp_server.actions";
+import { saveMcpCredentialAction } from "@/lib/domain/actions/mcp.actions";
 import type { UserAiConfig, McpServerDetailed } from "@/lib/entities/mcp_server.type";
 import { JsonTab } from "./JsonTab";
 
@@ -30,14 +31,13 @@ async function migrateServerSecrets(
       if (lower === "authorization" && val.startsWith("Bearer ")) {
         const token = val.slice(7).trim();
         if (token && !isCredentialRef(token)) {
-          const res = await fetch("/api/mcp/credentials", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug, label: key, plaintext: token }),
-          });
-          const json = await res.json().catch(() => null);
-          if (json?.ok && json.credentialRef) {
-            config.auth = { type: "bearer", credentialRef: json.credentialRef };
+          const formData = new FormData();
+          formData.set("slug", slug);
+          formData.set("label", key);
+          formData.set("plaintext", token);
+          const result = await saveMcpCredentialAction(formData);
+          if (result.ok && result.data?.credentialRef) {
+            config.auth = { type: "bearer", credentialRef: result.data.credentialRef };
             delete headers[key];
             modified = true;
           }
@@ -48,17 +48,16 @@ async function migrateServerSecrets(
         lower.includes("secret")
       ) {
         if (!isCredentialRef(val)) {
-          const res = await fetch("/api/mcp/credentials", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug, label: key, plaintext: val }),
-          });
-          const json = await res.json().catch(() => null);
-          if (json?.ok && json.credentialRef) {
+          const formData = new FormData();
+          formData.set("slug", slug);
+          formData.set("label", key);
+          formData.set("plaintext", val);
+          const result = await saveMcpCredentialAction(formData);
+          if (result.ok && result.data?.credentialRef) {
             config.auth = {
               type: "api-key",
               headerName: key,
-              credentialRef: json.credentialRef,
+              credentialRef: result.data.credentialRef,
             };
             delete headers[key];
             modified = true;
@@ -84,14 +83,13 @@ async function migrateServerSecrets(
         lower === "authorization"
       ) {
         if (!isCredentialRef(val)) {
-          const res = await fetch("/api/mcp/credentials", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug, label: key, plaintext: val }),
-          });
-          const json = await res.json().catch(() => null);
-          if (json?.ok && json.credentialRef) {
-            env[key] = json.credentialRef;
+          const formData = new FormData();
+          formData.set("slug", slug);
+          formData.set("label", key);
+          formData.set("plaintext", val);
+          const result = await saveMcpCredentialAction(formData);
+          if (result.ok && result.data?.credentialRef) {
+            env[key] = result.data.credentialRef;
             modified = true;
           }
         }
