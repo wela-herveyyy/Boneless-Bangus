@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Inter, Manrope } from "next/font/google";
 import Script from "next/script";
 import { RightSidebars } from "@/components/organisms/RightSidebars/RightSidebars";
@@ -45,7 +46,9 @@ export default function RootLayout({
           {THEME_INIT_SCRIPT}
         </Script>
         {children}
-        <RightSidebars />
+        <Suspense fallback={null}>
+          <RightSidebars />
+        </Suspense>
       </body>
     </html>
   );

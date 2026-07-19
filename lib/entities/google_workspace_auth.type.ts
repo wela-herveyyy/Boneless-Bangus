@@ -94,3 +94,27 @@ export type EmailMessageSummary = {
 export type GoogleWorkspaceResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+/** First-party Workspace tools exposed to Cursor chat (not official Google MCP). */
+export const WORKSPACE_CHAT_TOOLS = [
+  "workspace_status",
+  "list_recent_emails",
+  "send_email",
+  "list_upcoming_calendar_events",
+  "create_calendar_event",
+  "create_google_meet",
+] as const;
+
+export type WorkspaceChatToolName = (typeof WORKSPACE_CHAT_TOOLS)[number];
+
+export type WorkspaceChatToolArgs = Record<string, unknown>;
+
+export type WorkspaceChatToolResult = unknown;
+
+/** Gemini Interactions API client-side function tool shape. */
+export type FunctionT = {
+  type: "function";
+  name: string;
+  description?: string;
+  parameters?: Record<string, unknown>;
+};

@@ -2,13 +2,16 @@
 
 import { useActionState, useState, startTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
 import { updateApiKeysAction, joinTeamAction, leaveTeamAction, updatePersonalInfoAction } from "@/lib/domain/actions/profile.actions";
+import { updateTeamApiKeysAction } from "@/lib/domain/actions/team.actions";
 
 type ProfileViewProps = {
+  userId?: string;
   userName: string;
   userEmail: string;
   userSettings: {
@@ -16,32 +19,49 @@ type ProfileViewProps = {
     geminiApiKey: string | null;
   } | null;
   userTeam: {
+    teamId: string;
     teamCode: string;
     teamName: string;
+    cursorApiKey: string | null;
+    geminiApiKey: string | null;
+    isManager: boolean;
   } | null;
   onClose?: () => void;
 };
 
 type ConfirmState = {
-  type: "save_keys" | "join_team" | "leave_team" | "save_personal_info";
+  type: "save_keys" | "save_team_keys" | "join_team" | "leave_team" | "save_personal_info";
   formData: FormData;
 } | null;
 
-export function ProfileView({ userName, userEmail, userSettings, userTeam, onClose }: ProfileViewProps) {
+export function ProfileView({ userId, userName, userEmail, userSettings, userTeam, onClose }: ProfileViewProps) {
   const router = useRouter();
   const [personalInfoState, personalInfoAction] = useActionState(updatePersonalInfoAction, null);
   const [apiKeyState, apiKeysFormAction] = useActionState(updateApiKeysAction, null);
+  const [teamKeyState, teamKeysFormAction] = useActionState(updateTeamApiKeysAction, null);
   const [joinState, joinFormAction] = useActionState(joinTeamAction, null);
   const [leaveState, leaveFormAction] = useActionState(leaveTeamAction, null);
 
   const [confirmAction, setConfirmAction] = useState<ConfirmState>(null);
-  const [editingKey, setEditingKey] = useState<"gemini" | "cursor" | "personal_info" | null>(null);
+  const [editingKey, setEditingKey] = useState<
+    "gemini" | "cursor" | "team_gemini" | "team_cursor" | "personal_info" | null
+  >(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   useEffect(() => {
     if (apiKeyState?.ok) setFeedback({ type: 'success', message: "API keys updated successfully." });
     else if (apiKeyState?.error) setFeedback({ type: 'error', message: apiKeyState.error });
   }, [apiKeyState]);
+
+  useEffect(() => {
+    if (teamKeyState?.ok) {
+      setFeedback({ type: "success", message: "Team API keys updated successfully." });
+      setEditingKey(null);
+      router.refresh();
+    } else if (teamKeyState?.error) {
+      setFeedback({ type: "error", message: teamKeyState.error });
+    }
+  }, [teamKeyState, router]);
 
   useEffect(() => {
     if (joinState?.ok) setFeedback({ type: 'success', message: "Successfully joined the team." });
@@ -84,6 +104,7 @@ export function ProfileView({ userName, userEmail, userSettings, userTeam, onClo
     
     startTransition(() => {
       if (type === "save_keys") apiKeysFormAction(formData);
+      if (type === "save_team_keys") teamKeysFormAction(formData);
       if (type === "join_team") joinFormAction(formData);
       if (type === "leave_team") leaveFormAction(formData);
       if (type === "save_personal_info") personalInfoAction(formData);
@@ -103,6 +124,14 @@ export function ProfileView({ userName, userEmail, userSettings, userTeam, onClo
             <div>
               <h1 id="profile-settings-title" className="text-2xl font-display font-bold text-on-surface">Profile Settings</h1>
               <p className="mt-1 text-sm text-on-surface-muted">Manage your API keys and team affiliations.</p>
+              {userId ? (
+                <Link
+                  href={`/user/${userId}`}
+                  className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+                >
+                  View full profile, usage & prompt archives
+                </Link>
+              ) : null}
             </div>
             <button
               type="button"
@@ -186,15 +215,24 @@ export function ProfileView({ userName, userEmail, userSettings, userTeam, onClo
               {userTeam ? (
                 <div className="mb-4 rounded-xl bg-primary/10 p-4 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-primary mb-1">Current Team</p>
+                    <p className="text-sm font-medium text-primary mb-1">
+                      Current Team{userTeam.isManager ? " · Team Leader" : ""}
+                    </p>
                     <p className="text-lg font-semibold text-on-surface">{userTeam.teamName}</p>
                     <p className="text-sm text-on-surface-muted font-mono">Code: {userTeam.teamCode}</p>
+                    {userTeam.isManager ? (
+                      <p className="mt-2 text-xs text-on-surface-muted">
+                        As team leader you manage shared API keys and cannot leave this team.
+                      </p>
+                    ) : null}
                   </div>
-                  <form action={(formData) => setConfirmAction({ type: "leave_team", formData })}>
-                    <Button type="submit" variant="danger">
-                      Leave Team
-                    </Button>
-                  </form>
+                  {!userTeam.isManager ? (
+                    <form action={(formData) => setConfirmAction({ type: "leave_team", formData })}>
+                      <Button type="submit" variant="danger">
+                        Leave Team
+                      </Button>
+                    </form>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mb-4 rounded-xl bg-surface-container-high p-4">
@@ -223,85 +261,168 @@ export function ProfileView({ userName, userEmail, userSettings, userTeam, onClo
                   </div>
                 </form>
               )}
+
             </section>
 
-            {/* API Keys Section */}
+            {/* API Keys — personal + team (managers) in one place */}
             <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-on-surface">LLM API Keys</h2>
+              <h2 className="mb-1 text-lg font-semibold text-on-surface">API Keys</h2>
               <p className="mb-5 text-sm text-on-surface-muted">
-                Provide your personal API keys to use Language Models directly within the workspace. These keys are stored securely.
+                {userTeam
+                  ? "Personal keys override the team key. Members without a personal key use the team key."
+                  : "Keys are stored securely and used for Language Models in the workspace."}
               </p>
 
               <div className="space-y-4">
-                {/* Gemini API Key */}
-                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-on-surface font-semibold mb-0">Gemini API Key</Label>
-                    {!editingKey || editingKey !== "gemini" ? (
-                      <Button variant="secondary" className="px-3 py-1.5 text-xs h-auto" onClick={() => setEditingKey("gemini")}>
-                        {userSettings?.geminiApiKey ? "Edit Key" : "Add Key"}
-                      </Button>
-                    ) : null}
-                  </div>
-                  
-                  {editingKey === "gemini" ? (
-                    <form action={(formData) => { setEditingKey(null); setConfirmAction({ type: "save_keys", formData }); }} className="flex flex-col sm:flex-row gap-3 mt-3">
-                      <Input
-                        id="geminiApiKey"
-                        name="geminiApiKey"
-                        type="password"
-                        defaultValue={userSettings?.geminiApiKey ?? ""}
-                        placeholder="AIzaSy..."
-                        required
-                        className="flex-1"
-                      />
-                      <div className="flex gap-2 justify-end sm:justify-start shrink-0">
-                        <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>Cancel</Button>
-                        <Button type="submit" variant="primary">Save</Button>
-                      </div>
-                    </form>
-                  ) : (
-                    <p className="text-sm text-on-surface-muted flex items-center gap-2">
-                      <span className={`inline-block size-2 rounded-full ${userSettings?.geminiApiKey ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {userSettings?.geminiApiKey ? "Key configured" : "Not configured"}
-                    </p>
-                  )}
-                </div>
+                {(
+                  [
+                    {
+                      label: "Gemini",
+                      personalKey: userSettings?.geminiApiKey ?? null,
+                      teamKey: userTeam?.geminiApiKey ?? null,
+                      personalEdit: "gemini" as const,
+                      teamEdit: "team_gemini" as const,
+                      personalName: "geminiApiKey",
+                      teamName: "geminiApiKey",
+                      placeholder: "AIzaSy...",
+                    },
+                    {
+                      label: "Cursor",
+                      personalKey: userSettings?.cursorApiKey ?? null,
+                      teamKey: userTeam?.cursorApiKey ?? null,
+                      personalEdit: "cursor" as const,
+                      teamEdit: "team_cursor" as const,
+                      personalName: "cursorApiKey",
+                      teamName: "cursorApiKey",
+                      placeholder: "Enter Cursor API key",
+                    },
+                  ] as const
+                ).map((provider) => {
+                  const active = provider.personalKey
+                    ? "personal"
+                    : provider.teamKey
+                      ? "team"
+                      : "none";
 
-                {/* Cursor API Key */}
-                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-on-surface font-semibold mb-0">Cursor API Key</Label>
-                    {!editingKey || editingKey !== "cursor" ? (
-                      <Button variant="secondary" className="px-3 py-1.5 text-xs h-auto" onClick={() => setEditingKey("cursor")}>
-                        {userSettings?.cursorApiKey ? "Edit Key" : "Add Key"}
-                      </Button>
-                    ) : null}
-                  </div>
-                  
-                  {editingKey === "cursor" ? (
-                    <form action={(formData) => { setEditingKey(null); setConfirmAction({ type: "save_keys", formData }); }} className="flex flex-col sm:flex-row gap-3 mt-3">
-                      <Input
-                        id="cursorApiKey"
-                        name="cursorApiKey"
-                        type="password"
-                        defaultValue={userSettings?.cursorApiKey ?? ""}
-                        placeholder="Enter your Cursor API key"
-                        required
-                        className="flex-1"
-                      />
-                      <div className="flex gap-2 justify-end sm:justify-start shrink-0">
-                        <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>Cancel</Button>
-                        <Button type="submit" variant="primary">Save</Button>
+                  return (
+                    <div
+                      key={provider.label}
+                      className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <Label className="mb-0 font-semibold text-on-surface">{provider.label}</Label>
+                        <p className="flex items-center gap-2 text-xs text-on-surface-muted">
+                          <span
+                            className={`inline-block size-2 rounded-full ${
+                              active === "none" ? "bg-red-500" : "bg-green-500"
+                            }`}
+                          />
+                          {active === "personal"
+                            ? "Using personal"
+                            : active === "team"
+                              ? "Using team"
+                              : "Not configured"}
+                        </p>
                       </div>
-                    </form>
-                  ) : (
-                    <p className="text-sm text-on-surface-muted flex items-center gap-2">
-                      <span className={`inline-block size-2 rounded-full ${userSettings?.cursorApiKey ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {userSettings?.cursorApiKey ? "Key configured" : "Not configured"}
-                    </p>
-                  )}
-                </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium text-on-surface-muted">Personal</p>
+                            {editingKey !== provider.personalEdit ? (
+                              <Button
+                                variant="secondary"
+                                className="h-auto px-3 py-1.5 text-xs"
+                                onClick={() => setEditingKey(provider.personalEdit)}
+                              >
+                                {provider.personalKey ? "Edit" : "Add"}
+                              </Button>
+                            ) : null}
+                          </div>
+                          {editingKey === provider.personalEdit ? (
+                            <form
+                              action={(formData) => {
+                                setEditingKey(null);
+                                setConfirmAction({ type: "save_keys", formData });
+                              }}
+                              className="flex flex-col gap-3 sm:flex-row"
+                            >
+                              <Input
+                                name={provider.personalName}
+                                type="password"
+                                defaultValue={provider.personalKey ?? ""}
+                                placeholder={provider.placeholder}
+                                required
+                                className="flex-1"
+                              />
+                              <div className="flex shrink-0 justify-end gap-2">
+                                <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
+                                  Cancel
+                                </Button>
+                                <Button type="submit" variant="primary">
+                                  Save
+                                </Button>
+                              </div>
+                            </form>
+                          ) : (
+                            <p className="text-sm text-on-surface-muted">
+                              {provider.personalKey ? "Configured" : "Not set"}
+                            </p>
+                          )}
+                        </div>
+
+                        {userTeam ? (
+                          <div className="border-t border-outline-variant pt-3">
+                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-on-surface-muted">
+                                Team{userTeam.isManager ? "" : " (shared)"}
+                              </p>
+                              {userTeam.isManager && editingKey !== provider.teamEdit ? (
+                                <Button
+                                  variant="secondary"
+                                  className="h-auto px-3 py-1.5 text-xs"
+                                  onClick={() => setEditingKey(provider.teamEdit)}
+                                >
+                                  {provider.teamKey ? "Edit" : "Add"}
+                                </Button>
+                              ) : null}
+                            </div>
+                            {userTeam.isManager && editingKey === provider.teamEdit ? (
+                              <form
+                                action={(formData) => {
+                                  setConfirmAction({ type: "save_team_keys", formData });
+                                }}
+                                className="flex flex-col gap-3 sm:flex-row"
+                              >
+                                <input type="hidden" name="teamId" value={userTeam.teamId} />
+                                <Input
+                                  name={provider.teamName}
+                                  type="password"
+                                  defaultValue={provider.teamKey ?? ""}
+                                  placeholder={provider.placeholder}
+                                  required
+                                  className="flex-1"
+                                />
+                                <div className="flex shrink-0 justify-end gap-2">
+                                  <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" variant="primary">
+                                    Save
+                                  </Button>
+                                </div>
+                              </form>
+                            ) : (
+                              <p className="text-sm text-on-surface-muted">
+                                {provider.teamKey ? "Configured" : "Not set"}
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </div>
@@ -313,12 +434,15 @@ export function ProfileView({ userName, userEmail, userSettings, userTeam, onClo
           <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-lg font-display font-semibold text-on-surface mb-2">
               {confirmAction.type === "save_keys" && "Save API Keys?"}
+              {confirmAction.type === "save_team_keys" && "Save Team API Keys?"}
               {confirmAction.type === "save_personal_info" && "Save Personal Info?"}
               {confirmAction.type === "join_team" && "Join Team?"}
               {confirmAction.type === "leave_team" && "Leave Team?"}
             </h3>
             <p className="text-sm text-on-surface-muted mb-6">
               {confirmAction.type === "save_keys" && "Are you sure you want to update your API keys?"}
+              {confirmAction.type === "save_team_keys" &&
+                "These keys are shared with team members who do not have a personal key."}
               {confirmAction.type === "save_personal_info" && "Are you sure you want to update your personal information?"}
               {confirmAction.type === "join_team" && "Are you sure you want to join this team?"}
               {confirmAction.type === "leave_team" && "Are you sure you want to leave your current team?"}
