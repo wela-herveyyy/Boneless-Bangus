@@ -20,6 +20,7 @@ export function useWorkspaceSidebar() {
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [chatToArchiveId, setChatToArchiveId] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const refreshHistory = useCallback(async () => {
     const result = await listConversationsAction();
@@ -40,6 +41,29 @@ export function useWorkspaceSidebar() {
   useEffect(() => {
     void refreshHistory();
   }, [refreshHistory]);
+
+  useEffect(() => {
+    if (isOpen) {
+      window.dispatchEvent(
+        new CustomEvent("bbai:close-right-sidebar", {
+          detail: { sourceId: "left-sidebar" },
+        })
+      );
+    }
+    document.body.classList.toggle("left-sidebar-open", isOpen);
+    return () => document.body.classList.remove("left-sidebar-open");
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleRightSidebarState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ source: string; isOpen: boolean }>;
+      if (customEvent.detail?.isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("bbai:right-sidebar-state", handleRightSidebarState);
+    return () => window.removeEventListener("bbai:right-sidebar-state", handleRightSidebarState);
+  }, []);
 
   const setActiveChatId = useCallback((id: string | null) => {
     setActiveChatIdState(id);
@@ -67,6 +91,9 @@ export function useWorkspaceSidebar() {
     }
   }, [chatToArchiveId]);
 
+  const openProfile = useCallback(() => setIsProfileOpen(true), []);
+  const closeProfile = useCallback(() => setIsProfileOpen(false), []);
+
   return {
     isOpen,
     openSidebar: () => setIsOpen(true),
@@ -83,6 +110,9 @@ export function useWorkspaceSidebar() {
     promptArchive,
     cancelArchive,
     confirmArchive,
+    isProfileOpen,
+    openProfile,
+    closeProfile,
   };
 }
 

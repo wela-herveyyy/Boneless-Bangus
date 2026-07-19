@@ -121,6 +121,9 @@ export function useRightSidebar(
   }, [id, pinnedOpen, isOtherRightSidebarOpen]);
 
   const openFromHover = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
+    }
     clearCloseTimer();
     if (!isOpen) {
       const switching = isOtherRightSidebarOpen;
@@ -143,6 +146,9 @@ export function useRightSidebar(
   }, [clearCloseTimer, id, isOpen, isOtherRightSidebarOpen]);
 
   const scheduleClose = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
+    }
     clearCloseTimer();
     closeTimeoutRef.current = window.setTimeout(() => {
       if (!pinnedOpen) {

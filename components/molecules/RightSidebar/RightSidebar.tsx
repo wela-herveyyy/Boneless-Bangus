@@ -44,7 +44,7 @@ export function RightSidebarTrigger({
       style={{ top: topOffset }}
       className={[
         "right-sidebar-trigger fixed z-120 flex -translate-y-1/2 items-center justify-center",
-        "bg-surface-container-highest text-primary shadow-bloom ghost-border size-12 hover:bg-primary hover:text-on-primary",
+        "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
         isSwitching
           ? "transition-none duration-0"
           : "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -73,14 +73,14 @@ export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBa
   return (
     <div
       className={[
-        "fixed inset-0 z-[110] bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300",
+        "fixed inset-0 z-[110] bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       onClick={closeSidebar}
-      aria-hidden={!isOpen}
+      inert={!isOpen ? true : undefined}
     />
   );
 }
@@ -107,7 +107,7 @@ export function RightSidebarPanel({
     <aside
       onMouseEnter={openFromHover}
       onMouseLeave={scheduleClose}
-      aria-hidden={!isOpen}
+      inert={!isOpen ? true : undefined}
       className={[
         "right-sidebar-panel fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
         "bg-surface-container-lowest shadow-bloom ghost-border",

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
 import { McpMarketplace } from "@/components/organisms/McpMarketplace/McpMarketplace";
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
@@ -34,6 +35,9 @@ function triggerTop(index: number, total: number): string {
 }
 
 export function RightSidebars() {
+  const pathname = usePathname();
+  if (!pathname?.startsWith("/workspace")) return null;
+
   return (
     <>
       {SIDEBARS.map((Sidebar, i) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import { LuMoveVertical, LuPanelRightClose } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { Input } from "@/components/atoms/Input/Input";
@@ -142,8 +143,17 @@ export function WorkspaceChat({
     { activeChatId, onConversationSaved },
   );
   const threadRef = useRef<HTMLDivElement>(null);
+  const [showRightTriggers, setShowRightTriggers] = useState(false);
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
+
+  useEffect(() => {
+    const hideTriggers = !showRightTriggers;
+    document.body.classList.toggle("hide-right-triggers", hideTriggers);
+    return () => {
+      document.body.classList.remove("hide-right-triggers");
+    };
+  }, [chat.hasChat, showRightTriggers]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
@@ -188,12 +198,45 @@ export function WorkspaceChat({
     </form>
   );
 
+  const rightSidebarToggles = (
+    <>
+      <button
+        type="button"
+        onClick={() => setShowRightTriggers(true)}
+        className={[
+          "fixed right-4 top-1/2 -translate-y-1/2 z-40 flex size-10 items-center justify-center rounded-xl bg-surface-container-lowest text-on-surface-muted shadow-bloom hover:text-primary",
+          showRightTriggers
+            ? "pointer-events-none opacity-0 translate-x-4 transition-all duration-200"
+            : "pointer-events-auto opacity-100 translate-x-0 transition-all duration-300 delay-150"
+        ].join(" ")}
+        aria-label="Show tools"
+      >
+        <LuMoveVertical className="size-5" aria-hidden />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setShowRightTriggers(false)}
+        className={[
+          "right-sidebar-trigger fixed right-0 z-[120] flex size-10 -translate-y-1/2 items-center justify-center",
+          "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
+          "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "md:!hidden"
+        ].join(" ")}
+        aria-label="Hide tools"
+        style={{ top: "calc(50% + 12.25rem)" }}
+      >
+        <LuPanelRightClose className="size-5" aria-hidden />
+      </button>
+    </>
+  );
+
   if (chat.hasChat) {
     return (
       <div
         className={[
           "relative z-10 flex h-screen flex-col overflow-hidden px-6 py-6 transition-[margin] duration-300 ease-out",
-          sidebarOpen ? "ml-72" : "ml-0",
+          sidebarOpen ? "md:ml-72 ml-0" : "ml-0",
         ].join(" ")}
       >
         <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col overflow-hidden">
@@ -204,7 +247,7 @@ export function WorkspaceChat({
           <div
             key={activeChatId ?? chat.dbConversationId ?? "thread"}
             ref={threadRef}
-            className="bbai-scroll chat-thread-in min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4"
+            className="bbai-scroll chat-thread-in min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4 pt-12"
             onScroll={(event) => {
               if (event.currentTarget.scrollTop > 48) return;
               void chat.loadOlder(event.currentTarget);
@@ -292,6 +335,7 @@ export function WorkspaceChat({
 
           <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </div>
+        {rightSidebarToggles}
       </div>
     );
   }
@@ -299,8 +343,8 @@ export function WorkspaceChat({
   return (
     <div
       className={[
-          "relative z-10 flex min-h-screen items-center justify-center px-6 py-12 transition-[margin] duration-300 ease-out",
-          sidebarOpen ? "ml-72" : "ml-0",
+        "relative z-10 flex min-h-screen items-center justify-center px-6 py-12 transition-[margin] duration-300 ease-out",
+        sidebarOpen ? "md:ml-72 ml-0" : "ml-0",
       ].join(" ")}
     >
       <div className="w-full max-w-2xl space-y-8">
@@ -329,6 +373,8 @@ export function WorkspaceChat({
 
         {composer}
       </div>
+
+      {rightSidebarToggles}
     </div>
   );
 }
@@ -338,7 +384,7 @@ export function WorkspaceChatFallback({ sidebarOpen = true }: { sidebarOpen?: bo
     <div
       className={[
         "relative z-10 flex min-h-screen items-center justify-center px-6 py-12",
-        sidebarOpen ? "ml-72" : "ml-0",
+        sidebarOpen ? "md:ml-72 ml-0" : "ml-0",
       ].join(" ")}
     >
       <div className="w-full max-w-2xl space-y-8">
