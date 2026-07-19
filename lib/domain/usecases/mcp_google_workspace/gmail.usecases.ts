@@ -14,12 +14,53 @@ export async function searchGmailThreadsUseCase(token: string, query: string) {
   return await res.json();
 }
 
+function extractPlainText(payload: any): string {
+  if (!payload) return "";
+
+  if (payload.mimeType === "text/plain" && payload.body?.data) {
+    return Buffer.from(payload.body.data, "base64url").toString("utf-8");
+  }
+
+  if (payload.parts && Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      const text = extractPlainText(part);
+      if (text) return text;
+    }
+  }
+
+  if (payload.body?.data) {
+    return Buffer.from(payload.body.data, "base64url").toString("utf-8");
+  }
+
+  return "";
+}
+
+function formatMessage(message: any) {
+  const headers = message.payload?.headers || [];
+  const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+
+  return {
+    id: message.id,
+    snippet: message.snippet,
+    subject: getHeader("subject"),
+    from: getHeader("from"),
+    date: getHeader("date"),
+    body: extractPlainText(message.payload)
+  };
+}
+
 export async function getGmailThreadUseCase(token: string, id: string) {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${encodeURIComponent(id)}`, {
     headers: getHeaders(token),
   });
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
-  return await res.json();
+  const data = await res.json();
+  
+  if (data.messages && Array.isArray(data.messages)) {
+    data.messages = data.messages.map(formatMessage);
+  }
+  
+  return data;
 }
 
 export async function getGmailMessageUseCase(token: string, id: string) {
@@ -27,7 +68,8 @@ export async function getGmailMessageUseCase(token: string, id: string) {
     headers: getHeaders(token),
   });
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
-  return await res.json();
+  const data = await res.json();
+  return formatMessage(data);
 }
 
 export async function listGmailDraftsUseCase(token: string) {
