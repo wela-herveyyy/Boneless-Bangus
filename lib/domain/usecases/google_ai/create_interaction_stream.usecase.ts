@@ -105,7 +105,7 @@ export async function* createInteractionStream(
         description: t.description,
         parameters: sanitizeJsonSchema(t.inputSchema),
       }));
-      console.log("[createInteractionStream:optionsTools]", JSON.stringify(optionsTools, null, 2));
+      // console.log("[createInteractionStream:optionsTools]", JSON.stringify(optionsTools, null, 2));
     }
   }
 
