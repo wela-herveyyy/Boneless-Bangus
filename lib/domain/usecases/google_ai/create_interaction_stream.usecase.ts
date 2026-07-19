@@ -17,7 +17,7 @@ import {
   listGmailDraftsUseCase,
   createGmailDraftUseCase,
 } from "@/lib/domain/usecases/mcp_google_workspace/gmail.usecases";
-import { createCalendarEventUseCase } from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
+import { createCalendarEventUseCase, listCalendarEventsUseCase } from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ATTEMPTS = 4;
@@ -98,6 +98,7 @@ export async function* createInteractionStream(
           { name: "get_message",    description: "Retrieve a specific Gmail message by message ID.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
           { name: "list_drafts",    description: "List Gmail drafts (up to 20).", inputSchema: { type: "object", properties: { maxResults: { type: "number", description: "Optional max results" } } } },
           { name: "create_draft",   description: "Create a new draft email.", inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] } },
+          { name: "list_calendar_events", description: "List upcoming Google Calendar events.", inputSchema: { type: "object", properties: { timeMin: { type: "string", description: "RFC3339 timestamp (e.g. 2026-07-20T00:00:00Z)" }, timeMax: { type: "string" }, maxResults: { type: "number", description: "Max events to return (default 10)" } } } },
           { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", inputSchema: { type: "object", properties: { summary: { type: "string" }, description: { type: "string" }, start: { type: "string" }, end: { type: "string" }, addGoogleMeet: { type: "boolean" } }, required: ["summary", "start", "end"] } },
         ];
 
@@ -119,6 +120,7 @@ export async function* createInteractionStream(
               case "get_message":           result = await getGmailMessageUseCase(token, args.id as string); break;
               case "list_drafts":           result = await listGmailDraftsUseCase(token); break;
               case "create_draft":         result = await createGmailDraftUseCase(token, args.to as string, args.subject as string, args.body as string); break;
+              case "list_calendar_events": result = await listCalendarEventsUseCase(token, args.timeMin as string | undefined, args.timeMax as string | undefined, args.maxResults as number | undefined); break;
               case "create_calendar_event": result = await createCalendarEventUseCase(token, args.summary as string, (args.description as string) || "", args.start as string, args.end as string, args.addGoogleMeet as boolean | undefined); break;
               default: return { ok: false, content: `Unknown tool: ${toolName}` };
             }
