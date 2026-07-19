@@ -8,6 +8,7 @@ import {
   GOOGLE_AI_DEFAULT_MODEL,
 } from "@/lib/entities/google_ai.type";
 import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession } from "@/lib/domain/services/mcp_runtime.service";
+import { getGoogleWorkspaceAuth } from "@/lib/domain/usecases/google_workspace_auth/get_google_workspace_auth.usecase";
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ATTEMPTS = 4;
@@ -65,8 +66,32 @@ export async function* createInteractionStream(
   // { functionDeclarations } wrapper. FunctionT also uses `parameters`, not `parametersJsonSchema`.
   let optionsTools: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> | undefined;
 
-  if (input.mcpServers && Array.isArray(input.mcpServers) && input.mcpServers.length > 0) {
-    const connResult = await connectMcpServers(input.mcpServers, input.userId || "anonymous");
+  // Construct MCP Server list and conditionally inject Internal Google Workspace MCP
+  const mcpServersList = Array.isArray(input.mcpServers) ? [...input.mcpServers] : [];
+  if (input.userId) {
+    try {
+      const auth = await getGoogleWorkspaceAuth(input.userId);
+      if (auth.isConnected) {
+        // Inject the internal Google Workspace MCP
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        mcpServersList.push({
+          slug: "internal-google-workspace",
+          config: {
+            transport: "streamable-http",
+            url: `${appUrl}/api/mcp/google-workspace`,
+            headers: {
+              "x-inject-google-workspace-token": "true"
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to check or inject Google Workspace Auth:", err);
+    }
+  }
+
+  if (mcpServersList.length > 0) {
+    const connResult = await connectMcpServers(mcpServersList, input.userId || "anonymous");
     mcpSession = connResult.session;
 
     for (const w of connResult.warnings) {
