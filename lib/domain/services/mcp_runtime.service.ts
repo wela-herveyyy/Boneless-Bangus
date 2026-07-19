@@ -223,15 +223,22 @@ export async function connectMcpServers(
       if (!poolEntry) {
         let transport: StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport;
 
+        let injectedToken: string | undefined;
+        const shouldInject = ("env" in config && config.env?.INJECT_GOOGLE_WORKSPACE_TOKEN === "true") || 
+                             ("headers" in config && config.headers?.["x-inject-google-workspace-token"] === "true");
+
+        if (shouldInject) {
+          try {
+            injectedToken = await refreshAndGetAccessToken(userId);
+          } catch (err) {
+            warnings.push({ slug, reason: `Failed to inject Google Workspace token: ${err instanceof Error ? err.message : String(err)}` });
+          }
+        }
+
         if (config.transport === "stdio") {
           const env = { ...process.env, ...(config.env || {}), ...authMap } as Record<string, string>;
-          if (config.env?.INJECT_GOOGLE_WORKSPACE_TOKEN === "true") {
-            try {
-              const token = await refreshAndGetAccessToken(userId);
-              env.GOOGLE_WORKSPACE_ACCESS_TOKEN = token;
-            } catch (err) {
-              warnings.push({ slug, reason: `Failed to inject Google Workspace token: ${err instanceof Error ? err.message : String(err)}` });
-            }
+          if (injectedToken) {
+            env.GOOGLE_WORKSPACE_ACCESS_TOKEN = injectedToken;
           }
           transport = new StdioClientTransport({
             command: config.command,
@@ -240,6 +247,9 @@ export async function connectMcpServers(
           });
         } else if (config.transport === "sse") {
           const combinedHeaders: Record<string, string> = { ...((config.headers as Record<string, string>) || {}), ...authMap };
+          if (injectedToken) {
+            combinedHeaders.Authorization = `Bearer ${injectedToken}`;
+          }
           transport = new SSEClientTransport(new URL(config.url), {
             requestInit: {
               headers: combinedHeaders,
@@ -247,6 +257,9 @@ export async function connectMcpServers(
           });
         } else {
           const combinedHeaders: Record<string, string> = { ...((config.headers as Record<string, string>) || {}), ...authMap };
+          if (injectedToken) {
+            combinedHeaders.Authorization = `Bearer ${injectedToken}`;
+          }
           transport = new StreamableHTTPClientTransport(new URL(config.url), {
             requestInit: {
               headers: combinedHeaders,
