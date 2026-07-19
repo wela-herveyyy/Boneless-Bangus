@@ -10,6 +10,7 @@ import {
   type McpServerConfigEntry,
 } from "@/lib/domain/schemas/mcp_server_config.schema";
 import { resolveAuthHeaders } from "./mcp_credential.service";
+import { executeGmailRestTool } from "./gmail_rest_bridge.service";
 import {
   computePoolKey,
   getPoolEntry,
@@ -47,6 +48,12 @@ export type ExecuteToolResult = {
  * Resolves local $ref pointers against $defs/definitions, and replaces missing or dangling
  * references with clean object definitions. Also strips $schema, $id, $defs, and definitions
  * so Google AI API does not reject tool parameter declarations with "400 Request contains an invalid argument."
+ *
+ * IMPORTANT: Gemini's FunctionDeclaration schema only accepts a narrow subset of JSON Schema.
+ * In particular, `format` values are restricted per type:
+ *   - integer/number: int32, int64, float, double
+ *   - string: date-time, date, time (NOT byte, binary, uri, etc.)
+ * Any unsupported format value (e.g. format:"byte" on a string) causes a 400 error.
  */
 export function sanitizeJsonSchema(schema?: Record<string, unknown> | null): Record<string, unknown> {
   if (!schema || typeof schema !== "object") {
@@ -60,8 +67,7 @@ export function sanitizeJsonSchema(schema?: Record<string, unknown> | null): Rec
     if (Array.isArray(node)) return node.map((item) => cleanNode(item, visited));
 
     if (typeof node.$ref === "string") {
-      const ref = node.$ref as string;
-      const refName = ref.replace(/^#\/(\$defs|definitions)\//, "");
+      const refName = node.$ref.replace(/^#\/(\$defs|definitions)\//, "");
       if (visited.has(refName)) {
         return { type: "object", description: `Circular reference to ${refName}` };
       }
@@ -70,25 +76,75 @@ export function sanitizeJsonSchema(schema?: Record<string, unknown> | null): Rec
         const resolved = cleanNode(defs[refName], new Set(visited));
         visited.delete(refName);
         const { $ref, ...rest } = node;
-        return { ...resolved, ...cleanNode(rest, visited) };
-      } else {
-        const { $ref, ...rest } = node;
-        return {
-          type: "object",
-          description: `Reference to ${refName}`,
-          ...cleanNode(rest, visited),
-        };
+        return cleanNode({ ...resolved, ...rest }, visited);
+      }
+      return { type: "object", description: `Reference to ${refName}` };
+    }
+
+    if (Array.isArray(node.anyOf) && node.anyOf.length > 0) {
+      const firstValid = node.anyOf.find((item: any) => item && item.type && item.type !== "null") || node.anyOf[0];
+      const restNode = { ...node };
+      delete restNode.anyOf;
+      return cleanNode({ ...restNode, ...firstValid }, visited);
+    }
+    if (Array.isArray(node.oneOf) && node.oneOf.length > 0) {
+      const firstValid = node.oneOf.find((item: any) => item && item.type && item.type !== "null") || node.oneOf[0];
+      const restNode = { ...node };
+      delete restNode.oneOf;
+      return cleanNode({ ...restNode, ...firstValid }, visited);
+    }
+
+    const out: Record<string, any> = {};
+
+    // Normalize type
+    if (typeof node.type === "string") {
+      out.type = node.type.toLowerCase();
+    } else if (Array.isArray(node.type)) {
+      const nonNull = node.type.find((t: any) => t !== "null") || "string";
+      out.type = typeof nonNull === "string" ? nonNull.toLowerCase() : "string";
+      if (node.type.includes("null")) out.nullable = true;
+    } else if (node.properties) {
+      out.type = "object";
+    } else if (node.items) {
+      out.type = "array";
+    }
+
+    if (typeof node.description === "string") out.description = node.description;
+    // Only pass through format values that Gemini's FunctionDeclaration schema actually accepts.
+    // format:"byte" on strings (base64) and format:"int32" on strings are OpenAPI conventions
+    // that Gemini's API rejects with a 400. Filter to the safe allowed set per type.
+    if (typeof node.format === "string") {
+      const fmt = node.format.toLowerCase();
+      const resolvedType = out.type ?? "";
+      const numericFormats = new Set(["int32", "int64", "float", "double"]);
+      const stringFormats = new Set(["date-time", "date", "time", "duration"]);
+      if ((resolvedType === "integer" || resolvedType === "number") && numericFormats.has(fmt)) {
+        out.format = fmt;
+      } else if (resolvedType === "string" && stringFormats.has(fmt)) {
+        out.format = fmt;
+      }
+      // Intentionally drop: byte, binary, password, uri, uuid, int32 on strings, etc.
+    }
+    if (typeof node.nullable === "boolean") out.nullable = node.nullable;
+    if (Array.isArray(node.enum)) out.enum = node.enum;
+
+    if (node.properties && typeof node.properties === "object") {
+      out.properties = {};
+      for (const [key, value] of Object.entries(node.properties)) {
+        out.properties[key] = cleanNode(value, visited);
       }
     }
 
-    const cleaned: Record<string, any> = {};
-    for (const [key, value] of Object.entries(node)) {
-      if (key === "$schema" || key === "$id" || key === "$defs" || key === "definitions") {
-        continue;
-      }
-      cleaned[key] = cleanNode(value, visited);
+    if (node.items && typeof node.items === "object") {
+      out.items = cleanNode(node.items, visited);
     }
-    return cleaned;
+
+    if (Array.isArray(node.required) && out.properties) {
+      out.required = node.required.filter((r: any) => typeof r === "string" && r in out.properties);
+      if (out.required.length === 0) delete out.required;
+    }
+
+    return out;
   }
 
   const root = cleanNode(schema);
@@ -232,7 +288,9 @@ export async function connectMcpServers(
           };
 
           for (const t of discoveredTools) {
-            const namespacedName = `${slug}__${t.name}`;
+            const safeSlug = slug.replace(/[^a-zA-Z0-9_]/g, "_");
+            const safeName = t.name.replace(/[^a-zA-Z0-9_]/g, "_");
+            const namespacedName = `${safeSlug}__${safeName}`;
             poolEntry.toolLookup.set(namespacedName, { slug, toolName: t.name });
           }
 
@@ -244,6 +302,9 @@ export async function connectMcpServers(
         }
       }
 
+      if (poolEntry) {
+        poolEntry.authHeaders = authMap;
+      }
       poolEntriesBySlug.set(slug, poolEntry);
 
       for (const [namespacedName, lookup] of poolEntry.toolLookup.entries()) {
@@ -252,6 +313,7 @@ export async function connectMcpServers(
         if (originalTool) {
           tools.push({
             ...originalTool,
+            inputSchema: sanitizeJsonSchema(originalTool.inputSchema),
             namespacedName,
             slug,
             toolName: lookup.toolName,
@@ -289,6 +351,11 @@ export async function executeMcpTool(
   const poolEntry = session.poolEntriesBySlug.get(lookup.slug);
   if (!poolEntry) {
     return { ok: false, content: `No active connection pool for server: ${lookup.slug}` };
+  }
+
+  // Intercept gmail-mcp tools to execute via our transparent Gmail REST bridge
+  if (lookup.slug === "gmail-mcp" && poolEntry.authHeaders?.Authorization) {
+    return await executeGmailRestTool(lookup.toolName, args, poolEntry.authHeaders.Authorization);
   }
 
   const timeoutMs = opts?.timeoutMs ?? 15_000;

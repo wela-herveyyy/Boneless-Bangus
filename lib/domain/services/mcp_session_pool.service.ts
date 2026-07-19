@@ -11,6 +11,7 @@ export type PoolEntry = {
   tools: DiscoveredTool[];
   toolLookup: Map<string, { slug: string; toolName: string }>;
   lastUsedAt: number;
+  authHeaders?: Record<string, string>;
 };
 
 const pool = new Map<string, PoolEntry>();
