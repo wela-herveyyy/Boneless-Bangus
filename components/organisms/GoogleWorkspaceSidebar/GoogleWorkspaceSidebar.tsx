@@ -112,7 +112,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
               <div className="space-y-1.5">
                 <h3 className="font-semibold text-sm text-on-surface">Connect Google Workspace</h3>
                 <p className="text-xs leading-relaxed text-on-surface-variant">
-                  Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
+                  Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets and AI chat agent (via our internal tools, not official remote MCP).
                 </p>
               </div>
               <div className="flex flex-col w-full gap-2">
@@ -208,7 +208,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Google Calendar Disabled</h4>
                           <p className="text-xs leading-relaxed text-on-surface-variant">
-                            Enable direct OAuth API integration for Google Calendar anytime in your API Integrations settings.
+                            Enable direct OAuth API integration for Google Calendar (widget & chat) anytime in your API Integrations settings.
                           </p>
                         </div>
                         <Button
@@ -238,7 +238,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Google Meet Disabled</h4>
                           <p className="text-xs leading-relaxed text-on-surface-variant">
-                            Enable direct OAuth API integration for Google Meet anytime in your API Integrations settings.
+                            Enable direct OAuth API integration for Google Meet (widget & chat) anytime in your API Integrations settings.
                           </p>
                         </div>
                         <Button
@@ -268,7 +268,7 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
                         <div className="space-y-1">
                           <h4 className="text-sm font-semibold text-on-surface">Gmail API Disabled</h4>
                           <p className="text-xs leading-relaxed text-on-surface-variant">
-                            Enable direct OAuth API integration for Gmail anytime in your API Integrations settings.
+                            Enable direct OAuth API integration for Gmail (widget & chat) anytime in your API Integrations settings.
                           </p>
                         </div>
                         <Button

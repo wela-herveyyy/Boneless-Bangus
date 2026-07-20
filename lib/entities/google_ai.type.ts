@@ -25,6 +25,13 @@ export type CreateInteractionInput = {
   /** Continue a stored conversation (Interactions API server state). */
   previousInteractionId?: string;
   systemInstruction?: string;
+  mcpServers?: unknown[];
+  userId?: string;
+};
+
+export type ConnectWarning = {
+  slug: string;
+  reason: string;
 };
 
 export type CreateInteractionOutput = {
@@ -35,11 +42,14 @@ export type CreateInteractionOutput = {
   outputTokens?: number;
 };
 
-/** Normalized events from Interactions API SSE (v1: thinking + text). */
+/** Normalized events from Interactions API SSE (v1: thinking + text + tools). */
 export type GoogleAiStreamEvent =
   | { type: "created"; conversationId: string }
   | { type: "thinking"; text: string }
   | { type: "text"; text: string }
+  | { type: "tool_warning"; slug: string; reason: string }
+  | { type: "tool_call"; slug: string; toolName: string }
+  | { type: "tool_result"; slug: string; toolName: string; ok: boolean }
   | {
       type: "completed";
       conversationId: string;
