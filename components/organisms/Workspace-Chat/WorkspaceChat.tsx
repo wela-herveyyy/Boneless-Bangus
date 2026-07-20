@@ -172,15 +172,38 @@ export function WorkspaceChat({
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Input
-            type="text"
-            placeholder="e.g. What tasks are overdue?"
-            aria-label="Ask BBAI"
-            className="sm:flex-1"
-            value={chat.message}
-            onChange={(event) => chat.setMessage(event.target.value)}
-            disabled={chat.sending || chat.loadingThread}
-          />
+          <div className="relative sm:flex-1">
+            {chat.showCommandMenu && chat.filteredCommands.length > 0 && (
+              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl bg-surface-container-lowest py-2 shadow-bloom border border-surface-container-high/50 max-h-60 overflow-y-auto bbai-scroll">
+                {chat.filteredCommands.map((cmd, i) => (
+                  <button
+                    key={cmd.id}
+                    type="button"
+                    onClick={() => chat.handleCommandSelect(cmd)}
+                    className={[
+                      "w-full text-left px-4 py-2 hover:bg-surface-container-low transition-colors",
+                      i === chat.selectedCommandIndex ? "bg-surface-container-low" : ""
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-primary">{cmd.id}</span>
+                      <span className="text-xs text-on-surface-muted truncate">{cmd.description}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <Input
+              type="text"
+              placeholder="e.g. What tasks are overdue?"
+              aria-label="Ask BBAI"
+              className="w-full"
+              value={chat.message}
+              onChange={(event) => chat.setMessage(event.target.value)}
+              onKeyDown={chat.handleCommandKeyDown}
+              disabled={chat.sending || chat.loadingThread}
+            />
+          </div>
           <Button
             type="submit"
             disabled={chat.sending || chat.loadingThread || !chat.message.trim()}

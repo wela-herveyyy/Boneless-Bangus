@@ -24,6 +24,7 @@ import {
 } from "@/lib/entities/google_ai.type";
 import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
 import { buildErpMcpConfig, ERP_MCP_SERVER_KEY } from "@/lib/entities/erpnext.type";
+import { AVAILABLE_COMMANDS, type CommandDefinition } from "./workspaceChat.commands";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
@@ -215,6 +216,11 @@ export function useWorkspaceChat(
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [historyEpoch, setHistoryEpoch] = useState(0);
+
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [commandSearch, setCommandSearch] = useState("");
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+
   const threadStateRef = useRef({
     turns,
     dbConversationId,
@@ -596,9 +602,61 @@ export function useWorkspaceChat(
     ],
   );
 
+  const filteredCommands = showCommandMenu
+    ? AVAILABLE_COMMANDS.filter((cmd) => cmd.id.toLowerCase().includes(commandSearch.toLowerCase()))
+    : [];
+
+  const handleMessageChange = useCallback((value: string) => {
+    setMessage(value);
+    
+    // Check for slash command trigger at the beginning or after a space
+    const match = value.match(/(?:^|\s)(\/\S*)$/);
+    if (match) {
+      setShowCommandMenu(true);
+      setCommandSearch(match[1]);
+      setSelectedCommandIndex(0);
+    } else {
+      setShowCommandMenu(false);
+    }
+  }, []);
+
+  const handleCommandSelect = useCallback((cmd: typeof AVAILABLE_COMMANDS[0]) => {
+    setMessage((prev) => {
+      const regex = new RegExp(`(?:^|\\s)(${commandSearch})$`);
+      return prev.replace(regex, ` ${cmd.promptText}`).trimStart();
+    });
+    setShowCommandMenu(false);
+  }, [commandSearch]);
+
+  const handleCommandKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showCommandMenu || filteredCommands.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedCommandIndex((prev) => (prev + 1) % filteredCommands.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedCommandIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const selected = filteredCommands[selectedCommandIndex];
+      if (selected) {
+        handleCommandSelect(selected);
+      }
+    } else if (event.key === "Escape") {
+      setShowCommandMenu(false);
+    }
+  }, [showCommandMenu, filteredCommands, selectedCommandIndex, handleCommandSelect]);
+
   return {
     message,
-    setMessage,
+    setMessage: handleMessageChange,
+    handleCommandKeyDown,
+    handleCommandSelect,
+    showCommandMenu,
+    filteredCommands,
+    selectedCommandIndex,
+    setShowCommandMenu,
     turns,
     error,
     sending,
