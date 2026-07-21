@@ -243,7 +243,8 @@ export function useWorkspaceChat(
         if (sk) setSkills(parseSkills(sk.value));
       }
 
-      const serversFromIdb = idbConfig?.mcpServers as Record<string, CursorMcpServerConfig> | undefined;
+      // IDB configs may contain richer auth shapes (credentialRef) not in CursorMcpServerConfig
+      const serversFromIdb = idbConfig?.mcpServers as Record<string, unknown> | undefined;
 
       const erpSid = localStorage.getItem("bbai_erp_sid");
       const erpMcp = buildErpMcpConfig(erpSid);
@@ -406,6 +407,10 @@ export function useWorkspaceChat(
         /404|requested entity was not found|internal error/i.test(message);
 
       const runStream = async (previousInteractionId?: string) => {
+        const serializedMcpServers = mcpServers
+          ? Object.entries(mcpServers).map(([slug, config]) => ({ slug, config }))
+          : [];
+
         const response = await fetch("/api/ai/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -416,7 +421,7 @@ export function useWorkspaceChat(
             dbConversationId,
             name: user?.name,
             email: user?.email,
-            mcpServers,
+            mcpServers: serializedMcpServers,
           }),
         });
 
@@ -443,7 +448,24 @@ export function useWorkspaceChat(
             conversationId?: string;
             dbConversationId?: string;
             messageId?: string;
+            slug?: string;
+            toolName?: string;
+            reason?: string;
+            ok?: boolean;
           };
+
+          if (event.type === "tool_warning") {
+            setThinkingText((prev) => prev + `\n*[MCP Warning: ${event.slug ?? ""} - ${event.reason ?? ""}]*\n`);
+            return;
+          }
+          if (event.type === "tool_call") {
+            setThinkingText((prev) => prev + `\n> **Calling tool:** \`${event.slug ?? ""}__${event.toolName ?? ""}\`...\n`);
+            return;
+          }
+          if (event.type === "tool_result") {
+            setThinkingText((prev) => prev + `> **Tool \`${event.slug ?? ""}__${event.toolName ?? ""}\`** ${event.ok ? "completed successfully" : "failed"}.\n\n`);
+            return;
+          }
 
           if (event.type === "thinking" && event.text) {
             setThinkingText((prev) => prev + event.text);

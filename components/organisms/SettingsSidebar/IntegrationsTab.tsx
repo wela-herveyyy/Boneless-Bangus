@@ -69,7 +69,7 @@ export function IntegrationsTab() {
           <div className="space-y-1.5">
             <h3 className="font-semibold text-sm text-on-surface">Connect Google Workspace</h3>
             <p className="text-xs leading-relaxed text-on-surface-variant">
-              Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets.
+              Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets and AI chat agent (via our internal tools, not official remote MCP).
             </p>
           </div>
           <Button
@@ -115,7 +115,7 @@ export function IntegrationsTab() {
             <WorkspaceCapabilityCard
               capability="calendar"
               title="Google Calendar"
-              description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget."
+              description="Enable direct OAuth API integration to view your schedule and create new agenda items directly from this calendar widget and your chat agent."
               enabled={authRecord.calendarEnabled}
               isConnected={authRecord.isConnected}
               isToggling={togglingCapability === "calendar"}
@@ -125,7 +125,7 @@ export function IntegrationsTab() {
             <WorkspaceCapabilityCard
               capability="meet"
               title="Google Meet"
-              description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget."
+              description="Enable direct OAuth API integration to instantly provision video meeting rooms and copy scheduled Google Meet links directly from this widget and your chat agent."
               enabled={authRecord.meetEnabled}
               isConnected={authRecord.isConnected}
               isToggling={togglingCapability === "meet"}
@@ -135,7 +135,7 @@ export function IntegrationsTab() {
             <WorkspaceCapabilityCard
               capability="email"
               title="Gmail API"
-              description="Enable direct OAuth API integration to view recent messages from your inbox and compose emails directly via Gmail API."
+              description="Enable direct OAuth API integration to view recent messages and compose emails directly via Gmail API for your widget and chat agent."
               enabled={authRecord.emailEnabled}
               isConnected={authRecord.isConnected}
               isToggling={togglingCapability === "email"}
