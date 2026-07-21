@@ -99,7 +99,12 @@ export function buildCommandDefinition(skill: ToolSkill): CommandDefinition {
 export function getAvailableCommands(activeMcpServerSlugs: string[]): CommandDefinition[] {
   const commands: CommandDefinition[] = [];
 
-  if (activeMcpServerSlugs.includes("google-workspace")) {
+  const hasGws = activeMcpServerSlugs.some((slug) => {
+    const s = slug.toLowerCase();
+    return s.includes("google") || s.includes("gws");
+  });
+
+  if (hasGws) {
     commands.push(
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "morning" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "wrapup" }),
@@ -115,7 +120,12 @@ export function getAvailableCommands(activeMcpServerSlugs: string[]): CommandDef
     );
   }
 
-  if (activeMcpServerSlugs.includes("erpnext")) {
+  const hasErpNext = activeMcpServerSlugs.some((slug) => {
+    const s = slug.toLowerCase();
+    return s.includes("erp");
+  });
+
+  if (hasErpNext) {
     commands.push(
       buildCommandDefinition({ commandName: "erpnext", subCommand: "get-customer" }),
       buildCommandDefinition({ commandName: "erpnext", subCommand: "create-invoice" }),

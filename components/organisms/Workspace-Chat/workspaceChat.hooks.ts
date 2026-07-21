@@ -624,7 +624,14 @@ export function useWorkspaceChat(
     ],
   );
 
-  const activeSlugs = useMemo(() => Object.keys(mcpServers || {}), [mcpServers]);
+  const activeSlugs = useMemo(() => {
+    const slugs = Object.keys(mcpServers || {});
+    // Internal MCPs that should always expose commands
+    if (!slugs.includes("google-workspace")) {
+      slugs.push("google-workspace");
+    }
+    return slugs;
+  }, [mcpServers]);
 
   const filteredCommands = useMemo(() => {
     if (!showCommandMenu) return [];
