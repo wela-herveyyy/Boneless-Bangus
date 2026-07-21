@@ -1,43 +1,74 @@
 import { ToolSkill } from "@/lib/entities/commands.type";
 
 export interface CommandDefinition {
-  id: string; // e.g. "/gws-send-email"
-  label: string; // e.g. "send-email"
-  description: string; // e.g. "Draft an email (from GWS)"
+  id: string; // e.g. "/google-workspace-morning"
+  label: string; // e.g. "morning"
+  description: string; // e.g. "Provide my morning briefing (from Google Workspace)"
   promptText: string; // The predefined text to insert when selected
 }
 
 const COMMAND_REGISTRY: Record<string, { description: string; promptText: string }> = {
-  "gws:send-email": {
-    description: "Draft an email (from GWS)",
-    promptText: "Draft an email to [Name] about [Topic].",
+  // Daily Briefing & Triage (Cross-App)
+  "google-workspace:morning": {
+    description: "Morning briefing (from Google Workspace)",
+    promptText: "Provide my morning briefing. List my meetings for today in chronological order, and summarize any unread emails received since 5 PM yesterday. Highlight anything that looks like an action item.",
   },
-  "gws:list-inbox": {
-    description: "Check your recent emails (from GWS)",
-    promptText: "Check my recent emails and summarize the unread ones.",
+  "google-workspace:wrapup": {
+    description: "End of day review (from Google Workspace)",
+    promptText: "Review my activity for today. Summarize any unresolved action items I received via email today, and list my first three meetings for tomorrow morning so I can prepare.",
   },
-  "gws:get-user-info": {
-    description: "Get my user info (from GWS)",
-    promptText: "Get my user information from Google Workspace.",
+  "google-workspace:prep": {
+    description: "Meeting prep (from Google Workspace)",
+    promptText: "Look at my next scheduled meeting. Identify the attendees, search my inbox for the most recent email thread with them, and summarize our last conversation so I have context before joining.",
   },
-  "gws:list-calendar": {
-    description: "Check my schedule (from GWS)",
-    promptText: "What is on my schedule for today?",
+
+  // Gmail Management
+  "google-workspace:catchup": {
+    description: "Summarize unread emails (from Google Workspace)",
+    promptText: "Summarize my unread emails from the last 24 hours. Group them by topic or project, and specifically flag any direct questions asked of me.",
   },
-  "gws:create-event": {
-    description: "Create a calendar event (from GWS)",
-    promptText: "Create a calendar event on [Date] at [Time] for [Topic].",
+  "google-workspace:urgent": {
+    description: "Find urgent emails (from Google Workspace)",
+    promptText: "Scan my unread emails for the last 3 days for keywords like 'urgent', 'ASAP', 'action required', or 'deadline'. Summarize what is needed and who is asking for it.",
   },
-  "erp-next:get-customer": {
-    description: "Get customer details (from erp-next)",
+  "google-workspace:draft-decline": {
+    description: "Draft a polite decline (from Google Workspace)",
+    promptText: "Draft a polite, professional reply to the most recent email request. Politely decline, stating that my current workload does not allow me to take this on right now.",
+  },
+  "google-workspace:draft-followup": {
+    description: "Draft a friendly followup (from Google Workspace)",
+    promptText: "Draft a short, friendly follow-up for the last email I sent. Check in to see if there are any updates or if they need any further information from my end.",
+  },
+
+  // Calendar & Scheduling
+  "google-workspace:agenda": {
+    description: "List today's remaining agenda (from Google Workspace)",
+    promptText: "List all my remaining calendar events for today. Include the meeting title, time, duration, and the list of attendees.",
+  },
+  "google-workspace:find-time": {
+    description: "Find available time slots (from Google Workspace)",
+    promptText: "Look at my calendar for the next 3 business days and find three available {minutes}-minute slots between 9 AM and 5 PM. Format them as a clean, bulleted list.",
+  },
+  "google-workspace:free-tomorrow": {
+    description: "Calculate free time tomorrow (from Google Workspace)",
+    promptText: "Calculate exactly how much un-scheduled free time I have during working hours tomorrow, and list the specific continuous time blocks that are open.",
+  },
+  "google-workspace:conflicts": {
+    description: "Find meeting conflicts (from Google Workspace)",
+    promptText: "Scan my calendar for the rest of the week and identify any overlapping or double-booked meetings. Draft a short, polite email I can send to the organizer of the smaller meeting to request a reschedule.",
+  },
+
+  // ERPNext (Placeholder)
+  "erpnext:get-customer": {
+    description: "Get customer details (from ERPNext)",
     promptText: "Get details for customer [Name].",
   },
-  "erp-next:create-invoice": {
-    description: "Create a sales invoice (from erp-next)",
+  "erpnext:create-invoice": {
+    description: "Create a sales invoice (from ERPNext)",
     promptText: "Create a sales invoice for customer [Name] with amount [Amount].",
   },
-  "erp-next:check-stock": {
-    description: "Check item stock (from erp-next)",
+  "erpnext:check-stock": {
+    description: "Check item stock (from ERPNext)",
     promptText: "Check the stock for item [Item Name].",
   },
 };
@@ -63,15 +94,36 @@ export function buildCommandDefinition(skill: ToolSkill): CommandDefinition {
 }
 
 /**
- * A statically defined list of all available commands to populate the menu.
+ * A dynamic generator of available commands based on the active MCP servers.
  */
-export const AVAILABLE_COMMANDS: CommandDefinition[] = [
-  buildCommandDefinition({ commandName: "gws", subCommand: "send-email" }),
-  buildCommandDefinition({ commandName: "gws", subCommand: "list-inbox" }),
-  buildCommandDefinition({ commandName: "gws", subCommand: "get-user-info" }),
-  buildCommandDefinition({ commandName: "gws", subCommand: "list-calendar" }),
-  buildCommandDefinition({ commandName: "gws", subCommand: "create-event" }),
-  buildCommandDefinition({ commandName: "erp-next", subCommand: "get-customer" }),
-  buildCommandDefinition({ commandName: "erp-next", subCommand: "create-invoice" }),
-  buildCommandDefinition({ commandName: "erp-next", subCommand: "check-stock" }),
-];
+export function getAvailableCommands(activeMcpServerSlugs: string[]): CommandDefinition[] {
+  const commands: CommandDefinition[] = [];
+
+  if (activeMcpServerSlugs.includes("google-workspace")) {
+    commands.push(
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "morning" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "wrapup" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "prep" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "catchup" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "urgent" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-decline" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-followup" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "agenda" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "find-time" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "free-tomorrow" }),
+      buildCommandDefinition({ commandName: "google-workspace", subCommand: "conflicts" })
+    );
+  }
+
+  if (activeMcpServerSlugs.includes("erpnext")) {
+    commands.push(
+      buildCommandDefinition({ commandName: "erpnext", subCommand: "get-customer" }),
+      buildCommandDefinition({ commandName: "erpnext", subCommand: "create-invoice" }),
+      buildCommandDefinition({ commandName: "erpnext", subCommand: "check-stock" })
+    );
+  }
+
+  return commands;
+}
+
+

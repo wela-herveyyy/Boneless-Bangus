@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, type FormEvent } from "react";
 import {
   getFocusLabel,
   getTeamLabel,
@@ -24,7 +24,7 @@ import {
 } from "@/lib/entities/google_ai.type";
 import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
 import { buildErpMcpConfig, ERP_MCP_SERVER_KEY } from "@/lib/entities/erpnext.type";
-import { AVAILABLE_COMMANDS, type CommandDefinition } from "./workspaceChat.commands";
+import { getAvailableCommands, type CommandDefinition } from "./workspaceChat.commands";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
@@ -624,9 +624,14 @@ export function useWorkspaceChat(
     ],
   );
 
-  const filteredCommands = showCommandMenu
-    ? AVAILABLE_COMMANDS.filter((cmd) => cmd.id.toLowerCase().includes(commandSearch.toLowerCase()))
-    : [];
+  const activeSlugs = useMemo(() => Object.keys(mcpServers || {}), [mcpServers]);
+
+  const filteredCommands = useMemo(() => {
+    if (!showCommandMenu) return [];
+    return getAvailableCommands(activeSlugs).filter((cmd) => 
+      cmd.id.toLowerCase().includes(commandSearch.toLowerCase())
+    );
+  }, [showCommandMenu, activeSlugs, commandSearch]);
 
   const handleMessageChange = useCallback((value: string) => {
     setMessage(value);
@@ -642,7 +647,7 @@ export function useWorkspaceChat(
     }
   }, []);
 
-  const handleCommandSelect = useCallback((cmd: typeof AVAILABLE_COMMANDS[0]) => {
+  const handleCommandSelect = useCallback((cmd: CommandDefinition) => {
     setMessage((prev) => {
       const regex = new RegExp(`(?:^|\\s)(${commandSearch})$`);
       return prev.replace(regex, ` ${cmd.promptText}`).trimStart();
