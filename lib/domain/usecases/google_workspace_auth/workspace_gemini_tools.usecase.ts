@@ -74,4 +74,4 @@ export const WORKSPACE_GEMINI_TOOLS: FunctionT[] = [
 ];
 
 export const WORKSPACE_GEMINI_SYSTEM_HINT =
-  "Google Workspace tools are available (Gmail, Calendar, Meet). Use the function tools when the user asks about email, calendar, or meetings. These are first-party app tools, not official Google remote MCP.";
+  "Google Workspace (Gmail, Calendar, Meet) is connected in-process — not remote MCP/SSE. When the user asks about inbox or calendar, recent data may already be included in the message under a Workspace data section; use that data and do not claim you lack access. For sending email or creating events/Meet links, tell the user to use the Workspace sidebar or Integrations until write actions are available in chat.";

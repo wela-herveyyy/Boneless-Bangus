@@ -31,6 +31,12 @@ function parseToolArgs(raw: unknown): Record<string, unknown> {
   return {};
 }
 
+function isStaleChainError(message: string): boolean {
+  return /unrecoverable data loss|invalid_request|the 'type' parameter is required|terminated|requested entity was not found/i.test(
+    message,
+  );
+}
+
 export async function createInteraction(
   input: CreateInteractionInput,
 ): Promise<GoogleAiResult<CreateInteractionOutput>> {
@@ -59,6 +65,7 @@ export async function createInteraction(
   let previousInteractionId = input.previousInteractionId;
   let toolsEnabled = Boolean(input.tools?.length && input.executeTool);
   let roundInput: string | Array<Record<string, unknown>> = message;
+  let clearedStaleChain = false;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -97,6 +104,21 @@ export async function createInteraction(
             });
       } catch (error) {
         const errText = error instanceof Error ? error.message : "Google AI request failed.";
+        if (
+          previousInteractionId &&
+          !clearedStaleChain &&
+          isStaleChainError(errText)
+        ) {
+          console.warn(
+            "[createInteraction] Stale interaction chain — retrying fresh:",
+            errText.slice(0, 160),
+          );
+          previousInteractionId = undefined;
+          clearedStaleChain = true;
+          roundInput = message;
+          toolRound = -1; // re-run from round 0 after increment
+          continue;
+        }
         if (toolsEnabled && /tool|function.?call|not supported/i.test(errText)) {
           toolsEnabled = false;
           continue;

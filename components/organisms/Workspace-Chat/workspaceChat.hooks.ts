@@ -404,13 +404,13 @@ export function useWorkspaceChat(
       setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "" }]);
 
       const shouldDropChainAndRetry = (message: string) =>
-        /404|requested entity was not found|internal error/i.test(message);
+        /404|requested entity was not found|internal error|invalid_request|unrecoverable data loss|the 'type' parameter is required|terminated/i.test(
+          message,
+        );
 
       const runStream = async (previousInteractionId?: string) => {
-        const serializedMcpServers = mcpServers
-          ? Object.entries(mcpServers).map(([slug, config]) => ({ slug, config }))
-          : [];
-
+        // Gemini uses in-process Workspace tools only — do not pass remote MCP
+        // (erpnext SSE/HTTP). Remote MCP stays on the Cursor path via promptAiAction.
         const response = await fetch("/api/ai/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -421,7 +421,6 @@ export function useWorkspaceChat(
             dbConversationId,
             name: user?.name,
             email: user?.email,
-            mcpServers: serializedMcpServers,
           }),
         });
 
@@ -552,7 +551,7 @@ export function useWorkspaceChat(
         throw err;
       }
     },
-    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, mcpServers, options],
+    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options],
   );
 
   const send = useCallback(
