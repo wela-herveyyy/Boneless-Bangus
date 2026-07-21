@@ -59,7 +59,7 @@ export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
                 : "border-transparent text-on-surface-muted hover:text-on-surface hover:border-on-surface/30",
             ].join(" ")}
           >
-            Configured MCPs
+            Installed MCPs
           </button>
           <button
             onClick={() => setActiveTab("integrations")}

@@ -27,7 +27,7 @@ export type CreateInteractionInput = {
   systemInstruction?: string;
   /**
    * Interactions API client-side tools (function declarations).
-   * When set with `executeTool`, the stream loops on `requires_action`.
+   * When set with `executeTool`, the non-stream path loops on `requires_action`.
    */
   tools?: Array<{
     type: "function";
@@ -40,6 +40,15 @@ export type CreateInteractionInput = {
     name: string,
     args: Record<string, unknown>,
   ) => Promise<unknown>;
+  /** MCP server configs for the streaming tool pipeline. */
+  mcpServers?: unknown[];
+  /** Authenticated user id (used to inject in-process Google Workspace tools). */
+  userId?: string;
+};
+
+export type ConnectWarning = {
+  slug: string;
+  reason: string;
 };
 
 export type CreateInteractionOutput = {
@@ -50,11 +59,14 @@ export type CreateInteractionOutput = {
   outputTokens?: number;
 };
 
-/** Normalized events from Interactions API SSE (v1: thinking + text). */
+/** Normalized events from Interactions API SSE (v1: thinking + text + tools). */
 export type GoogleAiStreamEvent =
   | { type: "created"; conversationId: string }
   | { type: "thinking"; text: string }
   | { type: "text"; text: string }
+  | { type: "tool_warning"; slug: string; reason: string }
+  | { type: "tool_call"; slug: string; toolName: string }
+  | { type: "tool_result"; slug: string; toolName: string; ok: boolean }
   | {
       type: "completed";
       conversationId: string;

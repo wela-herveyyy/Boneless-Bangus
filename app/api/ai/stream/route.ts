@@ -1,20 +1,14 @@
 import { auth } from "@/lib/domain/services/auth.service";
 import { createInteractionStream } from "@/lib/domain/services/google_ai.service";
 import { insertAiMessage } from "@/lib/domain/services/ai_conversation.service";
-import {
-  getGoogleWorkspaceAuthStatusService,
-  runWorkspaceChatToolService,
-} from "@/lib/domain/services/google_workspace_auth.service";
+import { getGoogleWorkspaceAuthStatusService } from "@/lib/domain/services/google_workspace_auth.service";
 import {
   BBAI_SYSTEM_CONTEXT,
   buildSystemInstructionWithMcp,
   cleanupAiPrompt,
   usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
-import {
-  WORKSPACE_GEMINI_SYSTEM_HINT,
-  WORKSPACE_GEMINI_TOOLS,
-} from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
+import { WORKSPACE_GEMINI_SYSTEM_HINT } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
@@ -26,7 +20,7 @@ function sseLine(event: AiStreamClientEvent): string {
 }
 
 function buildSystemInstruction(
-  mcpServers: Record<string, unknown> | undefined,
+  mcpServers: unknown,
   workspaceConnected: boolean,
 ): string {
   let instruction = buildSystemInstructionWithMcp(mcpServers);
@@ -60,7 +54,7 @@ export async function POST(request: Request) {
       dbConversationId?: string;
       name?: string;
       email?: string;
-      mcpServers?: Record<string, unknown>;
+      mcpServers?: unknown[];
     };
 
     const message = body.message?.trim() ?? "";
@@ -92,13 +86,8 @@ export async function POST(request: Request) {
             model: body.model,
             previousInteractionId: body.previousInteractionId,
             systemInstruction,
-            ...(workspaceConnected
-              ? {
-                  tools: WORKSPACE_GEMINI_TOOLS,
-                  executeTool: (name, args) =>
-                    runWorkspaceChatToolService(userSession.user.id, name, args),
-                }
-              : {}),
+            mcpServers: body.mcpServers,
+            userId: userSession.user.id,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -107,6 +96,14 @@ export async function POST(request: Request) {
             }
             if (event.type === "thinking" || event.type === "text") {
               if (event.type === "text") accumulated += event.text;
+              send(event);
+              continue;
+            }
+            if (
+              event.type === "tool_warning" ||
+              event.type === "tool_call" ||
+              event.type === "tool_result"
+            ) {
               send(event);
               continue;
             }
