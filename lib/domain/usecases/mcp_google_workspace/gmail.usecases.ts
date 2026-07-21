@@ -94,13 +94,15 @@ function formatMessage(message: any) {
   const headers = message.payload?.headers || [];
   const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
 
+  const plainText = extractPlainText(message.payload);
+
   return {
     id: message.id,
     snippet: message.snippet,
     subject: getHeader("subject"),
     from: getHeader("from"),
     date: getHeader("date"),
-    body: extractPlainText(message.payload)
+    body: plainText.length > 2000 ? plainText.substring(0, 2000) + "... [TRUNCATED]" : plainText
   };
 }
 
@@ -112,7 +114,9 @@ export async function getGmailThreadUseCase(token: string, id: string) {
   const data = await res.json();
   
   if (data.messages && Array.isArray(data.messages)) {
-    data.messages = data.messages.map(formatMessage);
+    // Keep only the 5 most recent messages to prevent overflowing the LLM context
+    const recentMessages = data.messages.length > 5 ? data.messages.slice(-5) : data.messages;
+    data.messages = recentMessages.map(formatMessage);
   }
   
   return data;
