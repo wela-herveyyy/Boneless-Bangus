@@ -32,6 +32,7 @@ export function createGoogleWorkspaceMcpServer(token: string) {
             type: "object",
             properties: {
               query: { type: "string", description: "The search query (e.g., 'is:unread', 'from:boss@example.com')" },
+              maxResults: { type: "number", description: "Max number of threads to return (default: 1)" },
             },
             required: ["query"],
           },
@@ -42,7 +43,8 @@ export function createGoogleWorkspaceMcpServer(token: string) {
           inputSchema: {
             type: "object",
             properties: {
-              id: { type: "string" },
+              id: { type: "string", description: "The thread ID" },
+              maxMessages: { type: "number", description: "Max number of recent messages to return from the thread to avoid context overflow (default: 5)" },
             },
             required: ["id"],
           },
@@ -117,13 +119,15 @@ export function createGoogleWorkspaceMcpServer(token: string) {
       switch (name) {
         case "search_threads": {
           const query = String(args?.query || "");
-          const result = await searchGmailThreadsUseCase(token, query);
+          const maxResults = args?.maxResults ? Number(args.maxResults) : 1;
+          const result = await searchGmailThreadsUseCase(token, query, maxResults);
           return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
         }
 
         case "get_thread": {
           const id = String(args?.id || "");
-          const result = await getGmailThreadUseCase(token, id);
+          const maxMessages = args?.maxMessages ? Number(args.maxMessages) : 5;
+          const result = await getGmailThreadUseCase(token, id, maxMessages);
           return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
         }
 

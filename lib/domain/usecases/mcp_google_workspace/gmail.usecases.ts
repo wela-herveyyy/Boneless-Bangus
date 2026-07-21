@@ -106,7 +106,7 @@ function formatMessage(message: any) {
   };
 }
 
-export async function getGmailThreadUseCase(token: string, id: string) {
+export async function getGmailThreadUseCase(token: string, id: string, maxMessages: number = 5) {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${encodeURIComponent(id)}`, {
     headers: getHeaders(token),
   });
@@ -114,8 +114,8 @@ export async function getGmailThreadUseCase(token: string, id: string) {
   const data = await res.json();
   
   if (data.messages && Array.isArray(data.messages)) {
-    // Keep only the 5 most recent messages to prevent overflowing the LLM context
-    const recentMessages = data.messages.length > 5 ? data.messages.slice(-5) : data.messages;
+    // Keep only the most recent messages to prevent overflowing the LLM context, based on maxMessages
+    const recentMessages = data.messages.length > maxMessages ? data.messages.slice(-maxMessages) : data.messages;
     data.messages = recentMessages.map(formatMessage);
   }
   
