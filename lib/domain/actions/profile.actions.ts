@@ -120,11 +120,32 @@ export async function leaveTeamAction(prevState: ActionState, formData: FormData
       ),
     });
 
-    if (activeTeamRelation) {
-      await database.update(userTeam)
-        .set({ leftAt: new Date() as any })
-        .where(eq(userTeam.id, activeTeamRelation.id));
+    if (!activeTeamRelation) {
+      return { ok: false, error: "You are not on a team." };
     }
+
+    const managedTeam = await database.query.team.findFirst({
+      where: eq(team.managerId, userSession.user.id),
+      columns: { id: true },
+    });
+
+    if (managedTeam && managedTeam.id === activeTeamRelation.teamId) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: "Team leaders cannot leave their team",
+        role: userSession.user.role,
+      });
+      return {
+        ok: false,
+        error: "Team leaders cannot leave their team. Ask an admin to reassign the leader first.",
+      };
+    }
+
+    await database.update(userTeam)
+      .set({ leftAt: new Date() as any })
+      .where(eq(userTeam.id, activeTeamRelation.id));
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
     revalidatePath("/workspace");

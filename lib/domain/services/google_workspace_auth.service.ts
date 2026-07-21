@@ -7,6 +7,7 @@ import { executeEmailAction } from "../usecases/google_workspace_auth/execute_em
 import { executeMeetAction } from "../usecases/google_workspace_auth/execute_meet_action.usecase";
 import { getRecentCalendarEvents } from "../usecases/google_workspace_auth/get_recent_calendar_events.usecase";
 import { getRecentEmails } from "../usecases/google_workspace_auth/get_recent_emails.usecase";
+import { runWorkspaceChatTool } from "../usecases/google_workspace_auth/run_workspace_chat_tool.usecase";
 import type {
   CalendarEventSummary,
   EmailMessageSummary,
@@ -16,6 +17,7 @@ import type {
   GoogleWorkspaceAuthRecord,
   MeetSummary,
   WorkspaceCapability,
+  WorkspaceChatToolResult,
 } from "@/lib/entities/google_workspace_auth.type";
 
 export async function getGoogleWorkspaceAuthStatusService(userId: string): Promise<GoogleWorkspaceAuthRecord> {
@@ -56,4 +58,12 @@ export async function getRecentCalendarEventsService(userId: string): Promise<Ca
 
 export async function getRecentEmailsService(userId: string): Promise<EmailMessageSummary[]> {
   return getRecentEmails(userId);
+}
+
+export async function runWorkspaceChatToolService(
+  userId: string,
+  toolName: string,
+  args: Record<string, unknown> = {},
+): Promise<WorkspaceChatToolResult> {
+  return runWorkspaceChatTool(userId, toolName, args);
 }

@@ -25,7 +25,24 @@ export type CreateInteractionInput = {
   /** Continue a stored conversation (Interactions API server state). */
   previousInteractionId?: string;
   systemInstruction?: string;
+  /**
+   * Interactions API client-side tools (function declarations).
+   * When set with `executeTool`, the non-stream path loops on `requires_action`.
+   */
+  tools?: Array<{
+    type: "function";
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  }>;
+  /** Run a client-side tool by name; return JSON-serializable result. */
+  executeTool?: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<unknown>;
+  /** MCP server configs for the streaming tool pipeline. */
   mcpServers?: unknown[];
+  /** Authenticated user id (used to inject in-process Google Workspace tools). */
   userId?: string;
 };
 

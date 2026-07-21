@@ -1,6 +1,15 @@
+import { getSession } from "@/lib/domain/services/auth.service";
 import { promptAgent } from "@/lib/domain/services/cursor.service";
 import { createInteraction } from "@/lib/domain/services/google_ai.service";
+import {
+  getGoogleWorkspaceAuthStatusService,
+  runWorkspaceChatToolService,
+} from "@/lib/domain/services/google_workspace_auth.service";
 import { BBAI_SYSTEM_CONTEXT, usageFromApi } from "@/lib/domain/usecases/ai/prompt.usecase";
+import {
+  WORKSPACE_GEMINI_SYSTEM_HINT,
+  WORKSPACE_GEMINI_TOOLS,
+} from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import {
   AI_PROVIDER,
   type AiResult,
@@ -30,18 +39,41 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
           provider: AI_PROVIDER.CURSOR,
           text: result.data.result?.trim() || "(No response)",
           conversationId: result.data.requestId,
-          // Cursor SDK run result has no token usage fields.
           usage: usageFromApi(),
         },
       };
     }
 
     case AI_PROVIDER.GOOGLE_AI: {
+      let workspaceConnected = false;
+      let userId: string | undefined;
+      try {
+        const session = await getSession();
+        userId = session?.user?.id;
+        if (userId) {
+          const status = await getGoogleWorkspaceAuthStatusService(userId);
+          workspaceConnected = status.isConnected;
+        }
+      } catch {
+        workspaceConnected = false;
+      }
+
+      const systemInstruction = workspaceConnected
+        ? `${BBAI_SYSTEM_CONTEXT}\n\n${WORKSPACE_GEMINI_SYSTEM_HINT}`
+        : BBAI_SYSTEM_CONTEXT;
+
       const result = await createInteraction({
         message,
         model: input.model,
         previousInteractionId: input.previousInteractionId,
-        systemInstruction: BBAI_SYSTEM_CONTEXT,
+        systemInstruction,
+        ...(workspaceConnected && userId
+          ? {
+              tools: WORKSPACE_GEMINI_TOOLS,
+              executeTool: (name, args) =>
+                runWorkspaceChatToolService(userId!, name, args),
+            }
+          : {}),
       });
       if (!result.ok) return result;
       return {

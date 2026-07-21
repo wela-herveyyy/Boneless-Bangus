@@ -6,6 +6,7 @@ import type {
 } from "@/lib/entities/cursor.type";
 import { getSession } from "../auth/get_session.usecase";
 import { getProfile } from "../profile/get_profile.usecase";
+import { buildWorkspaceCustomTools } from "./build_workspace_custom_tools.usecase";
 
 export async function promptAgent(
   input: PromptAgentInput,
@@ -16,13 +17,15 @@ export async function promptAgent(
   }
 
   let apiKey = process.env.CURSOR_API_KEY;
+  let userId: string | undefined;
   const session = await getSession();
   if (session?.user?.id) {
+    userId = session.user.id;
     const profile = await getProfile(session.user.id);
     if (profile.settings?.cursorApiKey) {
-      apiKey = profile.settings.cursorApiKey; // 1. Personal Key
+      apiKey = profile.settings.cursorApiKey;
     } else if (profile.team?.cursorApiKey) {
-      apiKey = profile.team.cursorApiKey; // 2. Team Key
+      apiKey = profile.team.cursorApiKey;
     }
   }
 
@@ -45,12 +48,20 @@ export async function promptAgent(
 
   const mcpServers = input.mcpServers as Record<string, McpServerConfig> | undefined;
 
+  const workspaceTools = userId ? await buildWorkspaceCustomTools(userId) : undefined;
+  const workspaceHint = workspaceTools
+    ? "Google Workspace tools are available (Gmail, Calendar, Meet) via custom tools. Use them when the user asks about email, calendar, or meetings. These are first-party app tools, not official Google remote MCP.\n\n"
+    : "";
+
   try {
-    const run = await Agent.prompt(`${who}${skillBlock}${message}`, {
+    const run = await Agent.prompt(`${who}${skillBlock}${workspaceHint}${message}`, {
       apiKey,
       model: { id: input.modelId ?? "composer-2.5" },
       mcpServers: mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
-      local: { cwd: input.cwd ?? process.cwd() },
+      local: {
+        cwd: input.cwd ?? process.cwd(),
+        ...(workspaceTools ? { customTools: workspaceTools } : {}),
+      },
     });
 
     if (run.status === "error") {
