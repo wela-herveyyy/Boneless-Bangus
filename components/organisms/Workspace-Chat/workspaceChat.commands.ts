@@ -106,19 +106,32 @@ export function getAvailableCommands(activeMcpServerSlugs: string[]): CommandDef
 
   if (hasGws) {
     commands.push(
+      // Daily Briefing & Triage (Cross-App)
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "morning" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "wrapup" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "prep" }),
+      
+      // Gmail Management
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "catchup" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "urgent" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-decline" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-followup" }),
+
+      // Calendar & Scheduling
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "agenda" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "find-time" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "free-tomorrow" }),
       buildCommandDefinition({ commandName: "google-workspace", subCommand: "conflicts" })
     );
   }
+
+  // Universal Commands
+  commands.push({
+    id: "/skill-maker",
+    label: "skill-maker",
+    description: "Create a reusable agent skill from our workflow.",
+    promptText: "I want to create a new skill. Please stop and ask me a series of questions to define it. Ask me for the following one by one: 1) Name, 2) Description, and 3) Instructions/Workflow steps. Wait for my answer after each question. Once I have answered all of them, automatically use the create_skill tool to save it.",
+  });
 
   const hasErpNext = activeMcpServerSlugs.some((slug) => {
     const s = slug.toLowerCase();
