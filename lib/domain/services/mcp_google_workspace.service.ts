@@ -7,7 +7,7 @@ import {
   listGmailDraftsUseCase,
   createGmailDraftUseCase,
 } from "../usecases/mcp_google_workspace/gmail.usecases";
-import { createCalendarEventUseCase } from "../usecases/mcp_google_workspace/calendar.usecases";
+import { createCalendarEventUseCase, listCalendarEventsUseCase } from "../usecases/mcp_google_workspace/calendar.usecases";
 
 export function createGoogleWorkspaceMcpServer(token: string) {
   const server = new Server(
@@ -80,6 +80,18 @@ export function createGoogleWorkspaceMcpServer(token: string) {
           },
         },
         {
+          name: "list_events",
+          description: "List calendar events from the primary calendar.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              timeMin: { type: "string", description: "ISO 8601 datetime for the lower bound (e.g. 2026-07-20T00:00:00Z)" },
+              timeMax: { type: "string", description: "ISO 8601 datetime for the upper bound" },
+              maxResults: { type: "number", description: "Max number of events to return" },
+            },
+          },
+        },
+        {
           name: "create_calendar_event",
           description: "Create a Google Calendar event on the primary calendar.",
           inputSchema: {
@@ -131,6 +143,14 @@ export function createGoogleWorkspaceMcpServer(token: string) {
           const subject = String(args?.subject || "");
           const body = String(args?.body || "");
           const result = await createGmailDraftUseCase(token, to, subject, body);
+          return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        }
+
+        case "list_events": {
+          const timeMin = args?.timeMin ? String(args.timeMin) : undefined;
+          const timeMax = args?.timeMax ? String(args.timeMax) : undefined;
+          const maxResults = args?.maxResults ? Number(args.maxResults) : undefined;
+          const result = await listCalendarEventsUseCase(token, timeMin, timeMax, maxResults);
           return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
         }
 
