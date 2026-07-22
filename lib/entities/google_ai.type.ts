@@ -44,6 +44,8 @@ export type CreateInteractionInput = {
   mcpServers?: unknown[];
   /** Authenticated user id (used to inject in-process Google Workspace tools). */
   userId?: string;
+  /** DB conversation ID to fetch history for pre-flight intent checks. */
+  dbConversationId?: string;
 };
 
 export type ConnectWarning = {

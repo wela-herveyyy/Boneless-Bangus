@@ -89,6 +89,7 @@ export async function POST(request: Request) {
             systemInstruction,
             // Remote MCP (SSE/HTTP) is not used for Gemini — Workspace tools are in-process.
             userId: userSession.user.id,
+            dbConversationId: body.dbConversationId,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
