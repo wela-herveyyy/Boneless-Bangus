@@ -7,6 +7,7 @@ import {
   updateCalendarEventUseCase,
   deleteCalendarEventUseCase,
 } from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
+import { createSkillUsecase } from "@/lib/domain/usecases/skills/create_skill.usecase";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -23,7 +24,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const token = await refreshAndGetAccessToken(userId);
+    let token = "";
+    if (toolName !== "create_skill") {
+      token = await refreshAndGetAccessToken(userId);
+    }
     let result = null;
 
     switch (toolName) {
@@ -54,6 +58,16 @@ export async function POST(req: NextRequest) {
       case "delete_calendar_event":
         await deleteCalendarEventUseCase(token, args.eventId);
         result = { ok: true, message: `Event deleted.` };
+        break;
+      case "create_skill":
+        await createSkillUsecase({
+          name: args.name,
+          description: args.description,
+          instructions: args.instructions,
+          categoryName: args.categoryName || "Agent Skills",
+          authorId: userId,
+        });
+        result = { ok: true, message: `Skill created.` };
         break;
       default:
         return NextResponse.json({ error: "Unknown tool called." }, { status: 400 });

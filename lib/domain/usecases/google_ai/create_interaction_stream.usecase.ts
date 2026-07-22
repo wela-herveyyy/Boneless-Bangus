@@ -423,19 +423,28 @@ export async function* createInteractionStream(
           }
           previousInteractionId = currentInteractionId;
 
-          const gwCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name));
-          const mcpCalls = pendingToolCalls.filter(c => mcpSession?.toolLookup.has(c.name));
+          const requiresConfirmationCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name) || c.name === "skills__create_skill");
+          const gwCalls = requiresConfirmationCalls;
+          const mcpCalls = pendingToolCalls.filter(c => !requiresConfirmationCalls.includes(c) && mcpSession?.toolLookup.has(c.name));
 
           if (gwCalls.length > 0) {
             // Yield ALL calls to UI for confirmation, but break chain
             for (const call of pendingToolCalls) {
               const isGw = inProcessGwLookup.has(call.name);
+              const isSkill = call.name === "skills__create_skill";
               
               if (isGw) {
                 yield { 
                   type: "requires_confirmation", 
                   slug: WORKSPACE_SLUG, 
                   toolName: call.name, 
+                  args: call.args 
+                };
+              } else if (isSkill) {
+                yield { 
+                  type: "requires_confirmation", 
+                  slug: "skills", 
+                  toolName: "create_skill", 
                   args: call.args 
                 };
               } else if (mcpSession) {

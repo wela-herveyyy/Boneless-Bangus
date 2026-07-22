@@ -5,6 +5,7 @@ import { LuMoveVertical, LuPanelRightClose } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { Input } from "@/components/atoms/Input/Input";
+import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import {
   getFocusLabel,
@@ -378,7 +379,72 @@ export function WorkspaceChat({
         </div>
         {rightSidebarToggles}
 
-        {chat.pendingConfirmations.length > 0 && (
+        {(() => {
+          const draftSkillConf = chat.pendingConfirmations.find(c => c.slug === "skills" && c.toolName === "create_skill");
+          const otherConfs = chat.pendingConfirmations.filter(c => c !== draftSkillConf);
+          
+          return (
+            <>
+              {draftSkillConf && (
+                <AddSkillModal
+                  isOpen={true}
+                  onClose={() => {
+                    chat.setPendingConfirmations(otherConfs);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
+                    ]);
+                  }}
+                  newSkillForm={{
+                    name: draftSkillConf.args?.name || "",
+                    description: draftSkillConf.args?.description || "",
+                    instructions: draftSkillConf.args?.instructions || "",
+                    category: draftSkillConf.args?.categoryName || "Agent Skills",
+                  }}
+                  setNewSkillForm={(form) => {
+                    const updated = [...chat.pendingConfirmations];
+                    const idx = updated.indexOf(draftSkillConf);
+                    updated[idx] = { 
+                      ...draftSkillConf, 
+                      args: {
+                        name: form.name,
+                        description: form.description,
+                        instructions: form.instructions,
+                        categoryName: form.category
+                      }
+                    };
+                    chat.setPendingConfirmations(updated);
+                  }}
+                  disabled={executingConfirmations}
+                  onSubmit={async () => {
+                    setExecutingConfirmations(true);
+                    let allOk = true;
+                    try {
+                      const res = await fetch("/api/ai/execute", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ toolName: draftSkillConf.toolName, args: draftSkillConf.args }),
+                      });
+                      const data = await res.json();
+                      if (!data.ok) allOk = false;
+                    } catch {
+                      allOk = false;
+                    }
+                    setExecutingConfirmations(false);
+                    chat.setPendingConfirmations(otherConfs);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      {
+                        id: `sys-${Date.now()}`,
+                        role: "assistant",
+                        text: allOk ? "> ✅ Skill created successfully!" : "> ⚠️ Failed to create skill.",
+                      },
+                    ]);
+                  }}
+                />
+              )}
+
+              {otherConfs.length > 0 && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/50 p-4 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-bloom">
               <h3 className="mb-2 text-lg font-semibold text-on-surface">Confirm Actions</h3>
@@ -445,6 +511,9 @@ export function WorkspaceChat({
             </div>
           </div>
         )}
+        </>
+      );
+    })()}
       </div>
     );
   }
