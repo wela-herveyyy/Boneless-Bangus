@@ -69,6 +69,7 @@ export type GoogleAiStreamEvent =
   | { type: "tool_warning"; slug: string; reason: string }
   | { type: "tool_call"; slug: string; toolName: string }
   | { type: "tool_result"; slug: string; toolName: string; ok: boolean }
+  | { type: "requires_confirmation"; slug: string; toolName: string; args: Record<string, any> }
   | {
       type: "completed";
       conversationId: string;

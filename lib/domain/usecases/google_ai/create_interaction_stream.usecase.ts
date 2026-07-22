@@ -46,20 +46,6 @@ function isRetriableGoogleError(message: string): boolean {
 }
 
 /** Detect read intents that we can satisfy without Gemini function-calling. */
-function workspaceReadIntent(message: string): {
-  email: boolean;
-  calendar: boolean;
-  status: boolean;
-} {
-  const m = message.toLowerCase();
-  const calendar = /\b(calendar|events?|meetings?|schedule|agenda|appointments?)\b/.test(m);
-  const email =
-    /\b(email|emails|inbox|gmail|mails?|messages?)\b/.test(m) ||
-    (/\b(latest|recent|unread)\b/.test(m) && !calendar);
-  const status = /\b(workspace status|am i connected|connection status)\b/.test(m);
-  return { email, calendar, status };
-}
-
 /**
  * Interactions API client tools corrupt the chain (`500 Unrecoverable data loss`)
  * when function results are submitted. Prefetch Workspace reads in-process and
@@ -68,9 +54,38 @@ function workspaceReadIntent(message: string): {
 async function* injectWorkspaceContext(
   userId: string,
   message: string,
+  apiKey: string,
 ): AsyncGenerator<GoogleAiStreamEvent, string> {
-  const intent = workspaceReadIntent(message);
-  if (!intent.email && !intent.calendar && !intent.status) {
+  const ai = new GoogleGenAI({ apiKey });
+  
+  let funcCallName: string | undefined;
+  let args: Record<string, any> = {};
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: message,
+      config: {
+        systemInstruction: "You are a smart reading assistant. Determine if the user wants to fetch Workspace data (emails, calendar events, or connection status). If so, call the corresponding search tool. If not, output nothing.",
+        tools: [{
+          functionDeclarations: [
+            { name: "search_emails", description: "Search for emails in the user's inbox based on a query.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING, description: "Gmail search query (e.g. 'from:john yesterday')" } } } },
+            { name: "search_calendar_events", description: "Search for upcoming calendar events based on a query.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING, description: "Calendar search query" } } } },
+            { name: "check_workspace_status", description: "Check if the user is connected to Google Workspace." }
+          ]
+        }]
+      }
+    });
+    const funcCall = response.functionCalls?.[0];
+    if (funcCall && funcCall.name) {
+      funcCallName = funcCall.name;
+      args = funcCall.args as any || {};
+    }
+  } catch (err) {
+    console.error("Mini-AI smart reading failed:", err);
+  }
+
+  if (!funcCallName) {
     return message;
   }
 
@@ -81,77 +96,42 @@ async function* injectWorkspaceContext(
 
   const blocks: string[] = [];
 
-  if (intent.status) {
+  if (funcCallName === "check_workspace_status") {
     yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: "workspace_status" };
     try {
       const data = await runWorkspaceChatToolService(userId, "workspace_status", {});
       blocks.push(`## Workspace status\n${JSON.stringify(data, null, 2)}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "workspace_status",
-        ok: true,
-      };
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "workspace_status", ok: true };
     } catch (error) {
       const err = error instanceof Error ? error.message : "workspace_status failed";
       blocks.push(`## Workspace status\nError: ${err}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "workspace_status",
-        ok: false,
-      };
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "workspace_status", ok: false };
     }
   }
 
-  if (intent.email) {
+  if (funcCallName === "search_emails") {
     yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: "list_recent_emails" };
     try {
-      const emails = await getRecentEmailsService(userId);
-      blocks.push(`## Recent emails\n${JSON.stringify(emails, null, 2)}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "list_recent_emails",
-        ok: true,
-      };
+      const emails = await getRecentEmailsService(userId, args.query);
+      blocks.push(`## Recent emails (Query: ${args.query || 'none'})\n${JSON.stringify(emails, null, 2)}`);
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "list_recent_emails", ok: true };
     } catch (error) {
       const err = error instanceof Error ? error.message : "list_recent_emails failed";
       blocks.push(`## Recent emails\nError: ${err}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "list_recent_emails",
-        ok: false,
-      };
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "list_recent_emails", ok: false };
     }
   }
 
-  if (intent.calendar) {
-    yield {
-      type: "tool_call",
-      slug: WORKSPACE_SLUG,
-      toolName: "list_upcoming_calendar_events",
-    };
+  if (funcCallName === "search_calendar_events") {
+    yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: "list_upcoming_calendar_events" };
     try {
-      const events = await getRecentCalendarEventsService(userId);
-      blocks.push(`## Upcoming calendar events\n${JSON.stringify(events, null, 2)}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "list_upcoming_calendar_events",
-        ok: true,
-      };
+      const events = await getRecentCalendarEventsService(userId, args.query);
+      blocks.push(`## Calendar events (Query: ${args.query || 'none'})\n${JSON.stringify(events, null, 2)}`);
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "list_upcoming_calendar_events", ok: true };
     } catch (error) {
-      const err =
-        error instanceof Error ? error.message : "list_upcoming_calendar_events failed";
+      const err = error instanceof Error ? error.message : "list_upcoming_calendar_events failed";
       blocks.push(`## Upcoming calendar events\nError: ${err}`);
-      yield {
-        type: "tool_result",
-        slug: WORKSPACE_SLUG,
-        toolName: "list_upcoming_calendar_events",
-        ok: false,
-      };
+      yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: "list_upcoming_calendar_events", ok: false };
     }
   }
 
@@ -208,7 +188,7 @@ export async function* createInteractionStream(
       const auth = await getGoogleWorkspaceAuth(input.userId);
       if (auth.isConnected) {
         hasWorkspaceAuth = true;
-        message = yield* injectWorkspaceContext(input.userId, message);
+        message = yield* injectWorkspaceContext(input.userId, message, apiKey);
         // Stale agent chains break even without tools — start fresh after Workspace inject.
         previousInteractionId = undefined;
       }
@@ -233,7 +213,8 @@ export async function* createInteractionStream(
     };
     modifiedSystemInstruction = [
       modifiedSystemInstruction || "",
-      "You have access to Google Workspace tools. If you need to perform an action (e.g., send an email or create an event), you MUST ask the user for any missing parameters first. Once you have all the parameters, you MUST output a conversational confirmation message (e.g. 'Sure, I am sending the email now.') BEFORE emitting the tool call."
+      "You have access to Google Workspace tools. If you need to perform an action (e.g., send an email or create an event), you MUST ask the user for any missing parameters first. Once you have all the parameters, you MUST output a conversational confirmation message (e.g. 'Sure, I am sending the email now.') BEFORE emitting the tool call.",
+      "When displaying calendar events to the user, you MUST format each event as a JSON code block with the language set to `event`. For example:\n```event\n{ \"summary\": \"Team Meeting\", \"start\": \"2024-05-20T10:00:00Z\", \"end\": \"2024-05-20T11:00:00Z\", \"htmlLink\": \"https://calendar.google.com/...\" }\n```\nIf there are multiple events, you may output an array of objects inside a single `event` code block. Do NOT use markdown tables or bulleted lists to display events."
     ].filter(Boolean).join("\n\n");
   }
 
@@ -277,7 +258,7 @@ export async function* createInteractionStream(
 
       let currentInteractionId = previousInteractionId;
       let finalTokens: { input?: number; output?: number; status?: string } = {};
-      let toolCallExecuted = false;
+      const pendingToolCalls: Array<{ name: string; args: any }> = [];
 
       for await (const event of stream as AsyncIterable<{
         event_type?: string;
@@ -320,36 +301,7 @@ export async function* createInteractionStream(
               break;
             }
             if (delta.type === "function_call" && delta.id && delta.name) {
-              const funcCallName = delta.name;
-              const args = delta.arguments || {};
-              
-              yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: funcCallName };
-              
-              try {
-                const token = await refreshAndGetAccessToken(input.userId!);
-                switch (funcCallName) {
-                  case "send_email":
-                    await sendGmailMessageUseCase(token, args.to, args.subject, args.body);
-                    break;
-                  case "create_calendar_event":
-                    await createCalendarEventUseCase(token, args.summary, args.description || "", args.start, args.end, args.addGoogleMeet);
-                    break;
-                  case "update_calendar_event":
-                    await updateCalendarEventUseCase(token, args.eventId, { summary: args.summary, description: args.description, start: args.start, end: args.end });
-                    break;
-                  case "delete_calendar_event":
-                    await deleteCalendarEventUseCase(token, args.eventId);
-                    break;
-                  default:
-                    throw new Error("Unknown tool called.");
-                }
-                yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: funcCallName, ok: true };
-              } catch (err: any) {
-                console.error(`Native tool call failed for ${funcCallName}:`, err);
-                yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: funcCallName, ok: false };
-              }
-              
-              toolCallExecuted = true;
+              pendingToolCalls.push({ name: delta.name, args: delta.arguments || {} });
             }
             break;
           }
@@ -380,10 +332,18 @@ export async function* createInteractionStream(
             break;
         }
         if (retriable) break;
-        if (toolCallExecuted) break;
       }
 
-      if (toolCallExecuted) {
+      if (pendingToolCalls.length > 0) {
+        for (const call of pendingToolCalls) {
+          yield { 
+            type: "requires_confirmation", 
+            slug: WORKSPACE_SLUG, 
+            toolName: call.name, 
+            args: call.args 
+          };
+        }
+        
         completed = true;
         yield {
           type: "completed",

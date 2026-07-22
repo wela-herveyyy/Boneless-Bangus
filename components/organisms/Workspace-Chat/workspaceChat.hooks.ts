@@ -217,6 +217,8 @@ export function useWorkspaceChat(
   const [loadingThread, setLoadingThread] = useState(false);
   const [historyEpoch, setHistoryEpoch] = useState(0);
 
+  const [pendingConfirmations, setPendingConfirmations] = useState<Array<{ slug?: string; toolName?: string; args?: any }>>([]);
+
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -281,6 +283,7 @@ export function useWorkspaceChat(
       setNextBefore(null);
       setError(null);
       setLoadingThread(false);
+      setPendingConfirmations([]);
       return;
     }
 
@@ -317,6 +320,7 @@ export function useWorkspaceChat(
     setNextBefore(null);
     setLoadingThread(true);
     setError(null);
+    setPendingConfirmations([]);
 
     let cancelled = false;
     void (async () => {
@@ -458,6 +462,7 @@ export function useWorkspaceChat(
             toolName?: string;
             reason?: string;
             ok?: boolean;
+            args?: any;
           };
 
           if (event.type === "tool_warning") {
@@ -470,6 +475,10 @@ export function useWorkspaceChat(
           }
           if (event.type === "tool_result") {
             setThinkingText((prev) => prev + `> **Tool \`${event.slug ?? ""}__${event.toolName ?? ""}\`** ${event.ok ? "completed successfully" : "failed"}.\n\n`);
+            return;
+          }
+          if (event.type === "requires_confirmation") {
+            setPendingConfirmations((prev) => [...prev, { slug: event.slug, toolName: event.toolName, args: event.args }]);
             return;
           }
 
@@ -733,6 +742,9 @@ export function useWorkspaceChat(
     loadingOlder,
     loadOlder,
     historyEpoch,
+    pendingConfirmations,
+    setPendingConfirmations,
+    setTurns,
   };
 }
 

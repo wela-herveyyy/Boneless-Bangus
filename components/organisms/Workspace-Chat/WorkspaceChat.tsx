@@ -144,6 +144,8 @@ export function WorkspaceChat({
   );
   const threadRef = useRef<HTMLDivElement>(null);
   const [showRightTriggers, setShowRightTriggers] = useState(false);
+  const [executingConfirmations, setExecutingConfirmations] = useState(false);
+  
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
@@ -372,9 +374,77 @@ export function WorkspaceChat({
             ) : null}
           </div>
 
-          <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
+        <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </div>
         {rightSidebarToggles}
+
+        {chat.pendingConfirmations.length > 0 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-bloom">
+              <h3 className="mb-2 text-lg font-semibold text-on-surface">Confirm Actions</h3>
+              <p className="mb-4 text-sm text-on-surface-muted">
+                The AI wants to perform the following actions on your Google Workspace account:
+              </p>
+              <div className="mb-6 max-h-60 overflow-y-auto rounded-xl bg-surface-container-low p-3 text-sm text-on-surface bbai-scroll">
+                {chat.pendingConfirmations.map((conf, i) => (
+                  <div key={i} className="mb-2 last:mb-0">
+                    <strong className="text-primary">{conf.toolName}</strong>
+                    <pre className="mt-1 overflow-x-auto text-[11px] text-on-surface-muted">
+                      {JSON.stringify(conf.args, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="secondary"
+                  disabled={executingConfirmations}
+                  onClick={() => {
+                    chat.setPendingConfirmations([]);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
+                    ]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={executingConfirmations}
+                  onClick={async () => {
+                    setExecutingConfirmations(true);
+                    let allOk = true;
+                    for (const conf of chat.pendingConfirmations) {
+                      try {
+                        const res = await fetch("/api/ai/execute", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ toolName: conf.toolName, args: conf.args }),
+                        });
+                        const data = await res.json();
+                        if (!data.ok) allOk = false;
+                      } catch {
+                        allOk = false;
+                      }
+                    }
+                    setExecutingConfirmations(false);
+                    chat.setPendingConfirmations([]);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      {
+                        id: `sys-${Date.now()}`,
+                        role: "assistant",
+                        text: allOk ? "> ✅ All actions executed successfully." : "> ⚠️ Some actions failed.",
+                      },
+                    ]);
+                  }}
+                >
+                  {executingConfirmations ? "Executing..." : "Confirm & Execute"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
