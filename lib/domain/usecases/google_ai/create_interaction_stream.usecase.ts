@@ -344,7 +344,7 @@ export async function* createInteractionStream(
                 step?.type === "function_call" &&
                 step.id &&
                 step.name &&
-                (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name))
+                (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name) || inProcessGwReadLookup.has(step.name))
               ) {
                 // Ensure we don't duplicate if it also comes in delta
                 if (!pendingToolCalls.find(t => t.id === step.id)) {
@@ -371,9 +371,14 @@ export async function* createInteractionStream(
                 delta.type === "function_call" &&
                 delta.id &&
                 delta.name &&
-                (mcpSession?.toolLookup.has(delta.name) || inProcessGwLookup.has(delta.name))
+                (mcpSession?.toolLookup.has(delta.name) || inProcessGwLookup.has(delta.name) || inProcessGwReadLookup.has(delta.name))
               ) {
-                pendingToolCalls.push({ id: delta.id, name: delta.name, args: delta.arguments || {} });
+                const existing = pendingToolCalls.find(t => t.id === delta.id);
+                if (existing) {
+                  existing.args = delta.arguments || {};
+                } else {
+                  pendingToolCalls.push({ id: delta.id, name: delta.name, args: delta.arguments || {} });
+                }
               }
               break;
             }
@@ -392,9 +397,12 @@ export async function* createInteractionStream(
                     step.type === "function_call" &&
                     step.id &&
                     step.name &&
-                    (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name))
+                    (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name) || inProcessGwReadLookup.has(step.name))
                   ) {
-                    if (!pendingToolCalls.find(t => t.id === step.id)) {
+                    const existing = pendingToolCalls.find(t => t.id === step.id);
+                    if (existing) {
+                      existing.args = step.arguments || {};
+                    } else {
                       pendingToolCalls.push({ id: step.id, name: step.name, args: step.arguments || {} });
                     }
                   }
