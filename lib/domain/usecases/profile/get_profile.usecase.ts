@@ -25,10 +25,12 @@ export async function getProfile(userId: string): Promise<ProfileData> {
       geminiApiKey: settingsRow.geminiApiKey,
     } : null,
     team: currentTeamRelation?.team ? {
+      teamId: currentTeamRelation.team.id,
       teamCode: currentTeamRelation.team.code,
       teamName: currentTeamRelation.team.name,
       cursorApiKey: currentTeamRelation.team.cursorApiKey,
       geminiApiKey: currentTeamRelation.team.geminiApiKey,
+      isManager: currentTeamRelation.team.managerId === userId,
     } : null,
   };
 }

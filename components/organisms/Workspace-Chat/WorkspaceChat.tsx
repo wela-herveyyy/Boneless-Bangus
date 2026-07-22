@@ -257,10 +257,10 @@ export function WorkspaceChat({
         type="button"
         onClick={() => setShowRightTriggers(false)}
         className={[
-          "right-sidebar-trigger fixed right-0 z-[120] flex size-10 -translate-y-1/2 items-center justify-center",
+          "right-sidebar-trigger fixed right-0 z-120 flex size-10 -translate-y-1/2 items-center justify-center",
           "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
           "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "md:!hidden"
+          "md:hidden!"
         ].join(" ")}
         aria-label="Hide tools"
         style={{ top: "calc(50% + 12.25rem)" }}

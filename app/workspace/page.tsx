@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { WorkspacePage } from "@/components/client-pages/workspace/WorkspacePage";
-import { getSession } from "@/lib/domain/services/auth.service";
+import { auth } from "@/lib/domain/services/auth.service";
 import { getProfileService } from "@/lib/domain/services/profile.service";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export const metadata: Metadata = {
   title: "BBAI | Workspace",
@@ -10,20 +11,24 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
-  const session = await getSession();
+  const userSession = await auth();
 
-  if (!session) {
+  if (!userSession || userSession.expired) {
     redirect("/sign-in?callbackURL=/workspace");
   }
 
-  const profileData = await getProfileService(session.user.id);
+  const profileData = await getProfileService(userSession.user.id);
+  const showAdminLink = hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE);
 
   return (
-    <WorkspacePage 
-      userName={session.user.name} 
-      userEmail={session.user.email} 
+    <WorkspacePage
+      userId={userSession.user.id}
+      userName={userSession.user.name}
+      userEmail={userSession.user.email}
       userSettings={profileData.settings}
       userTeam={profileData.team}
+      showAdminLink={showAdminLink}
+      userRole={userSession.user.role}
     />
   );
 }

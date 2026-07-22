@@ -69,7 +69,9 @@ export function IntegrationsTab() {
           <div className="space-y-1.5">
             <h3 className="font-semibold text-sm text-on-surface">Connect Google Workspace</h3>
             <p className="text-xs leading-relaxed text-on-surface-variant">
-              Authenticate securely via 1-Click OAuth (`Calendar`, `Meet`, and `Gmail`) to enable direct API integration with your interactive workspace widgets and AI chat agent (via our internal tools, not official remote MCP).
+              Authenticate securely via OAuth (Calendar, Meet, and Gmail). This powers workspace
+              widgets plus Cursor and Gemini chat tools. Official Google remote MCP servers are
+              not used (those require Developer Preview).
             </p>
           </div>
           <Button
@@ -111,6 +113,12 @@ export function IntegrationsTab() {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant px-0.5">
               Enabled Capabilities
             </h4>
+            <p className="text-xs leading-relaxed text-on-surface-variant px-0.5">
+              Enabled capabilities apply to workspace widgets and chat tools (Cursor + Gemini)
+              for Gmail / Calendar / Meet. Exposed via{" "}
+              <code className="text-on-surface">/api/workspace/*</code> — not official Google
+              remote MCP.
+            </p>
 
             <WorkspaceCapabilityCard
               capability="calendar"

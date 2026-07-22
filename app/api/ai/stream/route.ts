@@ -1,12 +1,14 @@
 import { auth } from "@/lib/domain/services/auth.service";
 import { createInteractionStream } from "@/lib/domain/services/google_ai.service";
 import { insertAiMessage } from "@/lib/domain/services/ai_conversation.service";
+import { getGoogleWorkspaceAuthStatusService } from "@/lib/domain/services/google_workspace_auth.service";
 import {
   BBAI_SYSTEM_CONTEXT,
   buildSystemInstructionWithMcp,
   cleanupAiPrompt,
   usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
+import { WORKSPACE_GEMINI_SYSTEM_HINT } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
@@ -15,6 +17,17 @@ export const maxDuration = 300;
 
 function sseLine(event: AiStreamClientEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
+}
+
+function buildSystemInstruction(
+  mcpServers: unknown,
+  workspaceConnected: boolean,
+): string {
+  let instruction = buildSystemInstructionWithMcp(mcpServers);
+  if (workspaceConnected) {
+    instruction = `${instruction}\n\n${WORKSPACE_GEMINI_SYSTEM_HINT}`;
+  }
+  return instruction || BBAI_SYSTEM_CONTEXT;
 }
 
 export async function POST(request: Request) {
@@ -49,6 +62,13 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Message is required." }, { status: 400 });
     }
 
+    const workspaceStatus = await getGoogleWorkspaceAuthStatusService(userSession.user.id).catch(
+      () => null,
+    );
+    const workspaceConnected = Boolean(workspaceStatus?.isConnected);
+    // Ignore client mcpServers for Gemini — remote MCP is Cursor-only.
+    const systemInstruction = buildSystemInstruction(undefined, workspaceConnected);
+
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const send = (event: AiStreamClientEvent) => {
@@ -66,8 +86,8 @@ export async function POST(request: Request) {
             message,
             model: body.model,
             previousInteractionId: body.previousInteractionId,
-            systemInstruction: buildSystemInstructionWithMcp(body.mcpServers),
-            mcpServers: body.mcpServers,
+            systemInstruction,
+            // Remote MCP (SSE/HTTP) is not used for Gemini — Workspace tools are in-process.
             userId: userSession.user.id,
           })) {
             if (event.type === "created") {
@@ -151,6 +171,7 @@ export async function POST(request: Request) {
                   conversationId,
                   dbConversationId: saved.data.conversationId,
                   messageId: saved.data.messageId,
+                  workspaceTools: workspaceConnected,
                   ...usage,
                 },
               });

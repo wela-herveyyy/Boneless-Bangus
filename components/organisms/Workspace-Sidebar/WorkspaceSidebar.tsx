@@ -1,10 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { LuArchive, LuFishSymbol, LuLogOut, LuMessageSquare, LuPanelLeftClose, LuPanelLeftOpen, LuSettings } from "react-icons/lu";
+import {
+  LuArchive,
+  LuFishSymbol,
+  LuLogOut,
+  LuMessageSquare,
+  LuPanelLeftClose,
+  LuPanelLeftOpen,
+  LuShield,
+  LuUsersRound,
+} from "react-icons/lu";
 import { ArchiveChatModal } from "@/components/molecules/ArchiveChatModal/ArchiveChatModal";
 import { Button } from "@/components/atoms/Button/Button";
 import { signOutAction } from "@/lib/domain/actions/auth.actions";
+import type { UserRole } from "@/lib/entities/users.type";
 import { formatChatDate, getInitials, type ChatHistoryItem } from "./workspaceSidebar.hooks";
 
 type WorkspaceSidebarControls = {
@@ -28,9 +38,17 @@ type WorkspaceSidebarProps = {
   displayName: string;
   userEmail: string;
   sidebar: WorkspaceSidebarControls;
+  showAdminLink?: boolean;
+  userRole?: UserRole | null;
 };
 
-export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({
+  displayName,
+  userEmail,
+  sidebar,
+  showAdminLink = false,
+  userRole = null,
+}: WorkspaceSidebarProps) {
   const {
     isOpen,
     openSidebar,
@@ -140,30 +158,62 @@ export function WorkspaceSidebar({ displayName, userEmail, sidebar }: WorkspaceS
         </div>
 
         <div className="space-y-3 p-4">
-          <button 
-            type="button" 
+          {showAdminLink ? (
+            <div className="rounded-2xl bg-linear-to-br from-primary/12 via-surface-container-lowest to-surface-container-lowest p-3 shadow-bloom">
+              <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                Administration
+              </p>
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 rounded-xl bg-surface-container-lowest/90 px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-white"
+              >
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <LuShield className="size-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">Control center</span>
+                  <span className="block truncate text-[11px] font-normal text-on-surface-muted">
+                    Users, teams & access
+                  </span>
+                </span>
+                <LuUsersRound className="size-4 shrink-0 text-on-surface-muted" aria-hidden />
+              </Link>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
             onClick={openProfile}
-            className="w-full text-left block rounded-2xl bg-surface-container-high/80 p-4 transition-colors hover:bg-surface-container-highest"
+            className="block w-full rounded-2xl bg-surface-container-high/80 p-4 text-left transition-colors hover:bg-surface-container-highest"
           >
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-on-primary">
                 {getInitials(displayName)}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-on-surface">{displayName}</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm font-medium text-on-surface">{displayName}</p>
+                  {userRole === "owner" || userRole === "admin" ? (
+                    <span className="shrink-0 rounded-md bg-tertiary/10 px-1.5 py-0.5 text-[10px] font-semibold capitalize text-tertiary">
+                      {userRole}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="truncate text-xs text-on-surface-muted">{userEmail}</p>
               </div>
             </div>
           </button>
 
-          <div className="flex flex-col gap-2">
-            <form action={signOutAction}>
-              <Button type="submit" variant="secondary" className="w-full gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
-                <LuLogOut className="size-4" aria-hidden />
-                Log out
-              </Button>
-            </form>
-          </div>
+          <form action={signOutAction}>
+            <Button
+              type="submit"
+              variant="secondary"
+              className="w-full gap-2 text-red-500 hover:bg-red-50 hover:text-red-600"
+            >
+              <LuLogOut className="size-4" aria-hidden />
+              Log out
+            </Button>
+          </form>
         </div>
       </aside>
 

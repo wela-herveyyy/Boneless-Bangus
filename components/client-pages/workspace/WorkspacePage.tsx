@@ -13,8 +13,10 @@ import {
   WorkspaceSidebarFallback,
 } from "@/components/organisms/Workspace-Sidebar/WorkspaceSidebar";
 import { ProfileView } from "@/components/client-pages/profile/ProfileView";
+import type { UserRole } from "@/lib/entities/users.type";
 
 type WorkspacePageProps = {
+  userId: string;
   userName: string;
   userEmail: string;
   userSettings: {
@@ -22,12 +24,26 @@ type WorkspacePageProps = {
     geminiApiKey: string | null;
   } | null;
   userTeam: {
+    teamId: string;
     teamCode: string;
     teamName: string;
+    cursorApiKey: string | null;
+    geminiApiKey: string | null;
+    isManager: boolean;
   } | null;
+  showAdminLink?: boolean;
+  userRole?: UserRole | null;
 };
 
-export function WorkspacePage({ userName, userEmail, userSettings, userTeam }: WorkspacePageProps) {
+export function WorkspacePage({
+  userId,
+  userName,
+  userEmail,
+  userSettings,
+  userTeam,
+  showAdminLink = false,
+  userRole = null,
+}: WorkspacePageProps) {
   const sidebar = useWorkspaceSidebar();
   const { profile, loading } = useWorkspaceProfile();
   const displayName = getDisplayName(profile, userName);
@@ -51,7 +67,13 @@ export function WorkspacePage({ userName, userEmail, userSettings, userTeam }: W
   return (
     <div className="relative h-screen overflow-hidden bg-surface">
       <FuturisticBackdrop />
-      <WorkspaceSidebar displayName={displayName} userEmail={userEmail} sidebar={sidebar} />
+      <WorkspaceSidebar
+        displayName={displayName}
+        userEmail={userEmail}
+        sidebar={sidebar}
+        showAdminLink={showAdminLink}
+        userRole={userRole}
+      />
       <WorkspaceChat
         userEmail={userEmail}
         displayName={displayName}
@@ -63,6 +85,7 @@ export function WorkspacePage({ userName, userEmail, userSettings, userTeam }: W
       />
       {sidebar.isProfileOpen && (
         <ProfileView
+          userId={userId}
           userName={userName}
           userEmail={userEmail}
           userSettings={userSettings}
