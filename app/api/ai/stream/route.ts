@@ -66,8 +66,8 @@ export async function POST(request: Request) {
       () => null,
     );
     const workspaceConnected = Boolean(workspaceStatus?.isConnected);
-    // Ignore client mcpServers for Gemini — remote MCP is Cursor-only.
-    const systemInstruction = buildSystemInstruction(undefined, workspaceConnected);
+    // Pass mcpServers from client so web UI can test MCP pipelines
+    const systemInstruction = buildSystemInstruction(body.mcpServers, workspaceConnected);
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
             model: body.model,
             previousInteractionId: body.previousInteractionId,
             systemInstruction,
-            // Remote MCP (SSE/HTTP) is not used for Gemini — Workspace tools are in-process.
+            mcpServers: body.mcpServers,
             userId: userSession.user.id,
             dbConversationId: body.dbConversationId,
           })) {
