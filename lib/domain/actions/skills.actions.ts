@@ -3,6 +3,8 @@
 import { auth } from "@/lib/domain/services/auth.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { getSkills, getSkillCategories, createSkill, updateSkill, deleteSkill } from "../services/skills.service";
+import { installSkillUsecase } from "../usecases/skills/install_skill.usecase";
+import { uninstallSkillUsecase } from "../usecases/skills/uninstall_skill.usecase";
 import { hasSkillPermission, SKILL_PERMISSION, SkillResult, SkillWithDetails, SkillCategorySelect } from "@/lib/entities/skills.type";
 import { CreateSkillInput } from "../usecases/skills/create_skill.usecase";
 import { UpdateSkillInput } from "../usecases/skills/update_skill.usecase";
@@ -23,7 +25,7 @@ export async function getSkillsAction(): Promise<SkillResult<SkillWithDetails[]>
       return { ok: false, error: "You are not authorized for this action." };
     }
 
-    const skills = await getSkills();
+    const skills = await getSkills(userSession.user.id);
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
     return { ok: true, data: skills };
@@ -134,6 +136,56 @@ export async function deleteSkillAction(id: string): Promise<SkillResult<void>> 
       id,
       authorId: userSession.user.id,
     });
+
+    await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
+    return { ok: true, data: undefined };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await logAction({ userId: "unknown", action, success: false, error: message });
+    return { ok: false, error: message };
+  }
+}
+
+export async function installSkillAction(skillId: string): Promise<SkillResult<void>> {
+  const action = "skills:install";
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      await logAction({ userId: "anonymous", action, success: false, error: "Authentication required." });
+      return { ok: false, error: "Authentication required." };
+    }
+
+    if (!hasSkillPermission(userSession.user.role as UserRole, SKILL_PERMISSION.SKILLS_READ)) {
+      await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
+      return { ok: false, error: "You are not authorized for this action." };
+    }
+
+    await installSkillUsecase({ userId: userSession.user.id, skillId });
+
+    await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
+    return { ok: true, data: undefined };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await logAction({ userId: "unknown", action, success: false, error: message });
+    return { ok: false, error: message };
+  }
+}
+
+export async function uninstallSkillAction(skillId: string): Promise<SkillResult<void>> {
+  const action = "skills:uninstall";
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      await logAction({ userId: "anonymous", action, success: false, error: "Authentication required." });
+      return { ok: false, error: "Authentication required." };
+    }
+
+    if (!hasSkillPermission(userSession.user.role as UserRole, SKILL_PERMISSION.SKILLS_READ)) {
+      await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
+      return { ok: false, error: "You are not authorized for this action." };
+    }
+
+    await uninstallSkillUsecase({ userId: userSession.user.id, skillId });
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
     return { ok: true, data: undefined };

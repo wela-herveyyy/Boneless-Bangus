@@ -7,9 +7,10 @@ interface Props {
   skill: Skill | null;
   onClose: () => void;
   onToggleInstall?: (id: string) => void;
+  onDeleteSkill?: (id: string) => void;
 }
 
-export function SkillDetailsModal({ skill, onClose, onToggleInstall }: Props) {
+export function SkillDetailsModal({ skill, onClose, onToggleInstall, onDeleteSkill }: Props) {
   if (!skill) return null;
 
   return (
@@ -49,27 +50,46 @@ export function SkillDetailsModal({ skill, onClose, onToggleInstall }: Props) {
             </p>
           </div>
           
-          <div className="flex items-center gap-2 text-xs text-on-surface-muted">
-            <span className="font-medium">Author:</span> {skill.author}
+          <div className="flex items-center gap-4 text-xs text-on-surface-muted border-t border-primary/5 pt-4">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-on-surface">Author:</span> {skill.author}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-on-surface">Visibility:</span> 
+              <span className={`px-2 py-0.5 rounded-md font-medium ${skill.isGlobal ? 'bg-primary/10 text-primary' : 'bg-surface-container-highest text-on-surface-muted'}`}>
+                {skill.isGlobal ? 'Published' : 'Private'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {onToggleInstall && (
+        {(onToggleInstall || onDeleteSkill) && (
           <div className="flex justify-end gap-3 border-t border-primary/10 pt-4">
-            <Button
-              variant={skill.installed ? "secondary" : "primary"}
-              onClick={() => onToggleInstall(skill.id)}
-              className="w-full px-5 py-2 text-sm sm:w-auto"
-            >
-              {skill.installed ? (
-                <>
-                  <HiOutlineCheck className="mr-2 inline size-4" />
-                  Installed
-                </>
-              ) : (
-                "Install Skill"
-              )}
-            </Button>
+            {onToggleInstall && !skill.isAuthor && (
+              <Button
+                variant={skill.isInstalled ? "secondary" : "primary"}
+                onClick={() => onToggleInstall(skill.id)}
+                className="w-full px-5 py-2 text-sm sm:w-auto"
+              >
+                {skill.isInstalled ? (
+                  <>
+                    Uninstall
+                  </>
+                ) : (
+                  "Install Skill"
+                )}
+              </Button>
+            )}
+            
+            {onDeleteSkill && skill.isAuthor && (
+              <Button
+                variant="secondary"
+                onClick={() => onDeleteSkill(skill.id)}
+                className="w-full px-5 py-2 text-sm sm:w-auto text-red-500 hover:text-red-600 hover:bg-red-500/10"
+              >
+                Delete Skill
+              </Button>
+            )}
           </div>
         )}
       </div>

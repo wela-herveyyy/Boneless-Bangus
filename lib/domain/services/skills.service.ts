@@ -5,8 +5,8 @@ import { updateSkillUsecase, UpdateSkillInput } from "../usecases/skills/update_
 import { deleteSkillUsecase, DeleteSkillInput } from "../usecases/skills/delete_skill.usecase";
 import { SkillCategorySelect, SkillWithDetails } from "@/lib/entities/skills.type";
 
-export async function getSkills(): Promise<SkillWithDetails[]> {
-  return await getSkillsUsecase();
+export async function getSkills(userId: string): Promise<SkillWithDetails[]> {
+  return await getSkillsUsecase(userId);
 }
 
 export async function getSkillCategories(): Promise<SkillCategorySelect[]> {

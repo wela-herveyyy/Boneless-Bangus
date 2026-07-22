@@ -1,6 +1,6 @@
 import "server-only";
 import { database } from "@/database";
-import { skill, skillCategory } from "@/database/schema";
+import { skill, skillCategory, userInstalledSkill } from "@/database/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { revalidateTag } from "next/cache";
@@ -12,6 +12,7 @@ export type CreateSkillInput = {
   instructions: string;
   categoryName: string;
   authorId: string;
+  isGlobal?: boolean;
 };
 
 export async function createSkillUsecase(input: CreateSkillInput): Promise<void> {
@@ -28,7 +29,7 @@ export async function createSkillUsecase(input: CreateSkillInput): Promise<void>
     const createdCategories = await database.select().from(skillCategory).where(eq(skillCategory.name, input.categoryName));
     category = createdCategories[0];
     
-    revalidateTag("skill-categories", {});
+    revalidateTag("skill-categories", "hours");
   }
 
   const newSkill: SkillInsert = {
@@ -38,8 +39,17 @@ export async function createSkillUsecase(input: CreateSkillInput): Promise<void>
     instructions: input.instructions,
     categoryId: category.id,
     authorId: input.authorId,
+    isGlobal: input.isGlobal ?? false,
   };
 
   await database.insert(skill).values(newSkill);
-  revalidateTag("skills", {});
+
+  // Automatically install the skill for the creator
+  await database.insert(userInstalledSkill).values({
+    id: randomUUID(),
+    userId: input.authorId,
+    skillId: newSkill.id,
+  });
+
+  revalidateTag("skills", "hours");
 }

@@ -13,5 +13,5 @@ export async function deleteSkillUsecase(input: DeleteSkillInput): Promise<void>
     .delete(skill)
     .where(and(eq(skill.id, input.id), eq(skill.authorId, input.authorId)));
 
-  revalidateTag("skills", {});
+  revalidateTag("skills", "hours");
 }

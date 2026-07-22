@@ -8,6 +8,7 @@ import {
   int,
   json,
   decimal,
+  unique,
 } from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 
@@ -139,12 +140,28 @@ export const skill = mysqlTable("skill", {
   authorId: varchar("author_id", { length: 36 })
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  isGlobal: boolean("is_global").default(false).notNull(),
   createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { fsp: 3 })
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export const userInstalledSkill = mysqlTable(
+  "user_installed_skill",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    skillId: varchar("skill_id", { length: 36 })
+      .notNull()
+      .references(() => skill.id, { onDelete: "cascade" }),
+    installedAt: timestamp("installed_at", { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [unique("user_skill_unique_idx").on(table.userId, table.skillId)]
+);
 
 export const mcpCategory = mysqlTable(
   "mcp_category",
@@ -253,6 +270,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
   mcpServers: many(mcpServer),
   mcpCredentials: many(mcpCredential),
   skills: many(skill),
+  installedSkills: many(userInstalledSkill),
   googleWorkspaceAuth: one(googleWorkspaceAuth),
   settings: one(userSettings),
   managedTeams: many(team),
@@ -270,7 +288,7 @@ export const skillCategoryRelations = relations(skillCategory, ({ many }) => ({
   skills: many(skill),
 }));
 
-export const skillRelations = relations(skill, ({ one }) => ({
+export const skillRelations = relations(skill, ({ one, many }) => ({
   category: one(skillCategory, {
     fields: [skill.categoryId],
     references: [skillCategory.id],
@@ -278,6 +296,18 @@ export const skillRelations = relations(skill, ({ one }) => ({
   author: one(user, {
     fields: [skill.authorId],
     references: [user.id],
+  }),
+  installations: many(userInstalledSkill),
+}));
+
+export const userInstalledSkillRelations = relations(userInstalledSkill, ({ one }) => ({
+  user: one(user, {
+    fields: [userInstalledSkill.userId],
+    references: [user.id],
+  }),
+  skill: one(skill, {
+    fields: [userInstalledSkill.skillId],
+    references: [skill.id],
   }),
 }));
 

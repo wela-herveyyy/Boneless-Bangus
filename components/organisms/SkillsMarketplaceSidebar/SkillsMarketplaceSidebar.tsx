@@ -15,7 +15,10 @@ import {
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import { SkillDetailsModal } from "@/components/molecules/SkillDetailsModal/SkillDetailsModal";
 import { UninstallSkillModal } from "@/components/molecules/UninstallSkillModal/UninstallSkillModal";
+import { DeleteSkillModal } from "@/components/molecules/DeleteSkillModal/DeleteSkillModal";
+import { InstallSkillModal } from "@/components/molecules/InstallSkillModal/InstallSkillModal";
 import { MarketplaceSkillCard } from "@/components/molecules/MarketplaceSkillCard/MarketplaceSkillCard";
+import { useEffect } from "react";
 
 export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } = {}) {
   const {
@@ -37,6 +40,14 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
     skillToUninstall,
     confirmUninstall,
     cancelUninstall,
+    handleDeleteSkill,
+    skillToDelete,
+    confirmDelete,
+    cancelDelete,
+    skillToInstall,
+    confirmInstall,
+    cancelInstall,
+    loadData,
   } = useSkillsMarketplaceSidebar();
 
   const sidebar = useRightSidebar("skills", {
@@ -50,6 +61,14 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
         cancelUninstall();
         return true;
       }
+      if (skillToDelete) {
+        cancelDelete();
+        return true;
+      }
+      if (skillToInstall) {
+        cancelInstall();
+        return true;
+      }
       if (selectedSkillId) {
         setSelectedSkillId(null);
         return true;
@@ -61,6 +80,12 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
       return false;
     },
   });
+
+  useEffect(() => {
+    if (sidebar.isOpen) {
+      loadData();
+    }
+  }, [sidebar.isOpen, loadData]);
 
   return (
     <>
@@ -126,6 +151,7 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
                   skill={skill}
                   onClick={() => setSelectedSkillId(skill.id)}
                   onToggleInstall={toggleInstall}
+                  onDeleteSkill={handleDeleteSkill}
                 />
               ))}
               {filteredSkills.length === 0 && (
@@ -149,12 +175,25 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
         skill={selectedSkill}
         onClose={() => setSelectedSkillId(null)}
         onToggleInstall={toggleInstall}
+        onDeleteSkill={handleDeleteSkill}
       />
 
       <UninstallSkillModal
         isOpen={!!skillToUninstall}
         onCancel={cancelUninstall}
         onConfirm={confirmUninstall}
+      />
+
+      <DeleteSkillModal
+        isOpen={!!skillToDelete}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
+      />
+
+      <InstallSkillModal
+        isOpen={!!skillToInstall}
+        onCancel={cancelInstall}
+        onConfirm={confirmInstall}
       />
     </>
   );
