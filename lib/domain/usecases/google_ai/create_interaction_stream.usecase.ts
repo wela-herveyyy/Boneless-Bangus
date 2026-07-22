@@ -199,8 +199,6 @@ export async function* createInteractionStream(
       if (auth.isConnected) {
         hasWorkspaceAuth = true;
         message = yield* injectWorkspaceContext(input.userId, message, apiKey);
-        // Stale agent chains break even without tools — start fresh after Workspace inject.
-        previousInteractionId = undefined;
       }
     } catch (err) {
       console.warn("Failed to check Google Workspace Auth:", err);
