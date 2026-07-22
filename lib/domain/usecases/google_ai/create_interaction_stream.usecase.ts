@@ -16,8 +16,14 @@ import {
   getGmailMessageUseCase,
   listGmailDraftsUseCase,
   createGmailDraftUseCase,
+  sendGmailMessageUseCase,
 } from "@/lib/domain/usecases/mcp_google_workspace/gmail.usecases";
-import { createCalendarEventUseCase, listCalendarEventsUseCase } from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
+import { 
+  createCalendarEventUseCase, 
+  listCalendarEventsUseCase,
+  updateCalendarEventUseCase,
+  deleteCalendarEventUseCase
+} from "@/lib/domain/usecases/mcp_google_workspace/calendar.usecases";
 import { getSession } from "../auth/get_session.usecase";
 import { getProfile } from "../profile/get_profile.usecase";
 
@@ -105,13 +111,16 @@ export async function* createInteractionStream(
         const slug = "internal_google_workspace";
 
         const gwToolDefs = [
-          { name: "search_threads", description: "Search Gmail threads using standard Gmail query syntax.", inputSchema: { type: "object", properties: { query: { type: "string", description: "The search query (e.g., 'is:unread', 'from:boss@example.com')" }, maxResults: { type: "number", description: "Max threads to return (default 1)" } }, required: ["query"] } },
+          { name: "search_threads", description: "Search Gmail threads using standard Gmail query syntax.", inputSchema: { type: "object", properties: { query: { type: "string", description: "The search query (e.g., 'is:unread', 'from:boss@example.com')" }, maxResults: { type: "number", description: "Max threads to return (default 1)" }, pageToken: { type: "string", description: "Token for retrieving the next page of results" } }, required: ["query"] } },
           { name: "get_thread",     description: "Retrieve a specific Gmail thread and its messages by thread ID.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
           { name: "get_message",    description: "Retrieve a specific Gmail message by message ID.", inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
           { name: "list_drafts",    description: "List Gmail drafts (up to 20).", inputSchema: { type: "object", properties: { maxResults: { type: "number", description: "Optional max results" } } } },
           { name: "create_draft",   description: "Create a new draft email.", inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] } },
-          { name: "list_calendar_events", description: "List upcoming Google Calendar events.", inputSchema: { type: "object", properties: { timeMin: { type: "string", description: "RFC3339 timestamp (e.g. 2026-07-20T00:00:00Z)" }, timeMax: { type: "string" }, maxResults: { type: "number", description: "Max events to return (default 10)" } } } },
+          { name: "send_email",     description: "Send an email directly.", inputSchema: { type: "object", properties: { to: { type: "string" }, subject: { type: "string" }, body: { type: "string" } }, required: ["to", "subject", "body"] } },
+          { name: "list_calendar_events", description: "List upcoming Google Calendar events.", inputSchema: { type: "object", properties: { timeMin: { type: "string", description: "RFC3339 timestamp (e.g. 2026-07-20T00:00:00Z)" }, timeMax: { type: "string" }, maxResults: { type: "number", description: "Max events to return (default 10)" }, pageToken: { type: "string", description: "Token for retrieving the next page of results" } } } },
           { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", inputSchema: { type: "object", properties: { summary: { type: "string" }, description: { type: "string" }, start: { type: "string" }, end: { type: "string" }, addGoogleMeet: { type: "boolean" } }, required: ["summary", "start", "end"] } },
+          { name: "update_calendar_event", description: "Update an existing Google Calendar event.", inputSchema: { type: "object", properties: { eventId: { type: "string" }, summary: { type: "string" }, description: { type: "string" }, start: { type: "string" }, end: { type: "string" } }, required: ["eventId"] } },
+          { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", inputSchema: { type: "object", properties: { eventId: { type: "string" } }, required: ["eventId"] } },
         ];
 
         inProcessGwTools = gwToolDefs.map((t) => ({
@@ -127,13 +136,16 @@ export async function* createInteractionStream(
             const token = await refreshAndGetAccessToken(input.userId!);
             let result: unknown;
             switch (toolName) {
-              case "search_threads":        result = await searchGmailThreadsUseCase(token, args.query as string, args.maxResults as number | undefined); break;
+              case "search_threads":        result = await searchGmailThreadsUseCase(token, args.query as string, args.maxResults as number | undefined, args.pageToken as string | undefined); break;
               case "get_thread":            result = await getGmailThreadUseCase(token, args.id as string); break;
               case "get_message":           result = await getGmailMessageUseCase(token, args.id as string); break;
               case "list_drafts":           result = await listGmailDraftsUseCase(token); break;
               case "create_draft":         result = await createGmailDraftUseCase(token, args.to as string, args.subject as string, args.body as string); break;
-              case "list_calendar_events": result = await listCalendarEventsUseCase(token, args.timeMin as string | undefined, args.timeMax as string | undefined, args.maxResults as number | undefined); break;
+              case "send_email":           result = await sendGmailMessageUseCase(token, args.to as string, args.subject as string, args.body as string); break;
+              case "list_calendar_events": result = await listCalendarEventsUseCase(token, args.timeMin as string | undefined, args.timeMax as string | undefined, args.maxResults as number | undefined, args.pageToken as string | undefined); break;
               case "create_calendar_event": result = await createCalendarEventUseCase(token, args.summary as string, (args.description as string) || "", args.start as string, args.end as string, args.addGoogleMeet as boolean | undefined); break;
+              case "update_calendar_event": result = await updateCalendarEventUseCase(token, args.eventId as string, { summary: args.summary as string, description: args.description as string, start: args.start as string, end: args.end as string }); break;
+              case "delete_calendar_event": result = await deleteCalendarEventUseCase(token, args.eventId as string); break;
               default: return { ok: false, content: `Unknown tool: ${toolName}` };
             }
             return { ok: true, content: JSON.stringify(result) };
