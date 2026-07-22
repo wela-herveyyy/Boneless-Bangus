@@ -172,7 +172,7 @@ export function WorkspaceChat({
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative sm:flex-1">
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-1">
             {chat.showCommandMenu && chat.filteredCommands.length > 0 && (
               <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl bg-surface-container-lowest py-2 shadow-bloom border border-surface-container-high/50 max-h-60 overflow-y-auto bbai-scroll">
                 {chat.filteredCommands.map((cmd, i) => (
@@ -181,28 +181,44 @@ export function WorkspaceChat({
                     type="button"
                     onClick={() => chat.handleCommandSelect(cmd)}
                     className={[
-                      "w-full text-left px-4 py-2 hover:bg-surface-container-low transition-colors",
+                      "w-full text-left px-4 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between group",
                       i === chat.selectedCommandIndex ? "bg-surface-container-low" : ""
                     ].join(" ")}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-primary">{cmd.id}</span>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className="text-sm font-semibold text-primary whitespace-nowrap">{cmd.id}</span>
                       <span className="text-xs text-on-surface-muted truncate">{cmd.description}</span>
                     </div>
                   </button>
                 ))}
               </div>
             )}
-            <Input
-              type="text"
-              placeholder="e.g. What tasks are overdue?"
-              aria-label="Ask BBAI"
-              className="w-full"
-              value={chat.message}
-              onChange={(event) => chat.setMessage(event.target.value)}
-              onKeyDown={chat.handleCommandKeyDown}
-              disabled={chat.sending || chat.loadingThread}
-            />
+            
+            <div className="relative flex w-full items-center gap-2 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
+              {chat.activeCommand && (
+                <span className="shrink-0 flex items-center gap-1.5 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
+                  {chat.activeCommand.id}
+                  <button 
+                    type="button" 
+                    onClick={() => chat.setActiveCommand(null)} 
+                    className="flex size-4 items-center justify-center rounded-full hover:bg-primary/20 hover:text-primary-variant transition-colors"
+                    aria-label="Remove command"
+                  >
+                    &times;
+                  </button>
+                </span>
+              )}
+              <input
+                type="text"
+                placeholder={chat.activeCommand ? "Add additional context..." : "e.g. What tasks are overdue?"}
+                aria-label="Ask BBAI"
+                className="w-full bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
+                value={chat.message}
+                onChange={(event) => chat.setMessage(event.target.value)}
+                onKeyDown={chat.handleCommandKeyDown}
+                disabled={chat.sending || chat.loadingThread}
+              />
+            </div>
           </div>
           <Button
             type="submit"
