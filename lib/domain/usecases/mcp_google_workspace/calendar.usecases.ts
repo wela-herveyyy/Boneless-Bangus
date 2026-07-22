@@ -46,7 +46,8 @@ export async function listCalendarEventsUseCase(
   timeMin?: string,
   timeMax?: string,
   maxResults: number = 10,
-  pageToken?: string
+  pageToken?: string,
+  query?: string
 ) {
   const params = new URLSearchParams({
     maxResults: maxResults.toString(),
@@ -54,10 +55,12 @@ export async function listCalendarEventsUseCase(
     orderBy: "startTime",
   });
   
-  // Default to now if timeMin is not provided so we don't fetch historical events
-  params.append("timeMin", timeMin || new Date().toISOString());
+  if (timeMin) params.append("timeMin", timeMin);
+  else if (!query) params.append("timeMin", new Date().toISOString());
+  
   if (timeMax) params.append("timeMax", timeMax);
   if (pageToken) params.append("pageToken", pageToken);
+  if (query) params.append("q", query);
 
   const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params.toString()}`;
   

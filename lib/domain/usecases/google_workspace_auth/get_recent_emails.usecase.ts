@@ -2,7 +2,7 @@ import type { EmailMessageSummary } from "@/lib/entities/google_workspace_auth.t
 import { getGoogleWorkspaceAuth } from "./get_google_workspace_auth.usecase";
 import { refreshAndGetAccessToken } from "./refresh_and_get_access_token.usecase";
 
-export async function getRecentEmails(userId: string): Promise<EmailMessageSummary[]> {
+export async function getRecentEmails(userId: string, query?: string): Promise<EmailMessageSummary[]> {
   const status = await getGoogleWorkspaceAuth(userId);
   if (!status.isConnected || !status.emailEnabled) {
     return [];
@@ -11,8 +11,9 @@ export async function getRecentEmails(userId: string): Promise<EmailMessageSumma
   try {
     const accessToken = await refreshAndGetAccessToken(userId);
 
-    // Try fetching from inbox first
-    let listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=8&q=in:inbox";
+    // Try fetching from inbox first, or use the provided query
+    let baseQ = query ? query : "in:inbox";
+    let listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=8&q=${encodeURIComponent(baseQ)}`;
     let listRes = await fetch(listUrl, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -31,8 +32,8 @@ export async function getRecentEmails(userId: string): Promise<EmailMessageSumma
     let listData = await listRes.json();
     let messages = Array.isArray(listData.messages) ? listData.messages : [];
 
-    // Fallback: if inbox query returns 0 messages, query all messages without q=in:inbox filter
-    if (messages.length === 0) {
+    // Fallback: if query returns 0 messages and no explicit query was provided, query all messages
+    if (messages.length === 0 && !query) {
       listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=8";
       listRes = await fetch(listUrl, {
         headers: {

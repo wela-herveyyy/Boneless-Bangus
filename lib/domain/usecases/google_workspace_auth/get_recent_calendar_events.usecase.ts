@@ -2,7 +2,7 @@ import type { CalendarEventSummary } from "@/lib/entities/google_workspace_auth.
 import { getGoogleWorkspaceAuth } from "./get_google_workspace_auth.usecase";
 import { refreshAndGetAccessToken } from "./refresh_and_get_access_token.usecase";
 
-export async function getRecentCalendarEvents(userId: string): Promise<CalendarEventSummary[]> {
+export async function getRecentCalendarEvents(userId: string, query?: string): Promise<CalendarEventSummary[]> {
   const status = await getGoogleWorkspaceAuth(userId);
   if (!status.isConnected || !status.calendarEnabled) {
     return [];
@@ -10,8 +10,13 @@ export async function getRecentCalendarEvents(userId: string): Promise<CalendarE
 
   try {
     const accessToken = await refreshAndGetAccessToken(userId);
-    const timeMin = new Date().toISOString();
-    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&orderBy=startTime&singleEvents=true&maxResults=10`;
+    let url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?orderBy=startTime&singleEvents=true&maxResults=10";
+    
+    if (query) {
+      url += `&q=${encodeURIComponent(query)}`;
+    } else {
+      url += `&timeMin=${encodeURIComponent(new Date().toISOString())}`;
+    }
 
     const res = await fetch(url, {
       headers: {
