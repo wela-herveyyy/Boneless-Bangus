@@ -168,118 +168,7 @@ async function* injectWorkspaceContext(
   ].join("\n");
 }
 
-function workspaceWriteIntent(message: string): boolean {
-  return /\b(send|draft|create|update|delete|cancel|reply)\b.*\b(email|mail|message|event|meeting)\b/i.test(message);
-}
 
-async function* executeWorkspaceWriteContext(
-  userId: string,
-  dbConversationId: string | undefined,
-  message: string,
-  apiKey: string,
-): AsyncGenerator<GoogleAiStreamEvent, string> {
-  const isWrite = workspaceWriteIntent(message);
-  if (!isWrite) return message;
-
-  yield {
-    type: "thinking",
-    text: "Preparing to perform Google Workspace action...\n",
-  };
-
-  const ai = new GoogleGenAI({ apiKey });
-  const contents = [];
-
-  if (dbConversationId) {
-    const history = await listConversationMessages(userId, dbConversationId, { limit: 10 });
-    if (history.ok) {
-      for (const msg of history.data.items) {
-        if (msg.content) {
-          contents.push({ role: "user", parts: [{ text: msg.content }] });
-        }
-        if (msg.aiFeedback) {
-          contents.push({ role: "model", parts: [{ text: msg.aiFeedback }] });
-        }
-      }
-    }
-  }
-  contents.push({ role: "user", parts: [{ text: message }] });
-
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents,
-      config: {
-        systemInstruction: "You are an AI assistant that can perform actions on behalf of the user using tools. If the user wants to perform an action, extract the necessary arguments and call the corresponding tool. Only call a tool if the user explicitly wants to take an action.",
-        tools: [{
-          functionDeclarations: [
-            { name: "send_email", description: "Send an email directly.", parameters: { type: Type.OBJECT, properties: { to: { type: Type.STRING }, subject: { type: Type.STRING }, body: { type: Type.STRING } }, required: ["to", "subject", "body"] } },
-            { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", parameters: { type: Type.OBJECT, properties: { summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING }, addGoogleMeet: { type: Type.BOOLEAN } }, required: ["summary", "start", "end"] } },
-            { name: "update_calendar_event", description: "Update an existing Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING }, summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING } }, required: ["eventId"] } },
-            { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING } }, required: ["eventId"] } }
-          ]
-        }]
-      }
-    });
-
-    const funcCall = response.functionCalls?.[0];
-    if (!funcCall || !funcCall.name) return message;
-
-    const funcCallName = funcCall.name;
-
-    yield {
-      type: "thinking",
-      text: `Executing ${funcCallName} action...\n`,
-    };
-    
-    yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: funcCallName };
-
-    const token = await refreshAndGetAccessToken(userId);
-    const args = funcCall.args as any;
-    let resultOutput: string;
-    let ok = true;
-
-    try {
-      switch (funcCallName) {
-        case "send_email":
-          await sendGmailMessageUseCase(token, args.to, args.subject, args.body);
-          resultOutput = `Successfully sent email to ${args.to} with subject "${args.subject}".`;
-          break;
-        case "create_calendar_event":
-          const createRes = await createCalendarEventUseCase(token, args.summary, args.description || "", args.start, args.end, args.addGoogleMeet);
-          resultOutput = `Successfully created calendar event "${args.summary}". HTML Link: ${createRes.htmlLink}`;
-          break;
-        case "update_calendar_event":
-          const updateRes = await updateCalendarEventUseCase(token, args.eventId, { summary: args.summary, description: args.description, start: args.start, end: args.end });
-          resultOutput = `Successfully updated calendar event. HTML Link: ${updateRes.htmlLink}`;
-          break;
-        case "delete_calendar_event":
-          await deleteCalendarEventUseCase(token, args.eventId);
-          resultOutput = `Successfully deleted calendar event ${args.eventId}.`;
-          break;
-        default:
-          throw new Error("Unknown tool called by mini-AI.");
-      }
-    } catch (err: any) {
-      ok = false;
-      resultOutput = `Failed to execute ${funcCallName}: ${err.message}`;
-    }
-
-    yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: funcCallName, ok };
-
-    return [
-      message,
-      "",
-      "---",
-      "Google Workspace Action Executed Server-Side:",
-      resultOutput,
-      "",
-      "Answer the user confirming the action was taken based on this result."
-    ].join("\n");
-  } catch (err) {
-    console.error("Mini-AI pre-flight failed:", err);
-    return message;
-  }
-}
 
 /** Yields normalized thinking / text / lifecycle events from Interactions SSE (no remote MCP). */
 export async function* createInteractionStream(
@@ -312,19 +201,40 @@ export async function* createInteractionStream(
   let previousInteractionId = input.previousInteractionId;
   let lastError = "Google AI stream failed.";
 
+  let hasWorkspaceAuth = false;
   // In-process Workspace only — never connect remote MCP (erpnext SSE/HTTP) for Gemini.
   if (input.userId) {
     try {
       const auth = await getGoogleWorkspaceAuth(input.userId);
       if (auth.isConnected) {
+        hasWorkspaceAuth = true;
         message = yield* injectWorkspaceContext(input.userId, message);
-        message = yield* executeWorkspaceWriteContext(input.userId, input.dbConversationId, message, apiKey);
         // Stale agent chains break even without tools — start fresh after Workspace inject.
         previousInteractionId = undefined;
       }
     } catch (err) {
       console.warn("Failed to check Google Workspace Auth:", err);
     }
+  }
+
+  let toolsPayload = {};
+  let modifiedSystemInstruction = input.systemInstruction;
+
+  if (hasWorkspaceAuth) {
+    toolsPayload = {
+      tools: [{
+        functionDeclarations: [
+          { name: "send_email", description: "Send an email directly. Ask for missing details.", parameters: { type: Type.OBJECT, properties: { to: { type: Type.STRING }, subject: { type: Type.STRING }, body: { type: Type.STRING } }, required: ["to", "subject", "body"] } },
+          { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", parameters: { type: Type.OBJECT, properties: { summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING }, addGoogleMeet: { type: Type.BOOLEAN } }, required: ["summary", "start", "end"] } },
+          { name: "update_calendar_event", description: "Update an existing Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING }, summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING } }, required: ["eventId"] } },
+          { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING } }, required: ["eventId"] } }
+        ]
+      }]
+    };
+    modifiedSystemInstruction = [
+      modifiedSystemInstruction || "",
+      "You have access to Google Workspace tools. If you need to perform an action (e.g., send an email or create an event), you MUST ask the user for any missing parameters first. Once you have all the parameters, you MUST output a conversational confirmation message (e.g. 'Sure, I am sending the email now.') BEFORE emitting the tool call."
+    ].filter(Boolean).join("\n\n");
   }
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -346,9 +256,10 @@ export async function* createInteractionStream(
               environment: "remote",
               stream: true,
               agent_config: { type: "dynamic", thinking_summaries: "auto" },
-              ...(input.systemInstruction
-                ? { system_instruction: input.systemInstruction }
+              ...(modifiedSystemInstruction
+                ? { system_instruction: modifiedSystemInstruction }
                 : {}),
+              ...toolsPayload,
               ...previous,
             },
             { timeout: AGENT_TIMEOUT_MS },
@@ -357,14 +268,16 @@ export async function* createInteractionStream(
             model: modelOrAgent,
             input: message,
             stream: true,
-            ...(input.systemInstruction
-              ? { system_instruction: input.systemInstruction }
+            ...(modifiedSystemInstruction
+              ? { system_instruction: modifiedSystemInstruction }
               : {}),
+            ...toolsPayload,
             ...previous,
           });
 
       let currentInteractionId = previousInteractionId;
       let finalTokens: { input?: number; output?: number; status?: string } = {};
+      let toolCallExecuted = false;
 
       for await (const event of stream as AsyncIterable<{
         event_type?: string;
@@ -393,7 +306,7 @@ export async function* createInteractionStream(
             break;
           }
           case "step.delta": {
-            const delta = event.delta;
+            const delta = event.delta as any;
             if (!delta || typeof delta !== "object") break;
             if (delta.type === "text" && typeof delta.text === "string") {
               sawProgress = true;
@@ -404,6 +317,39 @@ export async function* createInteractionStream(
             if (thought) {
               sawProgress = true;
               yield { type: "thinking", text: thought };
+              break;
+            }
+            if (delta.type === "function_call" && delta.id && delta.name) {
+              const funcCallName = delta.name;
+              const args = delta.arguments || {};
+              
+              yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: funcCallName };
+              
+              try {
+                const token = await refreshAndGetAccessToken(input.userId!);
+                switch (funcCallName) {
+                  case "send_email":
+                    await sendGmailMessageUseCase(token, args.to, args.subject, args.body);
+                    break;
+                  case "create_calendar_event":
+                    await createCalendarEventUseCase(token, args.summary, args.description || "", args.start, args.end, args.addGoogleMeet);
+                    break;
+                  case "update_calendar_event":
+                    await updateCalendarEventUseCase(token, args.eventId, { summary: args.summary, description: args.description, start: args.start, end: args.end });
+                    break;
+                  case "delete_calendar_event":
+                    await deleteCalendarEventUseCase(token, args.eventId);
+                    break;
+                  default:
+                    throw new Error("Unknown tool called.");
+                }
+                yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: funcCallName, ok: true };
+              } catch (err: any) {
+                console.error(`Native tool call failed for ${funcCallName}:`, err);
+                yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: funcCallName, ok: false };
+              }
+              
+              toolCallExecuted = true;
             }
             break;
           }
@@ -434,6 +380,19 @@ export async function* createInteractionStream(
             break;
         }
         if (retriable) break;
+        if (toolCallExecuted) break;
+      }
+
+      if (toolCallExecuted) {
+        completed = true;
+        yield {
+          type: "completed",
+          conversationId: currentInteractionId || "",
+          status: finalTokens.status,
+          inputTokens: finalTokens.input,
+          outputTokens: finalTokens.output,
+        };
+        break; // break MAX_ATTEMPTS loop, effectively breaking the chain
       }
 
       if (retriable) {
