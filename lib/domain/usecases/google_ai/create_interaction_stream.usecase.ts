@@ -227,20 +227,35 @@ export async function* createInteractionStream(
 
   let modifiedSystemInstruction = input.systemInstruction;
   const inProcessGwLookup = new Set<string>();
+  const inProcessGwReadLookup = new Set<string>();
 
   if (hasWorkspaceAuth) {
-    const gwFunctions = [
+    const gwWriteFunctions = [
       { name: "send_email", description: "Send an email directly. Ask for missing details.", parameters: { type: Type.OBJECT, properties: { to: { type: Type.STRING }, subject: { type: Type.STRING }, body: { type: Type.STRING } }, required: ["to", "subject", "body"] } },
       { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", parameters: { type: Type.OBJECT, properties: { summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING }, addGoogleMeet: { type: Type.BOOLEAN } }, required: ["summary", "start", "end"] } },
       { name: "update_calendar_event", description: "Update an existing Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING }, summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING } }, required: ["eventId"] } },
       { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING } }, required: ["eventId"] } }
     ];
     
-    for (const gw of gwFunctions) {
+    for (const gw of gwWriteFunctions) {
       inProcessGwLookup.add(gw.name);
     }
     
-    optionsTools = [...(optionsTools ?? []), ...gwFunctions.map(t => ({ type: "function" as const, ...t }))];
+    const gwReadFunctions = [
+      { name: "search_emails", description: "Search for emails in the user's inbox based on a query.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING, description: "Gmail search query (e.g. 'from:john yesterday')" } } } },
+      { name: "search_calendar_events", description: "Search for upcoming calendar events based on a query.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING, description: "Calendar search query" } } } },
+      { name: "check_workspace_status", description: "Check if the user is connected to Google Workspace." }
+    ];
+    
+    for (const gw of gwReadFunctions) {
+      inProcessGwReadLookup.add(gw.name);
+    }
+    
+    optionsTools = [
+      ...(optionsTools ?? []),
+      ...gwWriteFunctions.map(t => ({ type: "function" as const, ...t })),
+      ...gwReadFunctions.map(t => ({ type: "function" as const, ...t }))
+    ];
 
     modifiedSystemInstruction = [
       modifiedSystemInstruction || "",
@@ -423,10 +438,10 @@ export async function* createInteractionStream(
 
           const requiresConfirmationCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name));
           const gwCalls = requiresConfirmationCalls;
-          const mcpCalls = pendingToolCalls.filter(c => !requiresConfirmationCalls.includes(c) && mcpSession?.toolLookup.has(c.name));
+          const gwReadCalls = pendingToolCalls.filter(c => inProcessGwReadLookup.has(c.name));
+          const mcpCalls = pendingToolCalls.filter(c => !requiresConfirmationCalls.includes(c) && !gwReadCalls.includes(c) && mcpSession?.toolLookup.has(c.name));
 
           if (gwCalls.length > 0) {
-            // Yield ALL calls to UI for confirmation, but break chain
             for (const call of pendingToolCalls) {
               const isGw = inProcessGwLookup.has(call.name);
               
@@ -438,8 +453,6 @@ export async function* createInteractionStream(
                   args: call.args 
                 };
               } else if (mcpSession) {
-                // If it's an MCP tool alongside a GW tool, we execute it blindly and yield the result
-                // to the UI, but do NOT feed it back to the AI since we are breaking the loop.
                 const mcpLookup = mcpSession.toolLookup.get(call.name);
                 const slug = mcpLookup?.slug || "unknown";
                 const toolName = mcpLookup?.toolName || call.name;
@@ -457,9 +470,8 @@ export async function* createInteractionStream(
               inputTokens: finalTokens.input,
               outputTokens: finalTokens.output,
             };
-            break; // Break the MAX_TOOL_TURNS loop to pause for confirmation
-          } else if (mcpCalls.length > 0 && mcpSession) {
-            // Execute MCP calls immediately and continue the chain
+            break;
+          } else if (mcpCalls.length > 0 || gwReadCalls.length > 0) {
             const functionResultSteps: Array<{
               type: "function_result";
               call_id: string;
@@ -468,27 +480,58 @@ export async function* createInteractionStream(
               is_error: boolean;
             }> = [];
             
-            for (const call of mcpCalls) {
-              const mcpLookup = mcpSession.toolLookup.get(call.name);
-              const slug = mcpLookup?.slug || "unknown";
-              const toolName = mcpLookup?.toolName || call.name;
+            for (const call of gwReadCalls) {
+              yield { type: "tool_call", slug: WORKSPACE_SLUG, toolName: call.name };
+              let result = { ok: false, content: "" };
+              try {
+                if (call.name === "search_emails") {
+                  const emails = await getRecentEmailsService(input.userId!, call.args.query);
+                  result = { ok: true, content: JSON.stringify(emails, null, 2) };
+                } else if (call.name === "search_calendar_events") {
+                  const events = await getRecentCalendarEventsService(input.userId!, call.args.query);
+                  result = { ok: true, content: JSON.stringify(events, null, 2) };
+                } else if (call.name === "check_workspace_status") {
+                  const data = await runWorkspaceChatToolService(input.userId!, "workspace_status", {});
+                  result = { ok: true, content: JSON.stringify(data, null, 2) };
+                }
+              } catch (e) {
+                result = { ok: false, content: String(e) };
+              }
               
-              yield { type: "tool_call", slug, toolName };
-              const result = await executeMcpTool(mcpSession, call.name, call.args);
-              yield { type: "tool_result", slug, toolName, ok: result.ok };
+              yield { type: "tool_result", slug: WORKSPACE_SLUG, toolName: call.name, ok: result.ok };
               
               functionResultSteps.push({
                 type: "function_result",
                 call_id: call.id,
                 name: call.name,
-                result: formatToolResult(result.content),
-                is_error: !result.ok
+                result: { content: result.content },
+                is_error: !result.ok,
               });
+            }
+            
+            if (mcpSession) {
+              for (const call of mcpCalls) {
+                const mcpLookup = mcpSession.toolLookup.get(call.name);
+                const slug = mcpLookup?.slug || "unknown";
+                const toolName = mcpLookup?.toolName || call.name;
+                
+                yield { type: "tool_call", slug, toolName };
+                const result = await executeMcpTool(mcpSession, call.name, call.args);
+                yield { type: "tool_result", slug, toolName, ok: result.ok };
+                
+                functionResultSteps.push({
+                  type: "function_result",
+                  call_id: call.id,
+                  name: call.name,
+                  result: { content: result.content },
+                  is_error: !result.ok,
+                });
+              }
             }
             
             currentInput = functionResultSteps;
             toolTurn++;
-            continue; // Continue the loop with the result
+            continue;
           }
         }
 
