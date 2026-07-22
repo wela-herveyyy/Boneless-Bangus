@@ -305,6 +305,7 @@ export async function* createInteractionStream(
           interaction?: {
             id?: string;
             status?: string;
+            steps?: any[];
             usage?: { total_input_tokens?: number; total_output_tokens?: number };
           };
           delta?: { type: string; id?: string; name?: string; arguments?: any; content?: unknown; text?: string };
@@ -323,6 +324,21 @@ export async function* createInteractionStream(
               if (currentInteractionId) {
                 sawProgress = true;
                 yield { type: "created", conversationId: currentInteractionId };
+              }
+              break;
+            }
+            case "step.start": {
+              const step = (event as any).step;
+              if (
+                step?.type === "function_call" &&
+                step.id &&
+                step.name &&
+                (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name))
+              ) {
+                // Ensure we don't duplicate if it also comes in delta
+                if (!pendingToolCalls.find(t => t.id === step.id)) {
+                  pendingToolCalls.push({ id: step.id, name: step.name, args: step.arguments || {} });
+                }
               }
               break;
             }
@@ -357,6 +373,23 @@ export async function* createInteractionStream(
                 input: interaction?.usage?.total_input_tokens,
                 output: interaction?.usage?.total_output_tokens,
               };
+              
+              // Fallback: capture function_calls from completed interaction if we missed them
+              if (interaction?.steps && Array.isArray(interaction.steps)) {
+                for (const step of interaction.steps) {
+                  if (
+                    step.type === "function_call" &&
+                    step.id &&
+                    step.name &&
+                    (mcpSession?.toolLookup.has(step.name) || inProcessGwLookup.has(step.name))
+                  ) {
+                    if (!pendingToolCalls.find(t => t.id === step.id)) {
+                      pendingToolCalls.push({ id: step.id, name: step.name, args: step.arguments || {} });
+                    }
+                  }
+                }
+              }
+              
               if (interaction?.status === "terminated" && previousInteractionId && !sawProgress) {
                 lastError = "terminated";
                 retriable = "Retrying as fresh conversation after terminated";
