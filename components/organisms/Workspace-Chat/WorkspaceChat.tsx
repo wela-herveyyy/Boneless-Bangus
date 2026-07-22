@@ -222,7 +222,7 @@ export function WorkspaceChat({
           </div>
           <Button
             type="submit"
-            disabled={chat.sending || chat.loadingThread || !chat.message.trim()}
+            disabled={chat.sending || chat.loadingThread || (!chat.message.trim() && !chat.activeCommand)}
             className="sm:shrink-0"
           >
             {chat.sending ? "Thinking…" : chat.loadingThread ? "Loading…" : "Send"}
