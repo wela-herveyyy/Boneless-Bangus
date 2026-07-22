@@ -104,7 +104,8 @@ export async function POST(request: Request) {
             if (
               event.type === "tool_warning" ||
               event.type === "tool_call" ||
-              event.type === "tool_result"
+              event.type === "tool_result" ||
+              event.type === "requires_confirmation"
             ) {
               send(event);
               continue;
