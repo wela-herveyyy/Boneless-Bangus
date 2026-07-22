@@ -209,22 +209,20 @@ export async function* createInteractionStream(
   let optionsTools: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> | undefined;
   const mcpServersList = Array.isArray(input.mcpServers) ? [...input.mcpServers] : [];
 
-  if (mcpServersList.length > 0) {
-    const connResult = await connectMcpServers(mcpServersList, input.userId || "anonymous");
-    mcpSession = connResult.session;
+  const connResult = await connectMcpServers(mcpServersList, input.userId || "anonymous");
+  mcpSession = connResult.session;
 
-    for (const w of connResult.warnings) {
-      yield { type: "tool_warning", slug: w.slug, reason: w.reason };
-    }
+  for (const w of connResult.warnings) {
+    yield { type: "tool_warning", slug: w.slug, reason: w.reason };
+  }
 
-    if (connResult.tools.length > 0) {
-      optionsTools = connResult.tools.map((t) => ({
-        type: "function" as const,
-        name: t.namespacedName,
-        description: t.description,
-        parameters: sanitizeJsonSchema(t.inputSchema),
-      }));
-    }
+  if (connResult.tools.length > 0) {
+    optionsTools = connResult.tools.map((t) => ({
+      type: "function" as const,
+      name: t.namespacedName,
+      description: t.description,
+      parameters: sanitizeJsonSchema(t.inputSchema),
+    }));
   }
 
   let modifiedSystemInstruction = input.systemInstruction;
@@ -423,7 +421,7 @@ export async function* createInteractionStream(
           }
           previousInteractionId = currentInteractionId;
 
-          const requiresConfirmationCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name) || c.name === "skills__create_skill");
+          const requiresConfirmationCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name));
           const gwCalls = requiresConfirmationCalls;
           const mcpCalls = pendingToolCalls.filter(c => !requiresConfirmationCalls.includes(c) && mcpSession?.toolLookup.has(c.name));
 
@@ -431,20 +429,12 @@ export async function* createInteractionStream(
             // Yield ALL calls to UI for confirmation, but break chain
             for (const call of pendingToolCalls) {
               const isGw = inProcessGwLookup.has(call.name);
-              const isSkill = call.name === "skills__create_skill";
               
               if (isGw) {
                 yield { 
                   type: "requires_confirmation", 
                   slug: WORKSPACE_SLUG, 
                   toolName: call.name, 
-                  args: call.args 
-                };
-              } else if (isSkill) {
-                yield { 
-                  type: "requires_confirmation", 
-                  slug: "skills", 
-                  toolName: "create_skill", 
                   args: call.args 
                 };
               } else if (mcpSession) {
