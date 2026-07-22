@@ -1,6 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { createSkillsMcpServer } from "./mcp_skills.service";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import type { jsonSchemaValidator, JsonSchemaValidator } from "@modelcontextprotocol/sdk/validation";
@@ -346,6 +348,36 @@ export async function connectMcpServers(
       const reason = err instanceof Error ? err.message : "Failed to connect to MCP server.";
       warnings.push({ slug, reason });
     }
+  }
+
+  // Inject internal skills-mcp server
+  try {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const skillsServer = createSkillsMcpServer(userId);
+    await skillsServer.connect(serverTransport);
+    
+    const skillsClient = new Client({ name: "bbai-client", version: "1.0.0" }, { capabilities: {} });
+    await skillsClient.connect(clientTransport);
+    
+    const skillsList = await skillsClient.listTools();
+    const skillsDiscovered: NamespacedDiscoveredTool[] = skillsList.tools.map((t) => {
+      const namespacedName = `skills__${t.name}`;
+      return {
+        ...t,
+        inputSchema: sanitizeJsonSchema(t.inputSchema),
+        namespacedName,
+        slug: "skills",
+        toolName: t.name,
+      };
+    });
+    
+    tools.push(...skillsDiscovered);
+    poolEntriesBySlug.set("skills", { client: skillsClient, tools: skillsDiscovered, transport: "in-memory", urlOrCommand: "internal" } as any);
+    for (const t of skillsDiscovered) {
+      toolLookup.set(t.namespacedName, { slug: "skills", toolName: t.toolName });
+    }
+  } catch (err) {
+    console.error("Failed to start internal skills MCP server:", err);
   }
 
   return {
