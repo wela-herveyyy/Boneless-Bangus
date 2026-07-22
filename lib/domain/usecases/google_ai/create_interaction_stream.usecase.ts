@@ -12,6 +12,7 @@ import {
   getRecentEmailsService,
   runWorkspaceChatToolService,
 } from "@/lib/domain/services/google_workspace_auth.service";
+import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession, type ExecuteToolResult } from "@/lib/domain/services/mcp_runtime.service";
 import { getGoogleWorkspaceAuth } from "@/lib/domain/usecases/google_workspace_auth/get_google_workspace_auth.usecase";
 import { getSession } from "../auth/get_session.usecase";
 import { getProfile } from "../profile/get_profile.usecase";
@@ -43,6 +44,15 @@ function thoughtSummaryText(delta: { type: string; content?: unknown }): string 
 
 function isRetriableGoogleError(message: string): boolean {
   return /404|429|requested entity was not found|internal error|too_many_requests|quota exceeded|resource_exhausted|overloaded|please retry in/i.test(message);
+}
+
+function formatToolResult(contentStr: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(contentStr);
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : { value: parsed };
+  } catch {
+    return { content: contentStr };
+  }
 }
 
 /** Detect read intents that we can satisfy without Gemini function-calling. */
@@ -197,20 +207,45 @@ export async function* createInteractionStream(
     }
   }
 
-  let toolsPayload = {};
+  let mcpSession: McpRuntimeSession | undefined;
+  let optionsTools: Array<{ type: "function"; name: string; description?: string; parameters?: unknown }> | undefined;
+  const mcpServersList = Array.isArray(input.mcpServers) ? [...input.mcpServers] : [];
+
+  if (mcpServersList.length > 0) {
+    const connResult = await connectMcpServers(mcpServersList, input.userId || "anonymous");
+    mcpSession = connResult.session;
+
+    for (const w of connResult.warnings) {
+      yield { type: "tool_warning", slug: w.slug, reason: w.reason };
+    }
+
+    if (connResult.tools.length > 0) {
+      optionsTools = connResult.tools.map((t) => ({
+        type: "function" as const,
+        name: t.namespacedName,
+        description: t.description,
+        parameters: sanitizeJsonSchema(t.inputSchema),
+      }));
+    }
+  }
+
   let modifiedSystemInstruction = input.systemInstruction;
+  const inProcessGwLookup = new Set<string>();
 
   if (hasWorkspaceAuth) {
-    toolsPayload = {
-      tools: [{
-        functionDeclarations: [
-          { name: "send_email", description: "Send an email directly. Ask for missing details.", parameters: { type: Type.OBJECT, properties: { to: { type: Type.STRING }, subject: { type: Type.STRING }, body: { type: Type.STRING } }, required: ["to", "subject", "body"] } },
-          { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", parameters: { type: Type.OBJECT, properties: { summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING }, addGoogleMeet: { type: Type.BOOLEAN } }, required: ["summary", "start", "end"] } },
-          { name: "update_calendar_event", description: "Update an existing Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING }, summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING } }, required: ["eventId"] } },
-          { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING } }, required: ["eventId"] } }
-        ]
-      }]
-    };
+    const gwFunctions = [
+      { name: "send_email", description: "Send an email directly. Ask for missing details.", parameters: { type: Type.OBJECT, properties: { to: { type: Type.STRING }, subject: { type: Type.STRING }, body: { type: Type.STRING } }, required: ["to", "subject", "body"] } },
+      { name: "create_calendar_event", description: "Create a Google Calendar event on the primary calendar.", parameters: { type: Type.OBJECT, properties: { summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING }, addGoogleMeet: { type: Type.BOOLEAN } }, required: ["summary", "start", "end"] } },
+      { name: "update_calendar_event", description: "Update an existing Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING }, summary: { type: Type.STRING }, description: { type: Type.STRING }, start: { type: Type.STRING }, end: { type: Type.STRING } }, required: ["eventId"] } },
+      { name: "delete_calendar_event", description: "Delete/cancel a Google Calendar event.", parameters: { type: Type.OBJECT, properties: { eventId: { type: Type.STRING } }, required: ["eventId"] } }
+    ];
+    
+    for (const gw of gwFunctions) {
+      inProcessGwLookup.add(gw.name);
+    }
+    
+    optionsTools = [...(optionsTools ?? []), ...gwFunctions.map(t => ({ type: "function" as const, ...t }))];
+
     modifiedSystemInstruction = [
       modifiedSystemInstruction || "",
       "You have access to Google Workspace tools. If you need to perform an action (e.g., send an email or create an event), you MUST ask the user for any missing parameters first. Once you have all the parameters, you MUST output a conversational confirmation message (e.g. 'Sure, I am sending the email now.') BEFORE emitting the tool call.",
@@ -218,6 +253,7 @@ export async function* createInteractionStream(
     ].filter(Boolean).join("\n\n");
   }
 
+  const MAX_TOOL_TURNS = 10;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     let sawProgress = false;
     let completed = false;
@@ -225,155 +261,227 @@ export async function* createInteractionStream(
 
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const previous = previousInteractionId
-        ? { previous_interaction_id: previousInteractionId }
-        : {};
+      let currentInput: unknown = message;
+      let toolTurn = 0;
 
-      const stream = isAgent
-        ? await ai.interactions.create(
-            {
-              agent: modelOrAgent,
-              input: message,
-              environment: "remote",
+      while (toolTurn < MAX_TOOL_TURNS && !completed) {
+        const previous = previousInteractionId
+          ? { previous_interaction_id: previousInteractionId }
+          : {};
+
+        const stream = isAgent
+          ? await ai.interactions.create(
+              {
+                agent: modelOrAgent,
+                input: currentInput as any,
+                environment: "remote",
+                stream: true,
+                agent_config: { type: "dynamic", thinking_summaries: "auto" },
+                ...(modifiedSystemInstruction
+                  ? { system_instruction: modifiedSystemInstruction }
+                  : {}),
+                ...(optionsTools ? { tools: optionsTools as any } : {}),
+                ...previous,
+              },
+              { timeout: AGENT_TIMEOUT_MS },
+            )
+          : await ai.interactions.create({
+              model: modelOrAgent,
+              input: currentInput as any,
               stream: true,
-              agent_config: { type: "dynamic", thinking_summaries: "auto" },
               ...(modifiedSystemInstruction
                 ? { system_instruction: modifiedSystemInstruction }
                 : {}),
-              ...toolsPayload,
+              ...(optionsTools ? { tools: optionsTools as any } : {}),
               ...previous,
-            },
-            { timeout: AGENT_TIMEOUT_MS },
-          )
-        : await ai.interactions.create({
-            model: modelOrAgent,
-            input: message,
-            stream: true,
-            ...(modifiedSystemInstruction
-              ? { system_instruction: modifiedSystemInstruction }
-              : {}),
-            ...toolsPayload,
-            ...previous,
-          });
+            });
 
-      let currentInteractionId = previousInteractionId;
-      let finalTokens: { input?: number; output?: number; status?: string } = {};
-      const pendingToolCalls: Array<{ name: string; args: any }> = [];
+        let currentInteractionId = previousInteractionId;
+        let finalTokens: { input?: number; output?: number; status?: string } = {};
+        const pendingToolCalls: Array<{ id: string, name: string; args: any }> = [];
 
-      for await (const event of stream as AsyncIterable<{
-        event_type?: string;
-        interaction?: {
-          id?: string;
-          status?: string;
-          usage?: { total_input_tokens?: number; total_output_tokens?: number };
-        };
-        delta?: { type: string; content?: unknown; text?: string };
-        error?: { message?: string };
-      }>) {
-        const evtAny = event as {
-          interaction?: { id?: string; status?: string };
-          error?: { message?: string };
-        };
-        if (evtAny.interaction?.id) {
-          currentInteractionId = evtAny.interaction.id;
-        }
-
-        switch (event.event_type) {
-          case "interaction.created": {
-            if (currentInteractionId) {
-              sawProgress = true;
-              yield { type: "created", conversationId: currentInteractionId };
-            }
-            break;
-          }
-          case "step.delta": {
-            const delta = event.delta as any;
-            if (!delta || typeof delta !== "object") break;
-            if (delta.type === "text" && typeof delta.text === "string") {
-              sawProgress = true;
-              yield { type: "text", text: delta.text };
-              break;
-            }
-            const thought = thoughtSummaryText(delta);
-            if (thought) {
-              sawProgress = true;
-              yield { type: "thinking", text: thought };
-              break;
-            }
-            if (delta.type === "function_call" && delta.id && delta.name) {
-              pendingToolCalls.push({ name: delta.name, args: delta.arguments || {} });
-            }
-            break;
-          }
-          case "interaction.completed": {
-            const interaction = event.interaction;
-            finalTokens = {
-              status: interaction?.status,
-              input: interaction?.usage?.total_input_tokens,
-              output: interaction?.usage?.total_output_tokens,
-            };
-            break;
-          }
-          case "error": {
-            const messageText =
-              evtAny.error && typeof evtAny.error.message === "string"
-                ? evtAny.error.message
-                : "Google AI stream error.";
-            lastError = messageText;
-            if (!sawProgress && isRetriableGoogleError(messageText)) {
-              retriable = messageText;
-            } else {
-              yield { type: "error", error: messageText };
-              return;
-            }
-            break;
-          }
-          default:
-            break;
-        }
-        if (retriable) break;
-      }
-
-      if (pendingToolCalls.length > 0) {
-        for (const call of pendingToolCalls) {
-          yield { 
-            type: "requires_confirmation", 
-            slug: WORKSPACE_SLUG, 
-            toolName: call.name, 
-            args: call.args 
+        for await (const event of stream as AsyncIterable<{
+          event_type?: string;
+          interaction?: {
+            id?: string;
+            status?: string;
+            usage?: { total_input_tokens?: number; total_output_tokens?: number };
           };
-        }
-        
-        completed = true;
-        yield {
-          type: "completed",
-          conversationId: currentInteractionId || "",
-          status: finalTokens.status,
-          inputTokens: finalTokens.input,
-          outputTokens: finalTokens.output,
-        };
-        break; // break MAX_ATTEMPTS loop, effectively breaking the chain
-      }
+          delta?: { type: string; id?: string; name?: string; arguments?: any; content?: unknown; text?: string };
+          error?: { message?: string };
+        }>) {
+          const evtAny = event as {
+            interaction?: { id?: string; status?: string };
+            error?: { message?: string };
+          };
+          if (evtAny.interaction?.id) {
+            currentInteractionId = evtAny.interaction.id;
+          }
 
-      if (retriable) {
-        // fall through
-      } else if (!currentInteractionId) {
-        lastError = "Google AI completed without an interaction id.";
-        retriable = isRetriableGoogleError(lastError) ? lastError : null;
-        if (!retriable) {
-          yield { type: "error", error: lastError };
+          switch (event.event_type) {
+            case "interaction.created": {
+              if (currentInteractionId) {
+                sawProgress = true;
+                yield { type: "created", conversationId: currentInteractionId };
+              }
+              break;
+            }
+            case "step.delta": {
+              const delta = event.delta as any;
+              if (!delta || typeof delta !== "object") break;
+              if (delta.type === "text" && typeof delta.text === "string") {
+                sawProgress = true;
+                yield { type: "text", text: delta.text };
+                break;
+              }
+              const thought = thoughtSummaryText(delta);
+              if (thought) {
+                sawProgress = true;
+                yield { type: "thinking", text: thought };
+                break;
+              }
+              if (
+                delta.type === "function_call" &&
+                delta.id &&
+                delta.name &&
+                (mcpSession?.toolLookup.has(delta.name) || inProcessGwLookup.has(delta.name))
+              ) {
+                pendingToolCalls.push({ id: delta.id, name: delta.name, args: delta.arguments || {} });
+              }
+              break;
+            }
+            case "interaction.completed": {
+              const interaction = event.interaction;
+              finalTokens = {
+                status: interaction?.status,
+                input: interaction?.usage?.total_input_tokens,
+                output: interaction?.usage?.total_output_tokens,
+              };
+              if (interaction?.status === "terminated" && previousInteractionId && !sawProgress) {
+                lastError = "terminated";
+                retriable = "Retrying as fresh conversation after terminated";
+              }
+              break;
+            }
+            case "error": {
+              const messageText =
+                evtAny.error && typeof evtAny.error.message === "string"
+                  ? evtAny.error.message
+                  : "Google AI stream error.";
+              lastError = messageText;
+              if (!sawProgress && isRetriableGoogleError(messageText)) {
+                retriable = messageText;
+              } else {
+                yield { type: "error", error: messageText };
+                return;
+              }
+              break;
+            }
+            default:
+              break;
+          }
+          if (retriable) break;
+        }
+
+        if (retriable) break;
+
+        if (pendingToolCalls.length > 0) {
+          if (!currentInteractionId) {
+            yield { type: "error", error: "Tool call requested without interaction id." };
+            return;
+          }
+          previousInteractionId = currentInteractionId;
+
+          const gwCalls = pendingToolCalls.filter(c => inProcessGwLookup.has(c.name));
+          const mcpCalls = pendingToolCalls.filter(c => mcpSession?.toolLookup.has(c.name));
+
+          if (gwCalls.length > 0) {
+            // Yield ALL calls to UI for confirmation, but break chain
+            for (const call of pendingToolCalls) {
+              const isGw = inProcessGwLookup.has(call.name);
+              
+              if (isGw) {
+                yield { 
+                  type: "requires_confirmation", 
+                  slug: WORKSPACE_SLUG, 
+                  toolName: call.name, 
+                  args: call.args 
+                };
+              } else if (mcpSession) {
+                // If it's an MCP tool alongside a GW tool, we execute it blindly and yield the result
+                // to the UI, but do NOT feed it back to the AI since we are breaking the loop.
+                const mcpLookup = mcpSession.toolLookup.get(call.name);
+                const slug = mcpLookup?.slug || "unknown";
+                const toolName = mcpLookup?.toolName || call.name;
+                yield { type: "tool_call", slug, toolName };
+                const result = await executeMcpTool(mcpSession, call.name, call.args);
+                yield { type: "tool_result", slug, toolName, ok: result.ok };
+              }
+            }
+            
+            completed = true;
+            yield {
+              type: "completed",
+              conversationId: currentInteractionId,
+              status: finalTokens.status,
+              inputTokens: finalTokens.input,
+              outputTokens: finalTokens.output,
+            };
+            break; // Break the MAX_TOOL_TURNS loop to pause for confirmation
+          } else if (mcpCalls.length > 0 && mcpSession) {
+            // Execute MCP calls immediately and continue the chain
+            const functionResultSteps: Array<{
+              type: "function_result";
+              call_id: string;
+              name: string;
+              result: Record<string, unknown>;
+              is_error: boolean;
+            }> = [];
+            
+            for (const call of mcpCalls) {
+              const mcpLookup = mcpSession.toolLookup.get(call.name);
+              const slug = mcpLookup?.slug || "unknown";
+              const toolName = mcpLookup?.toolName || call.name;
+              
+              yield { type: "tool_call", slug, toolName };
+              const result = await executeMcpTool(mcpSession, call.name, call.args);
+              yield { type: "tool_result", slug, toolName, ok: result.ok };
+              
+              functionResultSteps.push({
+                type: "function_result",
+                call_id: call.id,
+                name: call.name,
+                result: formatToolResult(result.content),
+                is_error: !result.ok
+              });
+            }
+            
+            currentInput = functionResultSteps;
+            toolTurn++;
+            continue; // Continue the loop with the result
+          }
+        }
+
+        if (retriable) {
+          // fall through
+        } else if (!currentInteractionId) {
+          lastError = "Google AI completed without an interaction id.";
+          retriable = isRetriableGoogleError(lastError) ? lastError : null;
+          if (!retriable) {
+            yield { type: "error", error: lastError };
+            return;
+          }
+        } else {
+          completed = true;
+          yield {
+            type: "completed",
+            conversationId: currentInteractionId,
+            status: finalTokens.status,
+            inputTokens: finalTokens.input,
+            outputTokens: finalTokens.output,
+          };
           return;
         }
-      } else {
-        completed = true;
-        yield {
-          type: "completed",
-          conversationId: currentInteractionId,
-          status: finalTokens.status,
-          inputTokens: finalTokens.input,
-          outputTokens: finalTokens.output,
-        };
-        return;
       }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : "Google AI stream failed.";
