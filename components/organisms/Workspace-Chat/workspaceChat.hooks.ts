@@ -432,6 +432,10 @@ export function useWorkspaceChat(
             dbConversationId,
             name: user?.name,
             email: user?.email,
+            mcpServers: Object.entries(mcpServers || {}).map(([slug, config]) => ({
+              slug,
+              config,
+            })),
           }),
         });
 
