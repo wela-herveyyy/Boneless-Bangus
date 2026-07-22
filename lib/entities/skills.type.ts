@@ -36,6 +36,8 @@ export function hasSkillPermission(role: UserRole, permission: SkillPermission):
 export type SkillWithDetails = SkillSelect & {
   category: { name: string };
   author: { name: string };
+  isInstalled?: boolean;
+  isAuthor?: boolean;
 };
 
 export type SkillResult<T = void> =
