@@ -5,9 +5,15 @@ function getHeaders(token: string) {
   };
 }
 
-export async function searchGmailThreadsUseCase(token: string, query: string, maxResults: number = 1) {
+export async function searchGmailThreadsUseCase(token: string, query: string, maxResults: number = 1, pageToken?: string) {
+  const params = new URLSearchParams({
+    q: query,
+    maxResults: maxResults.toString()
+  });
+  if (pageToken) params.append("pageToken", pageToken);
+
   const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads?q=${encodeURIComponent(query)}&maxResults=${maxResults}`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads?${params.toString()}`,
     { headers: getHeaders(token) }
   );
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
@@ -155,6 +161,27 @@ export async function createGmailDraftUseCase(token: string, to: string, subject
     method: "POST",
     headers: getHeaders(token),
     body: JSON.stringify({ message: { raw: base64Encoded } }),
+  });
+  if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
+  return await res.json();
+}
+
+export async function sendGmailMessageUseCase(token: string, to: string, subject: string, body: string) {
+  let rawEmail = "";
+  if (to) rawEmail += `To: ${to}\r\n`;
+  if (subject) rawEmail += `Subject: ${subject}\r\n`;
+  rawEmail += `Content-Type: text/plain; charset="UTF-8"\r\n\r\n${body}`;
+
+  const base64Encoded = Buffer.from(rawEmail, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, {
+    method: "POST",
+    headers: getHeaders(token),
+    body: JSON.stringify({ raw: base64Encoded }),
   });
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
   return await res.json();
