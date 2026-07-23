@@ -193,7 +193,7 @@ export function WorkspaceSidebar({
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <p className="truncate text-sm font-medium text-on-surface">{displayName}</p>
-                  {userRole === "owner" || userRole === "admin" ? (
+                  {userRole ? (
                     <span className="shrink-0 rounded-md bg-tertiary/10 px-1.5 py-0.5 text-[10px] font-semibold capitalize text-tertiary">
                       {userRole}
                     </span>

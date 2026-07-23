@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState, useMemo, type FormEvent } from "react";
 import {
   getFocusLabel,
-  getTeamLabel,
-  ONBOARDING_STORAGE_KEY,
+  getRoleLabel,
+  getOnboardingStorageKey,
   type OnboardingProfile,
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
@@ -79,8 +79,11 @@ export function routeIdFromSelection(
 function parseProfile(value: string): OnboardingProfile | null {
   try {
     const parsed = JSON.parse(value) as OnboardingProfile;
-    if (!parsed.name || !parsed.team || !parsed.focus || !parsed.completedAt) {
+    if (!parsed.name || (!parsed.role && !(parsed as any).team) || !parsed.focus || !parsed.completedAt) {
       return null;
+    }
+    if (!parsed.role && (parsed as any).team) {
+      parsed.role = (parsed as any).team;
     }
     return parsed;
   } catch {
@@ -131,7 +134,7 @@ function readStoredGoogleModel(): GoogleAiModel {
   return GOOGLE_AI_DEFAULT_MODEL;
 }
 
-export function useWorkspaceProfile() {
+export function useWorkspaceProfile(userId?: string) {
   const [profile, setProfile] = useState<OnboardingProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -139,14 +142,15 @@ export function useWorkspaceProfile() {
     const result = await listLocalRecordsAction();
 
     if (result.ok) {
-      const record = result.data.find((item) => item.key === ONBOARDING_STORAGE_KEY);
+      const key = getOnboardingStorageKey(userId);
+      const record = result.data.find((item) => item.key === key);
       if (record) {
         setProfile(parseProfile(record.value));
       }
     }
 
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void loadProfile();
@@ -756,4 +760,4 @@ export function getDisplayName(profile: OnboardingProfile | null, fallbackName: 
   return fallbackName.trim() || profile?.name.trim() || "there";
 }
 
-export { getFocusLabel, getTeamLabel };
+export { getFocusLabel, getRoleLabel };

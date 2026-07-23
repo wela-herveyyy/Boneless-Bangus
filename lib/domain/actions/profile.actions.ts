@@ -180,3 +180,29 @@ export async function updatePersonalInfoAction(prevState: ActionState, formData:
     return { ok: false, error: error.message };
   }
 }
+
+export async function syncOnboardingProfileAction(name: string, role: string): Promise<ActionState> {
+  const action = "profile:sync_onboarding";
+  try {
+    const userSession = await auth();
+    if (!userSession) {
+      await logAction({ userId: "anonymous", action, success: false, error: "Unauthorized" });
+      return { ok: false, error: "Unauthorized" };
+    }
+
+    if (name && role) {
+      const { user } = await import("@/database/schema");
+      
+      await database
+        .update(user)
+        .set({ name, role: role as any })
+        .where(eq(user.id, userSession.user.id));
+    }
+
+    await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
+    revalidatePath("/workspace");
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message };
+  }
+}
