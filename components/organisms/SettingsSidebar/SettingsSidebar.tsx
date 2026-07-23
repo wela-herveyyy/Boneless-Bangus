@@ -38,7 +38,7 @@ export function SettingsSidebar({ topOffset }: { topOffset?: string } = {}) {
         />
 
         {/* Tabs */}
-        <div className="flex space-x-1 border-b border-primary/10 px-5 pt-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex space-x-1 border-b border-primary/10 px-5 pt-3 pb-1 overflow-x-auto bbai-scroll">
           <button
             onClick={() => setActiveTab("skills")}
             className={[

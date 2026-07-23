@@ -124,7 +124,7 @@ export function SkillsMarketplaceSidebar({ topOffset }: { topOffset?: string } =
               <HiOutlinePlus className="size-4" aria-hidden />
               Add Your Own Skill
             </Button>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1 bbai-scroll">
               {categories.map((category) => (
                 <button
                   key={category}
