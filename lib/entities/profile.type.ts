@@ -12,6 +12,7 @@ export type ProfileData = {
     /** True when the current user is this team's manager (team head). */
     isManager: boolean;
   } | null;
+  role: import("./users.type").UserRole | string;
 };
 
 export type UpdateProfileInput = {

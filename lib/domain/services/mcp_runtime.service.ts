@@ -3,15 +3,13 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createSkillsMcpServer } from "./mcp_skills.service";
+import { createGithubMcpServer } from "./mcp_github.service";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import type { jsonSchemaValidator, JsonSchemaValidator } from "@modelcontextprotocol/sdk/validation";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import {
-  McpServersPayloadSchema,
-  type McpServerConfigEntry,
-} from "@/lib/domain/schemas/mcp_server_config.schema";
-import { resolveAuthHeaders } from "./mcp_credential.service";
+import { McpServersPayloadSchema, type McpServerConfigEntry } from "@/lib/domain/schemas/mcp_server_config.schema";
+import { resolveAuthHeaders, getCredential } from "./mcp_credential.service";
 import { refreshAndGetAccessToken } from "../usecases/google_workspace_auth/refresh_and_get_access_token.usecase";
 import {
   computePoolKey,
@@ -378,6 +376,39 @@ export async function connectMcpServers(
     }
   } catch (err) {
     console.error("Failed to start internal skills MCP server:", err);
+  }
+
+  // Inject internal github-mcp server if credential exists
+  try {
+    const githubCred = await getCredential(userId, "github");
+    if (githubCred) {
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+      const githubServer = createGithubMcpServer(githubCred.plaintext);
+      await githubServer.connect(serverTransport);
+      
+      const githubClient = new Client({ name: "bbai-client", version: "1.0.0" }, { capabilities: {} });
+      await githubClient.connect(clientTransport);
+      
+      const githubList = await githubClient.listTools();
+      const githubDiscovered: NamespacedDiscoveredTool[] = githubList.tools.map((t) => {
+        const namespacedName = `github__${t.name}`;
+        return {
+          ...t,
+          inputSchema: sanitizeJsonSchema(t.inputSchema),
+          namespacedName,
+          slug: "github",
+          toolName: t.name,
+        };
+      });
+      
+      tools.push(...githubDiscovered);
+      poolEntriesBySlug.set("github", { client: githubClient, tools: githubDiscovered, transport: "in-memory", urlOrCommand: "internal" } as any);
+      for (const t of githubDiscovered) {
+        toolLookup.set(t.namespacedName, { slug: "github", toolName: t.toolName });
+      }
+    }
+  } catch (err) {
+    console.error("Failed to start internal github MCP server:", err);
   }
 
   return {

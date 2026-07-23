@@ -45,7 +45,7 @@ export function WorkspacePage({
   userRole = null,
 }: WorkspacePageProps) {
   const sidebar = useWorkspaceSidebar();
-  const { profile, loading } = useWorkspaceProfile();
+  const { profile, loading } = useWorkspaceProfile(userId);
   const displayName = getDisplayName(profile, userName);
 
   const onConversationSaved = useCallback(

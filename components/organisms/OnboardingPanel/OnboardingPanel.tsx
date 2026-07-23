@@ -8,14 +8,15 @@ import { Label } from "@/components/atoms/Label/Label";
 import { useAuthFormSubmitStyles, useButtonStyles } from "@/components/atoms/Button/button.hooks";
 import {
   getFocusLabel,
-  getTeamLabel,
+  getRoleLabel,
   ONBOARDING_FOCUS,
-  ONBOARDING_TEAMS,
+  ONBOARDING_ROLES,
   useOnboardingPanel,
 } from "./onboardingPanel.hooks";
 
 type OnboardingPanelProps = {
   defaultName?: string;
+  userId?: string;
 };
 
 function ChoiceCard({
@@ -46,7 +47,7 @@ function ChoiceCard({
   );
 }
 
-export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
+export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
   const submitClassName = useAuthFormSubmitStyles();
   const primaryLinkClass = useButtonStyles("primary");
   const secondaryLinkClass = useButtonStyles("secondary");
@@ -57,8 +58,8 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
     progress,
     name,
     setName,
-    team,
-    setTeam,
+    role,
+    setRole,
     focus,
     setFocus,
     loading,
@@ -68,7 +69,7 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
     goBack,
     restart,
     canContinue,
-  } = useOnboardingPanel({ defaultName });
+  } = useOnboardingPanel({ defaultName, userId });
 
   if (loading) {
     return (
@@ -173,22 +174,22 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
             </div>
           ) : null}
 
-          {step === "team" ? (
+          {step === "role" ? (
             <div className="space-y-6">
               <div>
                 <h1 className="font-display text-3xl font-semibold text-on-surface">
                   Nice to meet you, {name.trim().split(" ")[0]}.
                 </h1>
-                <p className="mt-2 text-sm text-on-surface-muted">Which team are you on?</p>
+                <p className="mt-2 text-sm text-on-surface-muted">What is your role?</p>
               </div>
-              <div className="space-y-3">
-                {ONBOARDING_TEAMS.map((option) => (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto bbai-scroll pr-1">
+                {ONBOARDING_ROLES.map((option) => (
                   <ChoiceCard
                     key={option.value}
-                    selected={team === option.value}
+                    selected={role === option.value}
                     label={option.label}
                     hint={option.hint}
-                    onSelect={() => setTeam(option.value)}
+                    onSelect={() => setRole(option.value)}
                   />
                 ))}
               </div>
@@ -243,7 +244,7 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
                 </h1>
                 <p className="mt-2 text-sm text-on-surface-muted">
                   BBAI will prioritize {getFocusLabel(profile.focus).toLowerCase()} for your{" "}
-                  {getTeamLabel(profile.team).toLowerCase()} workflow.
+                  {getRoleLabel(profile.role).toLowerCase()} workflow.
                 </p>
               </div>
               <div className="space-y-3 rounded-2xl bg-surface-container-low p-5 text-sm">
@@ -252,8 +253,8 @@ export function OnboardingPanel({ defaultName }: OnboardingPanelProps) {
                   <span className="mt-1 block font-medium text-on-surface">{profile.name}</span>
                 </p>
                 <p>
-                  <span className="text-on-surface-muted">Team</span>
-                  <span className="mt-1 block font-medium text-on-surface">{getTeamLabel(profile.team)}</span>
+                  <span className="text-on-surface-muted">Role</span>
+                  <span className="mt-1 block font-medium text-on-surface">{getRoleLabel(profile.role)}</span>
                 </p>
                 <p>
                   <span className="text-on-surface-muted">Focus</span>

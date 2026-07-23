@@ -69,10 +69,10 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         systemInstruction,
         ...(workspaceConnected && userId
           ? {
-              tools: WORKSPACE_GEMINI_TOOLS,
-              executeTool: (name, args) =>
-                runWorkspaceChatToolService(userId!, name, args),
-            }
+            tools: WORKSPACE_GEMINI_TOOLS,
+            executeTool: (name, args) =>
+              runWorkspaceChatToolService(userId!, name, args),
+          }
           : {}),
       });
       if (!result.ok) return result;
