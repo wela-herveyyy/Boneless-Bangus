@@ -109,6 +109,38 @@ export function McpServerForm({
           </select>
         </label>
 
+        {/* Visibility */}
+        <div className="flex flex-col gap-1.5">
+          <Label>Visibility</Label>
+          <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+            <button
+              type="button"
+              onClick={() => setFormField("isGlobal", false)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                !form.isGlobal
+                  ? "bg-primary text-on-primary"
+                  : "text-on-surface-muted hover:bg-surface-container"
+              }`}
+            >
+              Private
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormField("isGlobal", true)}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                form.isGlobal
+                  ? "bg-primary text-on-primary"
+                  : "text-on-surface-muted hover:bg-surface-container"
+              }`}
+            >
+              Published
+            </button>
+          </div>
+          <p className="text-[10px] text-on-surface-muted mt-0.5 px-1">
+            {form.isGlobal ? "Available to everyone in the marketplace." : "Only you can see and install this server."}
+          </p>
+        </div>
+
         {/* Config template */}
         <label className="flex flex-col gap-1.5">
           <Label>Connection Config</Label>

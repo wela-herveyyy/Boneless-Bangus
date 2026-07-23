@@ -98,6 +98,7 @@ export type McpServer = {
   configTemplate: string;
   configTemplateObj?: Record<string, unknown>;
   enabled: boolean;
+  isGlobal: boolean;
   tools?: McpServerToolSelect[];
 };
 
@@ -112,6 +113,7 @@ export type McpFormState = {
   category: string;
   categoryId: string;
   configTemplate: string;
+  isGlobal: boolean;
   tools: McpToolInput[];
 };
 
@@ -123,6 +125,7 @@ export const EMPTY_MCP_FORM: McpFormState = {
   category: "dev-tools",
   categoryId: "",
   configTemplate: "{\n  \n}",
+  isGlobal: false,
   tools: [],
 };
 
@@ -147,6 +150,7 @@ export type CreateMcpInput = {
   description: string;
   categoryId: string; // Foreign key to mcp_category.id
   configTemplate: Record<string, unknown>;
+  isGlobal?: boolean;
   tools: McpToolInput[]; // Array of tools exposed by this server
 };
 export type UpdateMcpInput = { id: string } & Partial<Omit<CreateMcpInput, "slug">>;

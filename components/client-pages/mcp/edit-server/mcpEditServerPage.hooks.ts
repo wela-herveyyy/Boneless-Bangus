@@ -26,6 +26,7 @@ export function useMcpEditServerPage({ server, categories }: McpEditServerPagePr
       typeof server.configTemplate === "string"
         ? server.configTemplate
         : JSON.stringify(server.configTemplate, null, 2),
+    isGlobal: server.isGlobal ?? false,
     tools: (server.tools || []).map((t) => ({
       name: t.name || "",
       description: t.description || "",

@@ -85,6 +85,7 @@ export function useMcpMarketplace() {
           : JSON.stringify(s.configTemplate, null, 2),
         configTemplateObj: s.configTemplate,
         enabled: isEnabled,
+        isGlobal: s.isGlobal ?? false,
         tools: s.tools || [],
       };
     });
@@ -97,6 +98,7 @@ export function useMcpMarketplace() {
   const filteredServers = useMemo(() => {
     const q = query.trim().toLowerCase();
     return servers.filter((server) => {
+      if (!server.isGlobal) return false;
       const matchesCategory =
         activeCategory === "all"
           ? true
@@ -158,6 +160,7 @@ export function useMcpMarketplace() {
       category: server.category,
       categoryId: server.categoryId || categories.find((c) => c.slug === server.category)?.id || "",
       configTemplate: server.configTemplate,
+      isGlobal: server.isGlobal ?? false,
       tools: (server.tools || []).map((t: any) => ({
         name: t.name || t.toolName || "",
         description: t.description || "",

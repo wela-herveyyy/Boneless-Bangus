@@ -41,6 +41,7 @@ export function useMcpCataloguePage({ initialData }: McpCataloguePageProps) {
             : JSON.stringify(s.configTemplate, null, 2),
         configTemplateObj: s.configTemplate,
         enabled: isEnabled,
+        isGlobal: s.isGlobal ?? false,
         tools: s.tools || [],
       };
     });

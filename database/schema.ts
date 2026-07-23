@@ -194,6 +194,7 @@ export const mcpServer = mysqlTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     configTemplate: json("config_template").$type<Record<string, unknown>>().notNull(),
+    isGlobal: boolean("is_global").default(false).notNull(),
     createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { fsp: 3 })
       .defaultNow()
