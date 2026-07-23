@@ -400,6 +400,7 @@ export function WorkspaceChat({
                     description: draftSkillConf.args?.description || "",
                     instructions: draftSkillConf.args?.instructions || "",
                     category: draftSkillConf.args?.categoryName || "Agent Skills",
+                    isGlobal: draftSkillConf.args?.isGlobal ?? false,
                   }}
                   setNewSkillForm={(form) => {
                     const updated = [...chat.pendingConfirmations];
@@ -410,7 +411,8 @@ export function WorkspaceChat({
                         name: form.name,
                         description: form.description,
                         instructions: form.instructions,
-                        categoryName: form.category
+                        category: form.category,
+                        isGlobal: form.isGlobal
                       }
                     };
                     chat.setPendingConfirmations(updated);

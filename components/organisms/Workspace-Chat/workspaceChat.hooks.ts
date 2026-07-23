@@ -8,6 +8,7 @@ import {
   type OnboardingProfile,
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
+import { getSkillsAction } from "@/lib/domain/actions/skills.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
 import { AI_PROVIDER, type AiProvider } from "@/lib/entities/ai.type";
 import {
@@ -239,17 +240,35 @@ export function useWorkspaceChat(
 
   useEffect(() => {
     void (async () => {
-      const [localRecordsResult, idbConfig] = await Promise.all([
+      const [localRecordsResult, idbConfig, dbSkillsResult] = await Promise.all([
         listLocalRecordsAction(),
         loadUserAiConfigFromIdb().catch(() => null),
+        getSkillsAction().catch(() => ({ ok: false, data: [] as any[] })),
       ]);
 
       let serversFromRecords: Record<string, CursorMcpServerConfig> | undefined;
+      let allSkills: CursorSkill[] = [];
+      
       if (localRecordsResult.ok) {
         const mcp = localRecordsResult.data.find((item) => item.key === CURSOR_MCP_STORAGE_KEY);
         const sk = localRecordsResult.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
         if (mcp) serversFromRecords = parseMcpServers(mcp.value);
-        if (sk) setSkills(parseSkills(sk.value));
+        if (sk) {
+           const parsedLocal = parseSkills(sk.value);
+           if (parsedLocal) allSkills = [...parsedLocal];
+        }
+      }
+
+      if (dbSkillsResult.ok && dbSkillsResult.data) {
+        for (const dbSkill of dbSkillsResult.data) {
+          if (!allSkills.find(s => s.name === dbSkill.name)) {
+            allSkills.push({ name: dbSkill.name, content: dbSkill.instructions });
+          }
+        }
+      }
+
+      if (allSkills.length > 0) {
+        setSkills(allSkills);
       }
 
       // IDB configs may contain richer auth shapes (credentialRef) not in CursorMcpServerConfig
@@ -663,10 +682,10 @@ export function useWorkspaceChat(
 
   const filteredCommands = useMemo(() => {
     if (!showCommandMenu) return [];
-    return getAvailableCommands(activeSlugs).filter((cmd) => 
+    return getAvailableCommands(activeSlugs, skills).filter((cmd) => 
       cmd.id.toLowerCase().includes(commandSearch.toLowerCase())
     );
-  }, [showCommandMenu, activeSlugs, commandSearch]);
+  }, [showCommandMenu, activeSlugs, commandSearch, skills]);
 
   const handleMessageChange = useCallback((value: string) => {
     setMessage(value);

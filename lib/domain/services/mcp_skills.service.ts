@@ -28,7 +28,8 @@ export function createSkillsMcpServer(userId: string) {
               name: { type: "string", description: "A concise name for the skill (e.g., 'React Code Reviewer')." },
               description: { type: "string", description: "A short summary of what this skill does." },
               instructions: { type: "string", description: "The detailed markdown or textual instructions defining the workflow/behavior." },
-              categoryName: { type: "string", description: "The category to group this skill under (defaults to 'Agent Skills')." }
+              categoryName: { type: "string", description: "The category to group this skill under (defaults to 'Agent Skills')." },
+              isGlobal: { type: "boolean", description: "Set to true to publish this skill to the global marketplace. Set to false to keep it private." }
             },
             required: ["name", "description", "instructions"],
           },
@@ -55,12 +56,14 @@ export function createSkillsMcpServer(userId: string) {
           const description = String(args?.description || "");
           const instructions = String(args?.instructions || "");
           const categoryName = String(args?.categoryName || "Agent Skills");
+          const isGlobal = args?.isGlobal === true;
           
           await createSkillUsecase({
             name: skillName,
             description,
             instructions,
             categoryName,
+            isGlobal,
             authorId: userId,
           });
 
@@ -68,7 +71,7 @@ export function createSkillsMcpServer(userId: string) {
         }
         
         case "list_skills": {
-          const skills = await getSkillsUsecase();
+          const skills = await getSkillsUsecase(userId);
           return { content: [{ type: "text", text: JSON.stringify(skills, null, 2) }] };
         }
 
