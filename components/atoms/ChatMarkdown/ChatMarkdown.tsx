@@ -3,6 +3,8 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { EventCard } from "../EventCard/EventCard";
+
 type ChatMarkdownProps = {
   content: string;
   className?: string;
@@ -48,6 +50,24 @@ export function ChatMarkdown({ content, className }: ChatMarkdownProps) {
           code: ({ className: codeClassName, children }) => {
             const isBlock = Boolean(codeClassName);
             if (isBlock) {
+              if (codeClassName === "language-event") {
+                try {
+                  // Handle both single objects and arrays of objects
+                  const data = JSON.parse(String(children));
+                  if (Array.isArray(data)) {
+                    return (
+                      <div className="flex flex-col gap-2 my-2">
+                        {data.map((evt, i) => (
+                          <EventCard key={i} event={evt} />
+                        ))}
+                      </div>
+                    );
+                  }
+                  return <EventCard event={data} />;
+                } catch {
+                  // fallback to standard pre block
+                }
+              }
               return (
                 <code className="block overflow-x-auto font-mono text-xs leading-relaxed text-on-surface">
                   {children}

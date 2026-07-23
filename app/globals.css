@@ -151,7 +151,8 @@ html.bbai-lock-scroll body {
   }
 }
 
-.input-glow:focus {
+.input-glow:focus,
+.input-glow:focus-within {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 

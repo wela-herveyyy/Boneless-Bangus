@@ -52,12 +52,12 @@ export async function generateMeetService(userId: string, input: GenerateMeetInp
   return executeMeetAction(userId, input);
 }
 
-export async function getRecentCalendarEventsService(userId: string): Promise<CalendarEventSummary[]> {
-  return getRecentCalendarEvents(userId);
+export async function getRecentCalendarEventsService(userId: string, query?: string): Promise<CalendarEventSummary[]> {
+  return getRecentCalendarEvents(userId, query);
 }
 
-export async function getRecentEmailsService(userId: string): Promise<EmailMessageSummary[]> {
-  return getRecentEmails(userId);
+export async function getRecentEmailsService(userId: string, query?: string): Promise<EmailMessageSummary[]> {
+  return getRecentEmails(userId, query);
 }
 
 export async function runWorkspaceChatToolService(

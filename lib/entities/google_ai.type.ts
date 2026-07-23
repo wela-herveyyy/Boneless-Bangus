@@ -44,6 +44,8 @@ export type CreateInteractionInput = {
   mcpServers?: unknown[];
   /** Authenticated user id (used to inject in-process Google Workspace tools). */
   userId?: string;
+  /** DB conversation ID to fetch history for pre-flight intent checks. */
+  dbConversationId?: string;
 };
 
 export type ConnectWarning = {
@@ -67,6 +69,7 @@ export type GoogleAiStreamEvent =
   | { type: "tool_warning"; slug: string; reason: string }
   | { type: "tool_call"; slug: string; toolName: string }
   | { type: "tool_result"; slug: string; toolName: string; ok: boolean }
+  | { type: "requires_confirmation"; slug: string; toolName: string; args: Record<string, any> }
   | {
       type: "completed";
       conversationId: string;

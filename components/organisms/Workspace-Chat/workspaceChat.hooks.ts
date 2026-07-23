@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, type FormEvent } from "react";
 import {
   getFocusLabel,
   getTeamLabel,
@@ -24,6 +24,7 @@ import {
 } from "@/lib/entities/google_ai.type";
 import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
 import { buildErpMcpConfig, ERP_MCP_SERVER_KEY } from "@/lib/entities/erpnext.type";
+import { getAvailableCommands, type CommandDefinition } from "./workspaceChat.commands";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
@@ -215,6 +216,14 @@ export function useWorkspaceChat(
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [historyEpoch, setHistoryEpoch] = useState(0);
+
+  const [pendingConfirmations, setPendingConfirmations] = useState<Array<{ slug?: string; toolName?: string; args?: any }>>([]);
+
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [commandSearch, setCommandSearch] = useState("");
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const [activeCommand, setActiveCommand] = useState<CommandDefinition | null>(null);
+
   const threadStateRef = useRef({
     turns,
     dbConversationId,
@@ -274,6 +283,7 @@ export function useWorkspaceChat(
       setNextBefore(null);
       setError(null);
       setLoadingThread(false);
+      setPendingConfirmations([]);
       return;
     }
 
@@ -310,6 +320,7 @@ export function useWorkspaceChat(
     setNextBefore(null);
     setLoadingThread(true);
     setError(null);
+    setPendingConfirmations([]);
 
     let cancelled = false;
     void (async () => {
@@ -421,6 +432,10 @@ export function useWorkspaceChat(
             dbConversationId,
             name: user?.name,
             email: user?.email,
+            mcpServers: Object.entries(mcpServers || {}).map(([slug, config]) => ({
+              slug,
+              config,
+            })),
           }),
         });
 
@@ -451,6 +466,7 @@ export function useWorkspaceChat(
             toolName?: string;
             reason?: string;
             ok?: boolean;
+            args?: any;
           };
 
           if (event.type === "tool_warning") {
@@ -463,6 +479,10 @@ export function useWorkspaceChat(
           }
           if (event.type === "tool_result") {
             setThinkingText((prev) => prev + `> **Tool \`${event.slug ?? ""}__${event.toolName ?? ""}\`** ${event.ok ? "completed successfully" : "failed"}.\n\n`);
+            return;
+          }
+          if (event.type === "requires_confirmation") {
+            setPendingConfirmations((prev) => [...prev, { slug: event.slug, toolName: event.toolName, args: event.args }]);
             return;
           }
 
@@ -558,16 +578,28 @@ export function useWorkspaceChat(
     async (event?: FormEvent) => {
       event?.preventDefault();
       const text = message.trim();
-      if (!text || sending) return;
+      if (!text && !activeCommand) return;
+      if (sending) return;
+
+      const finalPrompt = activeCommand 
+        ? `${activeCommand.promptText}\n\n${text}`.trim() 
+        : text;
 
       setSending(true);
       setError(null);
       setMessage("");
-      setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text }]);
+      
+      // Keep the UI displaying the original text to the user if they scroll back
+      const displayMessage = activeCommand 
+        ? `${activeCommand.id} ${text}`.trim()
+        : text;
+        
+      setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: displayMessage }]);
+      setActiveCommand(null);
 
       try {
         if (provider === AI_PROVIDER.GOOGLE_AI) {
-          await sendGoogleStream(text);
+          await sendGoogleStream(finalPrompt);
         } else {
           const result = await promptAiAction({
             provider,
@@ -617,9 +649,84 @@ export function useWorkspaceChat(
     ],
   );
 
+  const activeSlugs = useMemo(() => {
+    const slugs = Object.keys(mcpServers || {});
+    // Internal MCPs that should always expose commands
+    if (!slugs.includes("google-workspace")) {
+      slugs.push("google-workspace");
+    }
+    if (!slugs.includes("skills")) {
+      slugs.push("skills");
+    }
+    return slugs;
+  }, [mcpServers]);
+
+  const filteredCommands = useMemo(() => {
+    if (!showCommandMenu) return [];
+    return getAvailableCommands(activeSlugs).filter((cmd) => 
+      cmd.id.toLowerCase().includes(commandSearch.toLowerCase())
+    );
+  }, [showCommandMenu, activeSlugs, commandSearch]);
+
+  const handleMessageChange = useCallback((value: string) => {
+    setMessage(value);
+    
+    // Check for slash command trigger at the beginning or after a space
+    const match = value.match(/(?:^|\s)(\/\S*)$/);
+    if (match) {
+      setShowCommandMenu(true);
+      setCommandSearch(match[1]);
+      setSelectedCommandIndex(0);
+    } else {
+      setShowCommandMenu(false);
+    }
+  }, []);
+
+  const handleCommandSelect = useCallback((cmd: CommandDefinition) => {
+    setActiveCommand(cmd);
+    setMessage((prev) => {
+      const regex = new RegExp(`(?:^|\\s)(${commandSearch})$`);
+      return prev.replace(regex, "").trimStart();
+    });
+    setShowCommandMenu(false);
+  }, [commandSearch]);
+
+  const handleCommandKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace" && message === "" && activeCommand) {
+      setActiveCommand(null);
+      return;
+    }
+
+    if (!showCommandMenu || filteredCommands.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedCommandIndex((prev) => (prev + 1) % filteredCommands.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedCommandIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const selected = filteredCommands[selectedCommandIndex];
+      if (selected) {
+        handleCommandSelect(selected);
+      }
+    } else if (event.key === "Escape") {
+      setShowCommandMenu(false);
+    }
+  }, [showCommandMenu, filteredCommands, selectedCommandIndex, handleCommandSelect]);
+
   return {
     message,
-    setMessage,
+    setMessage: handleMessageChange,
+    handleCommandKeyDown,
+    handleCommandSelect,
+    showCommandMenu,
+    filteredCommands,
+    selectedCommandIndex,
+    setShowCommandMenu,
+    activeCommand,
+    setActiveCommand,
     turns,
     error,
     sending,
@@ -639,6 +746,9 @@ export function useWorkspaceChat(
     loadingOlder,
     loadOlder,
     historyEpoch,
+    pendingConfirmations,
+    setPendingConfirmations,
+    setTurns,
   };
 }
 

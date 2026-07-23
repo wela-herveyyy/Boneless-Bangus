@@ -5,9 +5,15 @@ function getHeaders(token: string) {
   };
 }
 
-export async function searchGmailThreadsUseCase(token: string, query: string, maxResults: number = 1) {
+export async function searchGmailThreadsUseCase(token: string, query: string, maxResults: number = 1, pageToken?: string) {
+  const params = new URLSearchParams({
+    q: query,
+    maxResults: maxResults.toString()
+  });
+  if (pageToken) params.append("pageToken", pageToken);
+
   const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads?q=${encodeURIComponent(query)}&maxResults=${maxResults}`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads?${params.toString()}`,
     { headers: getHeaders(token) }
   );
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
@@ -94,17 +100,19 @@ function formatMessage(message: any) {
   const headers = message.payload?.headers || [];
   const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
 
+  const plainText = extractPlainText(message.payload);
+
   return {
     id: message.id,
     snippet: message.snippet,
     subject: getHeader("subject"),
     from: getHeader("from"),
     date: getHeader("date"),
-    body: extractPlainText(message.payload)
+    body: plainText.length > 2000 ? plainText.substring(0, 2000) + "... [TRUNCATED]" : plainText
   };
 }
 
-export async function getGmailThreadUseCase(token: string, id: string) {
+export async function getGmailThreadUseCase(token: string, id: string, maxMessages: number = 5) {
   const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${encodeURIComponent(id)}`, {
     headers: getHeaders(token),
   });
@@ -112,7 +120,9 @@ export async function getGmailThreadUseCase(token: string, id: string) {
   const data = await res.json();
   
   if (data.messages && Array.isArray(data.messages)) {
-    data.messages = data.messages.map(formatMessage);
+    // Keep only the most recent messages to prevent overflowing the LLM context, based on maxMessages
+    const recentMessages = data.messages.length > maxMessages ? data.messages.slice(-maxMessages) : data.messages;
+    data.messages = recentMessages.map(formatMessage);
   }
   
   return data;
@@ -151,6 +161,27 @@ export async function createGmailDraftUseCase(token: string, to: string, subject
     method: "POST",
     headers: getHeaders(token),
     body: JSON.stringify({ message: { raw: base64Encoded } }),
+  });
+  if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
+  return await res.json();
+}
+
+export async function sendGmailMessageUseCase(token: string, to: string, subject: string, body: string) {
+  let rawEmail = "";
+  if (to) rawEmail += `To: ${to}\r\n`;
+  if (subject) rawEmail += `Subject: ${subject}\r\n`;
+  rawEmail += `Content-Type: text/plain; charset="UTF-8"\r\n\r\n${body}`;
+
+  const base64Encoded = Buffer.from(rawEmail, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/send`, {
+    method: "POST",
+    headers: getHeaders(token),
+    body: JSON.stringify({ raw: base64Encoded }),
   });
   if (!res.ok) throw new Error(`Gmail API error: ${await res.text()}`);
   return await res.json();

@@ -5,6 +5,7 @@ import { LuMoveVertical, LuPanelRightClose } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { Input } from "@/components/atoms/Input/Input";
+import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import {
   getFocusLabel,
@@ -144,6 +145,8 @@ export function WorkspaceChat({
   );
   const threadRef = useRef<HTMLDivElement>(null);
   const [showRightTriggers, setShowRightTriggers] = useState(false);
+  const [executingConfirmations, setExecutingConfirmations] = useState(false);
+  
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
@@ -172,18 +175,57 @@ export function WorkspaceChat({
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Input
-            type="text"
-            placeholder="e.g. What tasks are overdue?"
-            aria-label="Ask BBAI"
-            className="sm:flex-1"
-            value={chat.message}
-            onChange={(event) => chat.setMessage(event.target.value)}
-            disabled={chat.sending || chat.loadingThread}
-          />
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-1">
+            {chat.showCommandMenu && chat.filteredCommands.length > 0 && (
+              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl bg-surface-container-lowest py-2 shadow-bloom border border-surface-container-high/50 max-h-60 overflow-y-auto bbai-scroll">
+                {chat.filteredCommands.map((cmd, i) => (
+                  <button
+                    key={cmd.id}
+                    type="button"
+                    onClick={() => chat.handleCommandSelect(cmd)}
+                    className={[
+                      "w-full text-left px-4 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between group",
+                      i === chat.selectedCommandIndex ? "bg-surface-container-low" : ""
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <span className="text-sm font-semibold text-primary whitespace-nowrap">{cmd.id}</span>
+                      <span className="text-xs text-on-surface-muted truncate">{cmd.description}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <div className="relative flex w-full items-center gap-2 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
+              {chat.activeCommand && (
+                <span className="shrink-0 flex items-center gap-1.5 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
+                  {chat.activeCommand.id}
+                  <button 
+                    type="button" 
+                    onClick={() => chat.setActiveCommand(null)} 
+                    className="flex size-4 items-center justify-center rounded-full hover:bg-primary/20 hover:text-primary-variant transition-colors"
+                    aria-label="Remove command"
+                  >
+                    &times;
+                  </button>
+                </span>
+              )}
+              <input
+                type="text"
+                placeholder={chat.activeCommand ? "Add additional context..." : "e.g. What tasks are overdue?"}
+                aria-label="Ask BBAI"
+                className="w-full bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
+                value={chat.message}
+                onChange={(event) => chat.setMessage(event.target.value)}
+                onKeyDown={chat.handleCommandKeyDown}
+                disabled={chat.sending || chat.loadingThread}
+              />
+            </div>
+          </div>
           <Button
             type="submit"
-            disabled={chat.sending || chat.loadingThread || !chat.message.trim()}
+            disabled={chat.sending || chat.loadingThread || (!chat.message.trim() && !chat.activeCommand)}
             className="sm:shrink-0"
           >
             {chat.sending ? "Thinking…" : chat.loadingThread ? "Loading…" : "Send"}
@@ -333,9 +375,145 @@ export function WorkspaceChat({
             ) : null}
           </div>
 
-          <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
+        <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </div>
         {rightSidebarToggles}
+
+        {(() => {
+          const draftSkillConf = chat.pendingConfirmations.find(c => c.slug === "skills" && c.toolName === "create_skill");
+          const otherConfs = chat.pendingConfirmations.filter(c => c !== draftSkillConf);
+          
+          return (
+            <>
+              {draftSkillConf && (
+                <AddSkillModal
+                  isOpen={true}
+                  onClose={() => {
+                    chat.setPendingConfirmations(otherConfs);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
+                    ]);
+                  }}
+                  newSkillForm={{
+                    name: draftSkillConf.args?.name || "",
+                    description: draftSkillConf.args?.description || "",
+                    instructions: draftSkillConf.args?.instructions || "",
+                    category: draftSkillConf.args?.categoryName || "Agent Skills",
+                  }}
+                  setNewSkillForm={(form) => {
+                    const updated = [...chat.pendingConfirmations];
+                    const idx = updated.indexOf(draftSkillConf);
+                    updated[idx] = { 
+                      ...draftSkillConf, 
+                      args: {
+                        name: form.name,
+                        description: form.description,
+                        instructions: form.instructions,
+                        categoryName: form.category
+                      }
+                    };
+                    chat.setPendingConfirmations(updated);
+                  }}
+                  disabled={executingConfirmations}
+                  onSubmit={async () => {
+                    setExecutingConfirmations(true);
+                    let allOk = true;
+                    try {
+                      const res = await fetch("/api/ai/execute", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ toolName: draftSkillConf.toolName, args: draftSkillConf.args }),
+                      });
+                      const data = await res.json();
+                      if (!data.ok) allOk = false;
+                    } catch {
+                      allOk = false;
+                    }
+                    setExecutingConfirmations(false);
+                    chat.setPendingConfirmations(otherConfs);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      {
+                        id: `sys-${Date.now()}`,
+                        role: "assistant",
+                        text: allOk ? "> ✅ Skill created successfully!" : "> ⚠️ Failed to create skill.",
+                      },
+                    ]);
+                  }}
+                />
+              )}
+
+              {otherConfs.length > 0 && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-bloom">
+              <h3 className="mb-2 text-lg font-semibold text-on-surface">Confirm Actions</h3>
+              <p className="mb-4 text-sm text-on-surface-muted">
+                The AI wants to perform the following actions on your Google Workspace account:
+              </p>
+              <div className="mb-6 max-h-60 overflow-y-auto rounded-xl bg-surface-container-low p-3 text-sm text-on-surface bbai-scroll">
+                {chat.pendingConfirmations.map((conf, i) => (
+                  <div key={i} className="mb-2 last:mb-0">
+                    <strong className="text-primary">{conf.toolName}</strong>
+                    <pre className="mt-1 overflow-x-auto text-[11px] text-on-surface-muted">
+                      {JSON.stringify(conf.args, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="secondary"
+                  disabled={executingConfirmations}
+                  onClick={() => {
+                    chat.setPendingConfirmations([]);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
+                    ]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={executingConfirmations}
+                  onClick={async () => {
+                    setExecutingConfirmations(true);
+                    let allOk = true;
+                    for (const conf of chat.pendingConfirmations) {
+                      try {
+                        const res = await fetch("/api/ai/execute", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ toolName: conf.toolName, args: conf.args }),
+                        });
+                        const data = await res.json();
+                        if (!data.ok) allOk = false;
+                      } catch {
+                        allOk = false;
+                      }
+                    }
+                    setExecutingConfirmations(false);
+                    chat.setPendingConfirmations([]);
+                    chat.setTurns((prev) => [
+                      ...prev,
+                      {
+                        id: `sys-${Date.now()}`,
+                        role: "assistant",
+                        text: allOk ? "> ✅ All actions executed successfully." : "> ⚠️ Some actions failed.",
+                      },
+                    ]);
+                  }}
+                >
+                  {executingConfirmations ? "Executing..." : "Confirm & Execute"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+        </>
+      );
+    })()}
       </div>
     );
   }
