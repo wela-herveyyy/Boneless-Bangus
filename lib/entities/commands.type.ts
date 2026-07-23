@@ -13,7 +13,12 @@ export type GwsCommands =
   | "free-tomorrow"
   | "conflicts";
 
-export type ErpNextCommands = "get-customer" | "create-invoice" | "check-stock";
+export type ErpNextCommands =
+  | "get-customer"
+  | "create-invoice"
+  | "check-stock"
+  | "request-leave";
+
 
 export interface ToolSkillMap {
   "erpnext": ErpNextCommands;

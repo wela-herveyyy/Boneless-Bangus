@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "create-account": "bun create-account.mts"
+    "create-account": "bun create-account.mts",
+    "seed:skills": "bun scripts/seed-builtin-skills.mts"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.23",

@@ -58,7 +58,7 @@ const COMMAND_REGISTRY: Record<string, { description: string; promptText: string
     promptText: "Scan my calendar for the rest of the week and identify any overlapping or double-booked meetings. Draft a short, polite email I can send to the organizer of the smaller meeting to request a reschedule.",
   },
 
-  // ERPNext (Placeholder)
+  // ERPNext
   "erpnext:get-customer": {
     description: "Get customer details (from ERPNext)",
     promptText: "Get details for customer [Name].",
@@ -70,6 +70,11 @@ const COMMAND_REGISTRY: Record<string, { description: string; promptText: string
   "erpnext:check-stock": {
     description: "Check item stock (from ERPNext)",
     promptText: "Check the stock for item [Item Name].",
+  },
+  "erpnext:request-leave": {
+    description: "File leave in ERPNext and email the approver (Gmail)",
+    promptText:
+      "Follow the skill \"ERPNext Leave + Gmail Approver\". Use Cursor tools: create a Leave Application in ERPNext for me, then send_email via Google Workspace to the approver. Ask me only for missing details (leave type, from/to dates, reason, approver email if unknown, and whether this is a test). After both steps, summarize document id, status (Draft vs Submitted), and email confirmation.",
   },
 };
 
@@ -142,7 +147,8 @@ export function getAvailableCommands(activeMcpServerSlugs: string[]): CommandDef
     commands.push(
       buildCommandDefinition({ commandName: "erpnext", subCommand: "get-customer" }),
       buildCommandDefinition({ commandName: "erpnext", subCommand: "create-invoice" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "check-stock" })
+      buildCommandDefinition({ commandName: "erpnext", subCommand: "check-stock" }),
+      buildCommandDefinition({ commandName: "erpnext", subCommand: "request-leave" }),
     );
   }
 

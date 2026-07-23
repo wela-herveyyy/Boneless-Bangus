@@ -6,6 +6,10 @@ import type {
 } from "@/lib/entities/cursor.type";
 import { getSession } from "../auth/get_session.usecase";
 import { getProfile } from "../profile/get_profile.usecase";
+import {
+  getPromptSkills,
+  mergePromptSkills,
+} from "../skills/get_prompt_skills.usecase";
 import { buildWorkspaceCustomTools } from "./build_workspace_custom_tools.usecase";
 
 export async function promptAgent(
@@ -38,10 +42,12 @@ export async function promptAgent(
       ? `User: ${input.name ?? "unknown"}${input.email ? ` <${input.email}>` : ""}\n\n`
       : "";
 
-  // ponytail: skills live in IndexedDB — inject text; SDK has no IDB skill loader
+  const serverSkills = userId ? await getPromptSkills(userId) : [];
+  const skills = mergePromptSkills(input.skills, serverSkills);
+  // Built-ins + marketplace/IDB skills injected as text (SDK has no skill loader)
   const skillBlock =
-    input.skills && input.skills.length > 0
-      ? `Skills (follow when relevant):\n${input.skills
+    skills.length > 0
+      ? `Skills (follow when relevant):\n${skills
           .map((s) => `### ${s.name}\n${s.content}`)
           .join("\n\n")}\n\n`
       : "";
