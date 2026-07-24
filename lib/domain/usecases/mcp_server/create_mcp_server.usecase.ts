@@ -43,6 +43,7 @@ export async function createMcpServerUseCase(
         categoryId: input.categoryId,
         userId: input.userId,
         configTemplate: input.configTemplate,
+        isGlobal: input.isGlobal ?? false,
         createdAt: new Date(),
         updatedAt: new Date(),
       });

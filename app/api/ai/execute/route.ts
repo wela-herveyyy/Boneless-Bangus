@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
           description: args.description,
           instructions: args.instructions,
           categoryName: args.categoryName || "Agent Skills",
+          isGlobal: args.isGlobal,
           authorId: userId,
         });
         result = { ok: true, message: `Skill created.` };

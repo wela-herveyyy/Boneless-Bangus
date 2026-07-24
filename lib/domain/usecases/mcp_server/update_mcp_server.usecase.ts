@@ -44,6 +44,7 @@ export async function updateMcpServerUseCase(
           description: input.description !== undefined ? input.description.trim() : existing.description,
           categoryId: input.categoryId ?? existing.categoryId,
           configTemplate: input.configTemplate ?? existing.configTemplate,
+          isGlobal: input.isGlobal ?? existing.isGlobal,
           updatedAt: new Date(),
         })
         .where(eq(mcpServer.id, input.id));

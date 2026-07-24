@@ -1,0 +1,1 @@
+ALTER TABLE `mcp_server` ADD `is_global` boolean DEFAULT false NOT NULL;
