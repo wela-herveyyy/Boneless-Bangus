@@ -9,7 +9,7 @@ import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModa
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import {
   getFocusLabel,
-  getTeamLabel,
+  getRoleLabel,
   AI_ROUTE_OPTIONS,
   useWorkspaceChat,
   type AiRouteId,
@@ -411,8 +411,8 @@ export function WorkspaceChat({
                         name: form.name,
                         description: form.description,
                         instructions: form.instructions,
-                        category: form.category,
-                        isGlobal: form.isGlobal
+                        categoryName: form.category,
+                        isGlobal: form.isGlobal,
                       }
                     };
                     chat.setPendingConfirmations(updated);
@@ -542,7 +542,7 @@ export function WorkspaceChat({
           {profile ? (
             <div className="flex flex-wrap gap-3">
               <span className="rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface">
-                {getTeamLabel(profile.team)}
+                {getRoleLabel(profile.role)}
               </span>
               <span className="rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface">
                 {getFocusLabel(profile.focus)}

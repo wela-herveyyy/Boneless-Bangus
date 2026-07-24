@@ -2,8 +2,20 @@ import { encryptCredential, decryptCredential } from "@/lib/utils/credentialCryp
 import type { McpAuth } from "@/lib/domain/schemas/mcp_server_config.schema";
 import { saveMcpCredential } from "@/lib/domain/usecases/mcp_credential/save_mcp_credential.usecase";
 import { getMcpCredentialById } from "@/lib/domain/usecases/mcp_credential/get_mcp_credential.usecase";
+import { getMcpCredentialBySlug } from "@/lib/domain/usecases/mcp_credential/get_mcp_credential_by_slug.usecase";
+import { deleteMcpCredentialBySlug } from "@/lib/domain/usecases/mcp_credential/delete_mcp_credential_by_slug.usecase";
 
 const oauthTokenCache = new Map<string, { accessToken: string; expiresAt: number }>();
+
+export async function getCredential(userId: string, slug: string): Promise<{ plaintext: string } | null> {
+  const row = await getMcpCredentialBySlug(userId, slug);
+  if (!row) return null;
+  return { plaintext: decryptCredential(row.encryptedValue, row.iv, 1) };
+}
+
+export async function deleteCredential(userId: string, slug: string): Promise<void> {
+  await deleteMcpCredentialBySlug(userId, slug);
+}
 
 /**
  * Encrypts with AES-256-GCM and stores a new sensitive credential in MySQL.

@@ -7,6 +7,7 @@ import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
 import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
+import { GithubSidebar } from "@/components/organisms/GithubSidebar/GithubSidebar";
 import { WorkspaceToolsSidebar } from "@/components/organisms/Workspace-Tools/WorkspaceTools";
 
 const TRIGGER_SPACING_REM = 3.5;
@@ -21,6 +22,7 @@ const TRIGGER_SPACING_REM = 3.5;
  */
 const SIDEBARS: ComponentType<{ topOffset?: string }>[] = [
   GoogleWorkspaceSidebar,
+  GithubSidebar,
   WorkspaceToolsSidebar,
   McpMarketplace,
   ThemeSidebar,
@@ -28,21 +30,15 @@ const SIDEBARS: ComponentType<{ topOffset?: string }>[] = [
   SettingsSidebar,
 ];
 
-function triggerTop(index: number, total: number): string {
-  const offset = (index - (total - 1) / 2) * TRIGGER_SPACING_REM;
-  if (offset === 0) return "50%";
-  return `calc(50% ${offset > 0 ? "+" : "-"} ${Math.abs(offset)}rem)`;
-}
-
 export function RightSidebars() {
   const pathname = usePathname();
   if (!pathname?.startsWith("/workspace")) return null;
 
   return (
-    <>
+    <div className="fixed top-0 right-0 h-full flex flex-col justify-center gap-3.5 pointer-events-none z-[120]">
       {SIDEBARS.map((Sidebar, i) => (
-        <Sidebar key={i} topOffset={triggerTop(i, SIDEBARS.length)} />
+        <Sidebar key={i} />
       ))}
-    </>
+    </div>
   );
 }

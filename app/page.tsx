@@ -4,5 +4,5 @@ import { getSession } from "@/lib/domain/services/auth.service";
 export default async function Home() {
   const session = await getSession();
 
-  return <OnboardingPanel defaultName={session?.user.name} />;
+  return <OnboardingPanel defaultName={session?.user.name} userId={session?.user.id} />;
 }

@@ -5,24 +5,32 @@ import {
   listLocalRecordsAction,
   saveLocalRecordAction,
 } from "@/lib/domain/actions/storage.actions";
+import { syncOnboardingProfileAction } from "@/lib/domain/actions/profile.actions";
+import { type UserRole, isUserRole } from "@/lib/entities/users.type";
+import { clearGithubCache } from "@/components/organisms/GithubSidebar/githubSidebar.hooks";
 
-export const ONBOARDING_STORAGE_KEY = "bbai_onboarding";
+export const getOnboardingStorageKey = (userId?: string) => 
+  userId ? `bbai_onboarding_${userId}` : "bbai_onboarding";
 
-export type OnboardingTeam = "development" | "qa" | "school-setup" | "operations";
 export type OnboardingFocus = "tasks" | "bugs" | "school-setup" | "general";
 
 export type OnboardingProfile = {
   name: string;
-  team: OnboardingTeam;
+  role: UserRole;
   focus: OnboardingFocus;
   completedAt: string;
 };
 
-export const ONBOARDING_TEAMS: { value: OnboardingTeam; label: string; hint: string }[] = [
-  { value: "development", label: "Development", hint: "Tasks, code, and shipping" },
-  { value: "qa", label: "QA", hint: "Bugs, logs, and root cause" },
-  { value: "school-setup", label: "School setup", hint: "Enrollment, roles, and configs" },
-  { value: "operations", label: "Operations", hint: "Day-to-day coordination" },
+export const ONBOARDING_ROLES: { value: UserRole; label: string; hint: string }[] = [
+  { value: "owner", label: "Owner", hint: "Workspace owner and top-level management" },
+  { value: "admin", label: "Admin", hint: "Workspace administration and settings" },
+  { value: "tech", label: "Tech", hint: "Technical infrastructure and DevOps" },
+  { value: "sales", label: "Sales", hint: "Client relations and revenue" },
+  { value: "dev", label: "Development", hint: "Software development and engineering" },
+  { value: "qa", label: "QA", hint: "Quality assurance and testing" },
+  { value: "po", label: "Product Owner", hint: "Product ownership and backlog" },
+  { value: "pm", label: "Project Manager", hint: "Project management and timelines" },
+  { value: "finance", label: "Finance", hint: "Accounting and financial operations" },
 ];
 
 export const ONBOARDING_FOCUS: { value: OnboardingFocus; label: string; hint: string }[] = [
@@ -32,17 +40,26 @@ export const ONBOARDING_FOCUS: { value: OnboardingFocus; label: string; hint: st
   { value: "general", label: "General help", hint: "Anything permission-bound in your workspace" },
 ];
 
-const STEPS = ["name", "team", "focus", "done"] as const;
+const STEPS = ["name", "role", "focus", "done"] as const;
 export type OnboardingStep = (typeof STEPS)[number];
 
 type UseOnboardingPanelOptions = {
   defaultName?: string;
+  userId?: string;
 };
 
 function parseProfile(value: string): OnboardingProfile | null {
   try {
     const parsed = JSON.parse(value) as OnboardingProfile;
-    if (!parsed.name || !parsed.team || !parsed.focus || !parsed.completedAt) {
+    // Handle old localstorage data that might have "team" instead of "role", or invalid role
+    if (!parsed.name || (!parsed.role && !(parsed as any).team) || !parsed.focus || !parsed.completedAt) {
+      return null;
+    }
+    // Migrate old "team" to "role" if necessary, though it might fail isUserRole
+    if (!parsed.role && (parsed as any).team) {
+      parsed.role = (parsed as any).team;
+    }
+    if (!isUserRole(parsed.role)) {
       return null;
     }
     return parsed;
@@ -51,11 +68,11 @@ function parseProfile(value: string): OnboardingProfile | null {
   }
 }
 
-export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptions = {}) {
+export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPanelOptions = {}) {
   const [profile, setProfile] = useState<OnboardingProfile | null>(null);
   const [step, setStep] = useState<OnboardingStep>("name");
   const [name, setName] = useState(defaultName);
-  const [team, setTeam] = useState<OnboardingTeam | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [focus, setFocus] = useState<OnboardingFocus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,7 +88,8 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
       return;
     }
 
-    const record = result.data.find((item) => item.key === ONBOARDING_STORAGE_KEY);
+    const key = getOnboardingStorageKey(userId);
+    const record = result.data.find((item) => item.key === key);
     if (record) {
       const saved = parseProfile(record.value);
       if (saved) {
@@ -81,7 +99,7 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
     }
 
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void loadProfile();
@@ -94,7 +112,7 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
   }, [defaultName, name]);
 
   async function completeOnboarding() {
-    if (!name.trim() || !team || !focus) {
+    if (!name.trim() || !role || !focus) {
       return;
     }
 
@@ -103,15 +121,26 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
 
     const nextProfile: OnboardingProfile = {
       name: name.trim(),
-      team,
+      role,
       focus,
       completedAt: new Date().toISOString(),
     };
 
     const result = await saveLocalRecordAction({
-      key: ONBOARDING_STORAGE_KEY,
+      key: getOnboardingStorageKey(userId),
       value: JSON.stringify(nextProfile),
     });
+
+    // Also sync the name and role to the database directly
+    await syncOnboardingProfileAction(name.trim(), role);
+
+    // Clear the GitHub sidebar cache so it pulls the new role when remounted
+    clearGithubCache();
+
+    // Dispatch global event so persistent layouts can refresh their cached roles if they are mounted
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("profile-updated"));
+    }
 
     setSaving(false);
 
@@ -126,10 +155,10 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
 
   function goNext() {
     if (step === "name" && name.trim()) {
-      setStep("team");
+      setStep("role");
       return;
     }
-    if (step === "team" && team) {
+    if (step === "role" && role) {
       setStep("focus");
       return;
     }
@@ -139,17 +168,17 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
   }
 
   function goBack() {
-    if (step === "team") {
+    if (step === "role") {
       setStep("name");
     } else if (step === "focus") {
-      setStep("team");
+      setStep("role");
     }
   }
 
   function restart() {
     setProfile(null);
     setStep("name");
-    setTeam(null);
+    setRole(null);
     setFocus(null);
     setName(defaultName);
   }
@@ -164,8 +193,8 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
     progress,
     name,
     setName,
-    team,
-    setTeam,
+    role,
+    setRole,
     focus,
     setFocus,
     loading,
@@ -176,13 +205,13 @@ export function useOnboardingPanel({ defaultName = "" }: UseOnboardingPanelOptio
     restart,
     canContinue:
       (step === "name" && Boolean(name.trim())) ||
-      (step === "team" && Boolean(team)) ||
+      (step === "role" && Boolean(role)) ||
       (step === "focus" && Boolean(focus)),
   };
 }
 
-export function getTeamLabel(team: OnboardingTeam) {
-  return ONBOARDING_TEAMS.find((item) => item.value === team)?.label ?? team;
+export function getRoleLabel(role: UserRole) {
+  return ONBOARDING_ROLES.find((item) => item.value === role)?.label ?? role;
 }
 
 export function getFocusLabel(focus: OnboardingFocus) {

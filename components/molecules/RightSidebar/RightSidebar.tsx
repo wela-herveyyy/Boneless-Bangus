@@ -41,13 +41,12 @@ export function RightSidebarTrigger({
       onClick={togglePinned}
       onMouseEnter={openFromHover}
       onMouseLeave={scheduleClose}
-      style={{ top: topOffset }}
       className={[
-        "right-sidebar-trigger fixed z-120 flex -translate-y-1/2 items-center justify-center",
+        "right-sidebar-trigger relative pointer-events-auto flex items-center justify-center shrink-0",
         "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
         isSwitching
           ? "transition-none duration-0"
-          : "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          : "transition-[right,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
         isAnyRightSidebarOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
         className,
       ]
@@ -109,7 +108,7 @@ export function RightSidebarPanel({
       onMouseLeave={scheduleClose}
       inert={!isOpen ? true : undefined}
       className={[
-        "right-sidebar-panel fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
+        "right-sidebar-panel pointer-events-auto fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
         "bg-surface-container-lowest shadow-bloom ghost-border",
         isSwitching
           ? "transition-none duration-0"

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { WorkspacePage } from "@/components/client-pages/workspace/WorkspacePage";
 import { auth } from "@/lib/domain/services/auth.service";
 import { getProfileService } from "@/lib/domain/services/profile.service";
-import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { hasPermission, USER_PERMISSION, type UserRole } from "@/lib/entities/users.type";
 
 export const metadata: Metadata = {
   title: "BBAI | Workspace",
@@ -28,7 +28,7 @@ export default async function Page() {
       userSettings={profileData.settings}
       userTeam={profileData.team}
       showAdminLink={showAdminLink}
-      userRole={userSession.user.role}
+      userRole={profileData.role as UserRole}
     />
   );
 }
