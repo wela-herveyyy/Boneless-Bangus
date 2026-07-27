@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
-import { Portal } from "@/components/atoms/Portal/Portal";
 import { LuPlus, LuTrash2, LuPencil } from "react-icons/lu";
 import { SkillDetailsModal } from "@/components/molecules/SkillDetailsModal/SkillDetailsModal";
 import { DeleteSkillModal } from "@/components/molecules/DeleteSkillModal/DeleteSkillModal";
@@ -110,17 +109,15 @@ export function SkillsTab() {
         <LuPlus /> Add Skill
       </Button>
 
-      <Portal>
-        <AddSkillModal
-          isOpen={isFormOpen}
-          onClose={closeForm}
-          newSkillForm={newSkillForm}
-          setNewSkillForm={setNewSkillForm}
-          onSubmit={handleSubmit}
-          disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.instructions.trim() || !newSkillForm.category.trim()}
-          title={editingSkill ? "Edit Skill" : "Add New Skill"}
-        />
-      </Portal>
+      <AddSkillModal
+        isOpen={isFormOpen}
+        onClose={closeForm}
+        newSkillForm={newSkillForm}
+        setNewSkillForm={setNewSkillForm}
+        onSubmit={handleSubmit}
+        disabled={!newSkillForm.name.trim() || !newSkillForm.description.trim() || !newSkillForm.instructions.trim() || !newSkillForm.category.trim()}
+        title={editingSkill ? "Edit Skill" : "Add New Skill"}
+      />
 
       {loading ? (
         <p className="text-center text-sm text-on-surface-muted">Loading...</p>
@@ -151,32 +148,28 @@ export function SkillsTab() {
         </div>
       )}
 
-      {viewingSkill && (
-        <Portal>
-          <SkillDetailsModal
-            skill={{
-              id: viewingSkill.id,
-              name: viewingSkill.name,
-              description: viewingSkill.description,
-              instructions: (viewingSkill as any).instructions || "",
-              author: viewingSkill.author.name || "You",
-              category: viewingSkill.category.name,
-              isInstalled: viewingSkill.isInstalled ?? false,
-              isAuthor: viewingSkill.isAuthor ?? false,
-              isGlobal: viewingSkill.isGlobal ?? false,
-            }}
-            onClose={() => setViewingSkill(null)}
-          />
-        </Portal>
-      )}
-
-      <Portal>
-        <DeleteSkillModal
-          isOpen={!!skillToDelete}
-          onCancel={() => setSkillToDelete(null)}
-          onConfirm={confirmDelete}
+      {viewingSkill ? (
+        <SkillDetailsModal
+          skill={{
+            id: viewingSkill.id,
+            name: viewingSkill.name,
+            description: viewingSkill.description,
+            instructions: (viewingSkill as any).instructions || "",
+            author: viewingSkill.author.name || "You",
+            category: viewingSkill.category.name,
+            isInstalled: viewingSkill.isInstalled ?? false,
+            isAuthor: viewingSkill.isAuthor ?? false,
+            isGlobal: viewingSkill.isGlobal ?? false,
+          }}
+          onClose={() => setViewingSkill(null)}
         />
-      </Portal>
+      ) : null}
+
+      <DeleteSkillModal
+        isOpen={!!skillToDelete}
+        onCancel={() => setSkillToDelete(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

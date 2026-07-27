@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { listGithubReposOverview } from "../usecases/github/build_repos_overview.usecase";
 import {
   searchRepositoriesUseCase,
   getCurrentUserUseCase,
@@ -45,6 +46,21 @@ export function createGithubMcpServer(token: string) {
           inputSchema: {
             type: "object",
             properties: {},
+          },
+        },
+        {
+          name: "list_my_repositories",
+          description:
+            "List an overview of all repositories accessible to the saved PAT: personal, collaborator, and organization repos with counts and recently updated entries. Use this when the user wants a portfolio-style summary across many repos, not a single-repo deep dive.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              perSectionLimit: {
+                type: "number",
+                description:
+                  "Max repos to include per section (personal, collaborator, each org). Default 50.",
+              },
+            },
           },
         },
         {
@@ -138,6 +154,14 @@ export function createGithubMcpServer(token: string) {
 
         case "get_current_user": {
           const data = await getCurrentUserUseCase(token);
+          return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+        }
+
+        case "list_my_repositories": {
+          const perSectionLimit = args?.perSectionLimit
+            ? Math.min(Math.max(Number(args.perSectionLimit), 1), 100)
+            : 50;
+          const data = await listGithubReposOverview(token, perSectionLimit);
           return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
         }
 

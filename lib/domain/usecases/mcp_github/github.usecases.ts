@@ -1,9 +1,9 @@
+import { githubHeaders } from "../github/github_headers.usecase";
+
 function getHeaders(token: string) {
   return {
-    Authorization: `token ${token}`,
+    ...githubHeaders(token),
     "Content-Type": "application/json",
-    "Accept": "application/vnd.github.v3+json",
-    "User-Agent": "Boneless-Bangus-AI",
   };
 }
 
