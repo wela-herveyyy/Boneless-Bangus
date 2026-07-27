@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import pdfParse from "pdf-parse";
+// @ts-ignore
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import type {
   CreateInteractionInput,
   GoogleAiStreamEvent,
