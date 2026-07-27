@@ -232,7 +232,7 @@ export function WorkspaceChat({
                     }
                     e.target.value = "";
                   }}
-                  disabled={chat.sending || chat.loadingThread || chat.routeId === "cursor"}
+                  disabled={chat.sending || chat.loadingThread}
                 />
               </label>
               {chat.activeCommand && (

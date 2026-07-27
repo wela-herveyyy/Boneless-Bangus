@@ -31,6 +31,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         email: input.email,
         mcpServers: input.mcpServers,
         skills: input.skills,
+        files: input.files,
       });
       if (!result.ok) return result;
       return {

@@ -1,4 +1,6 @@
 import { Agent, type McpServerConfig } from "@cursor/sdk";
+// @ts-ignore
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import type {
   CursorResult,
   PromptAgentInput,
@@ -17,7 +19,8 @@ export async function promptAgent(
   input: PromptAgentInput,
 ): Promise<CursorResult<PromptAgentOutput>> {
   const message = input.message.trim();
-  if (!message) {
+  const hasFiles = Array.isArray(input.files) && input.files.length > 0;
+  if (!message && !hasFiles) {
     return { ok: false, error: "Message is required." };
   }
 
@@ -70,9 +73,53 @@ export async function promptAgent(
     ? "GitHub tools are available via the user's saved PAT (custom tools). For a multi-repo overview across personal, collaborator, and organization repos, call github_list_my_repositories. Prefer that over guessing from the local workspace or a single open repo.\n\n"
     : "";
 
+  // Extract text content from attached files and append to the prompt.
+  // PDFs and text files are supported; images are skipped on the Cursor path.
+  let fileContext = "";
+  if (input.files && input.files.length > 0) {
+    const extractedParts = await Promise.all(
+      input.files.map(async (f) => {
+        const mime = f.mimeType.toLowerCase();
+        const data = f.base64Data.includes(",") ? f.base64Data.split(",")[1] : f.base64Data;
+
+        // Skip images — Cursor prompt is text-only
+        if (mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/")) {
+          return null;
+        }
+
+        if (mime === "application/pdf") {
+          try {
+            const pdfBuffer = Buffer.from(data, "base64");
+            const parsed = await pdfParse(pdfBuffer);
+            return `The user has uploaded a PDF file named "${f.name}". Here is the extracted text content:\n\n<file_content filename="${f.name}">\n${parsed.text}\n</file_content>`;
+          } catch (e) {
+            console.warn(`[Cursor] Failed to parse PDF ${f.name}:`, e);
+            return null;
+          }
+        }
+
+        // Try to decode as UTF-8 text
+        try {
+          const textStr = Buffer.from(data, "base64").toString("utf-8");
+          if (!textStr.includes("\u0000")) {
+            return `The user has uploaded a text file named "${f.name}". Here is the content:\n\n<file_content filename="${f.name}">\n${textStr}\n</file_content>`;
+          }
+        } catch {
+          // ignore
+        }
+
+        return null;
+      })
+    );
+    const validParts = extractedParts.filter(Boolean) as string[];
+    if (validParts.length > 0) {
+      fileContext = `\n\n${validParts.join("\n\n")}`;
+    }
+  }
+
   try {
     const run = await Agent.prompt(
-      `${who}${skillBlock}${workspaceHint}${githubHint}${message}`,
+      `${who}${skillBlock}${workspaceHint}${githubHint}${message}${fileContext}`,
       {
         apiKey,
         model: { id: input.modelId ?? "composer-2.5" },

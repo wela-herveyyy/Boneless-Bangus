@@ -651,6 +651,26 @@ export function useWorkspaceChat(
         if (provider === AI_PROVIDER.GOOGLE_AI) {
           await sendGoogleStream(finalPrompt);
         } else {
+          const filePayloads = await Promise.all(
+            attachments.map(
+              (file) =>
+                new Promise<{ name: string; mimeType: string; base64Data: string }>(
+                  (resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      resolve({
+                        name: file.name,
+                        mimeType: file.type || "application/octet-stream",
+                        base64Data: reader.result as string,
+                      });
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                  }
+                )
+            )
+          );
+
           const result = await promptAiAction({
             provider,
             message: text,
@@ -659,6 +679,7 @@ export function useWorkspaceChat(
             mcpServers,
             skills,
             dbConversationId,
+            files: filePayloads,
           });
 
           if (result.ok) {

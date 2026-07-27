@@ -151,10 +151,11 @@ export async function promptAiAction(
     }
 
     const cleaned = cleanupAiPrompt(result.data.text, result.data.usage);
+    const hasFiles = Array.isArray(input.files) && input.files.length > 0;
     const saved = await insertAiMessage({
       userId: userSession.user.id,
       conversationId: input.dbConversationId,
-      content: input.message,
+      content: input.message || (hasFiles ? `[Attached ${input.files!.length} file(s)]` : ""),
       aiFeedback: cleaned.content,
       usage: cleaned.usage,
     });
