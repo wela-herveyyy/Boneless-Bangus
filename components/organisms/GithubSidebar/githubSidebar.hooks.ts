@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getGithubAuthStatusAction,
   getGithubProfileAction,
-  getGithubOrgReposAction,
   saveGithubPatAction,
   disconnectGithubAuthAction,
-  type GithubAuthRecord,
-  type GithubProfileRecord,
 } from "@/lib/domain/actions/github.actions";
+import type {
+  GithubAuthRecord,
+  GithubProfileRecord,
+} from "@/lib/entities/github.type";
 
 export function clearGithubCache() {
   // Global cache removed to prevent cross-account stale state bugs
@@ -19,39 +20,55 @@ export function useGithubSidebar(isOpen: boolean) {
   const [authRecord, setAuthRecord] = useState<GithubAuthRecord | null>(null);
   const [profileRecord, setProfileRecord] = useState<GithubProfileRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingRepos, setLoadingRepos] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [orgRepos, setOrgRepos] = useState<Record<string, any[]>>({});
-  const [loadingOrgs, setLoadingOrgs] = useState<Record<string, boolean>>({});
 
-  const fetchAuthStatus = useCallback(async (force = false) => {
-    setLoading(true);
-    setError(null);
+  const fetchProfile = useCallback(async () => {
+    setLoadingRepos(true);
     try {
-      const res = await getGithubAuthStatusAction();
-      if (res.ok && res.data) {
-        setAuthRecord(res.data);
-
-        // Fetch profile if connected
-        if (res.data.isConnected) {
-          const profileRes = await getGithubProfileAction();
-          if (profileRes.ok && profileRes.data) {
-            setProfileRecord(profileRes.data);
-          }
-        } else {
-          setProfileRecord(null);
-        }
-      } else if (!res.ok) {
-        setError(res.error || "Failed to load GitHub status.");
+      const profileRes = await getGithubProfileAction();
+      if (profileRes.ok) {
+        setProfileRecord(profileRes.data);
+      } else {
+        setProfileRecord(null);
+        setError(profileRes.error || "Failed to load GitHub repositories.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load GitHub status.");
+      setProfileRecord(null);
+      setError(err instanceof Error ? err.message : "Failed to load GitHub repositories.");
     } finally {
-      setLoading(false);
+      setLoadingRepos(false);
     }
   }, []);
+
+  const fetchAuthStatus = useCallback(
+    async (_force = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getGithubAuthStatusAction();
+        if (res.ok) {
+          setAuthRecord(res.data);
+
+          if (res.data.isConnected) {
+            await fetchProfile();
+          } else {
+            setProfileRecord(null);
+          }
+        } else {
+          setError(res.error || "Failed to load GitHub status.");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load GitHub status.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchProfile],
+  );
 
   const handleSavePat = async (pat: string) => {
     if (!pat.trim()) return;
@@ -81,7 +98,6 @@ export function useGithubSidebar(isOpen: boolean) {
         setNotification("GitHub account disconnected.");
         setAuthRecord(null);
         setProfileRecord(null);
-        setOrgRepos({});
       } else {
         setError(res.error || "Failed to disconnect.");
       }
@@ -92,37 +108,20 @@ export function useGithubSidebar(isOpen: boolean) {
     }
   };
 
-  const fetchOrgRepos = async (orgLogin: string) => {
-    if (orgRepos[orgLogin] || loadingOrgs[orgLogin]) return; // Already fetched or fetching
-
-    setLoadingOrgs((prev) => ({ ...prev, [orgLogin]: true }));
-    try {
-      const res = await getGithubOrgReposAction(orgLogin);
-      if (res.ok && res.data) {
-        setOrgRepos((prev) => ({ ...prev, [orgLogin]: res.data! }));
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingOrgs((prev) => ({ ...prev, [orgLogin]: false }));
-    }
-  };
-
   useEffect(() => {
     if (isOpen) {
-      fetchAuthStatus();
+      void fetchAuthStatus();
     }
   }, [isOpen, fetchAuthStatus]);
 
   // Initial fetch even if not open so we know the role for conditional rendering
   useEffect(() => {
-    fetchAuthStatus(false);
-    
-    // Listen for global profile updates (e.g. from onboarding) to re-evaluate role
+    void fetchAuthStatus(false);
+
     const handleProfileUpdate = () => {
-      fetchAuthStatus(true);
+      void fetchAuthStatus(true);
     };
-    
+
     window.addEventListener("profile-updated", handleProfileUpdate);
     return () => window.removeEventListener("profile-updated", handleProfileUpdate);
   }, [fetchAuthStatus]);
@@ -131,13 +130,12 @@ export function useGithubSidebar(isOpen: boolean) {
     authRecord,
     profileRecord,
     loading,
+    loadingRepos,
     error,
     notification,
     isDisconnecting,
     isSaving,
-    orgRepos,
-    loadingOrgs,
-    fetchOrgRepos,
+    refreshRepos: fetchProfile,
     handleSavePat,
     handleDisconnect,
     clearNotification: () => setNotification(null),

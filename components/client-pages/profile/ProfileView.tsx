@@ -101,7 +101,7 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
     if (!confirmAction) return;
     const { type, formData } = confirmAction;
     setConfirmAction(null);
-    
+
     startTransition(() => {
       if (type === "save_keys") apiKeysFormAction(formData);
       if (type === "save_team_keys") teamKeysFormAction(formData);
@@ -113,7 +113,7 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
 
   return (
     <>
-      <div className="fixed inset-0 z-[130] flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
+      <div className="fixed inset-0 z-130 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
         <div
           className="flex w-full max-w-2xl flex-col gap-6 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border max-h-[90vh] overflow-y-auto bbai-scroll"
           role="dialog"
@@ -211,7 +211,7 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
             {/* Team Section */}
             <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-on-surface">Team Configuration</h2>
-              
+
               {userTeam ? (
                 <div className="mb-4 rounded-xl bg-primary/10 p-4 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
@@ -313,9 +313,8 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
                         <Label className="mb-0 font-semibold text-on-surface">{provider.label}</Label>
                         <p className="flex items-center gap-2 text-xs text-on-surface-muted">
                           <span
-                            className={`inline-block size-2 rounded-full ${
-                              active === "none" ? "bg-red-500" : "bg-green-500"
-                            }`}
+                            className={`inline-block size-2 rounded-full ${active === "none" ? "bg-red-500" : "bg-green-500"
+                              }`}
                           />
                           {active === "personal"
                             ? "Using personal"
@@ -430,7 +429,7 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
       </div>
 
       {confirmAction && (
-        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border animate-in fade-in zoom-in-95 duration-200">
             <h3 className="text-lg font-display font-semibold text-on-surface mb-2">
               {confirmAction.type === "save_keys" && "Save API Keys?"}
@@ -449,7 +448,7 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
             </p>
             <div className="flex justify-end gap-3">
               <Button type="button" variant="secondary" onClick={() => setConfirmAction(null)}>Cancel</Button>
-              <Button 
+              <Button
                 type="button"
                 variant={confirmAction.type === "leave_team" ? "danger" : "primary"}
                 onClick={handleConfirm}

@@ -10,6 +10,7 @@ import {
   getPromptSkills,
   mergePromptSkills,
 } from "../skills/get_prompt_skills.usecase";
+import { buildGithubCustomTools } from "./build_github_custom_tools.usecase";
 import { buildWorkspaceCustomTools } from "./build_workspace_custom_tools.usecase";
 
 export async function promptAgent(
@@ -55,20 +56,34 @@ export async function promptAgent(
   const mcpServers = input.mcpServers as Record<string, McpServerConfig> | undefined;
 
   const workspaceTools = userId ? await buildWorkspaceCustomTools(userId) : undefined;
+  const githubTools = userId ? await buildGithubCustomTools(userId) : undefined;
+  const customTools = {
+    ...(workspaceTools ?? {}),
+    ...(githubTools ?? {}),
+  };
+  const hasCustomTools = Object.keys(customTools).length > 0;
+
   const workspaceHint = workspaceTools
     ? "Google Workspace tools are available (Gmail, Calendar, Meet) via custom tools. Use them when the user asks about email, calendar, or meetings. These are first-party app tools, not official Google remote MCP.\n\n"
     : "";
+  const githubHint = githubTools
+    ? "GitHub tools are available via the user's saved PAT (custom tools). For a multi-repo overview across personal, collaborator, and organization repos, call github_list_my_repositories. Prefer that over guessing from the local workspace or a single open repo.\n\n"
+    : "";
 
   try {
-    const run = await Agent.prompt(`${who}${skillBlock}${workspaceHint}${message}`, {
-      apiKey,
-      model: { id: input.modelId ?? "composer-2.5" },
-      mcpServers: mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
-      local: {
-        cwd: input.cwd ?? process.cwd(),
-        ...(workspaceTools ? { customTools: workspaceTools } : {}),
+    const run = await Agent.prompt(
+      `${who}${skillBlock}${workspaceHint}${githubHint}${message}`,
+      {
+        apiKey,
+        model: { id: input.modelId ?? "composer-2.5" },
+        mcpServers:
+          mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+        local: {
+          cwd: input.cwd ?? process.cwd(),
+          ...(hasCustomTools ? { customTools } : {}),
+        },
       },
-    });
+    );
 
     if (run.status === "error") {
       return {

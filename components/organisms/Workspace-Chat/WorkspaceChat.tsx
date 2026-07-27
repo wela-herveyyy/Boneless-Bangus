@@ -146,7 +146,7 @@ export function WorkspaceChat({
   const threadRef = useRef<HTMLDivElement>(null);
   const [showRightTriggers, setShowRightTriggers] = useState(false);
   const [executingConfirmations, setExecutingConfirmations] = useState(false);
-  
+
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
 
@@ -196,14 +196,14 @@ export function WorkspaceChat({
                 ))}
               </div>
             )}
-            
+
             <div className="relative flex w-full items-center gap-2 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
               {chat.activeCommand && (
                 <span className="shrink-0 flex items-center gap-1.5 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
                   {chat.activeCommand.id}
-                  <button 
-                    type="button" 
-                    onClick={() => chat.setActiveCommand(null)} 
+                  <button
+                    type="button"
+                    onClick={() => chat.setActiveCommand(null)}
                     className="flex size-4 items-center justify-center rounded-full hover:bg-primary/20 hover:text-primary-variant transition-colors"
                     aria-label="Remove command"
                   >
@@ -375,14 +375,14 @@ export function WorkspaceChat({
             ) : null}
           </div>
 
-        <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
+          <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </div>
         {rightSidebarToggles}
 
         {(() => {
           const draftSkillConf = chat.pendingConfirmations.find(c => c.slug === "skills" && c.toolName === "create_skill");
           const otherConfs = chat.pendingConfirmations.filter(c => c !== draftSkillConf);
-          
+
           return (
             <>
               {draftSkillConf && (
@@ -405,8 +405,8 @@ export function WorkspaceChat({
                   setNewSkillForm={(form) => {
                     const updated = [...chat.pendingConfirmations];
                     const idx = updated.indexOf(draftSkillConf);
-                    updated[idx] = { 
-                      ...draftSkillConf, 
+                    updated[idx] = {
+                      ...draftSkillConf,
                       args: {
                         name: form.name,
                         description: form.description,
@@ -447,75 +447,75 @@ export function WorkspaceChat({
               )}
 
               {otherConfs.length > 0 && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface/50 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-bloom">
-              <h3 className="mb-2 text-lg font-semibold text-on-surface">Confirm Actions</h3>
-              <p className="mb-4 text-sm text-on-surface-muted">
-                The AI wants to perform the following actions on your Google Workspace account:
-              </p>
-              <div className="mb-6 max-h-60 overflow-y-auto rounded-xl bg-surface-container-low p-3 text-sm text-on-surface bbai-scroll">
-                {chat.pendingConfirmations.map((conf, i) => (
-                  <div key={i} className="mb-2 last:mb-0">
-                    <strong className="text-primary">{conf.toolName}</strong>
-                    <pre className="mt-1 overflow-x-auto text-[11px] text-on-surface-muted">
-                      {JSON.stringify(conf.args, null, 2)}
-                    </pre>
+                <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
+                  <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-bloom">
+                    <h3 className="mb-2 text-lg font-semibold text-on-surface">Confirm Actions</h3>
+                    <p className="mb-4 text-sm text-on-surface-muted">
+                      The AI wants to perform the following actions on your Google Workspace account:
+                    </p>
+                    <div className="mb-6 max-h-60 overflow-y-auto rounded-xl bg-surface-container-low p-3 text-sm text-on-surface bbai-scroll">
+                      {chat.pendingConfirmations.map((conf, i) => (
+                        <div key={i} className="mb-2 last:mb-0">
+                          <strong className="text-primary">{conf.toolName}</strong>
+                          <pre className="mt-1 overflow-x-auto text-[11px] text-on-surface-muted">
+                            {JSON.stringify(conf.args, null, 2)}
+                          </pre>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <Button
+                        variant="secondary"
+                        disabled={executingConfirmations}
+                        onClick={() => {
+                          chat.setPendingConfirmations([]);
+                          chat.setTurns((prev) => [
+                            ...prev,
+                            { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
+                          ]);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={executingConfirmations}
+                        onClick={async () => {
+                          setExecutingConfirmations(true);
+                          let allOk = true;
+                          for (const conf of chat.pendingConfirmations) {
+                            try {
+                              const res = await fetch("/api/ai/execute", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ toolName: conf.toolName, args: conf.args }),
+                              });
+                              const data = await res.json();
+                              if (!data.ok) allOk = false;
+                            } catch {
+                              allOk = false;
+                            }
+                          }
+                          setExecutingConfirmations(false);
+                          chat.setPendingConfirmations([]);
+                          chat.setTurns((prev) => [
+                            ...prev,
+                            {
+                              id: `sys-${Date.now()}`,
+                              role: "assistant",
+                              text: allOk ? "> ✅ All actions executed successfully." : "> ⚠️ Some actions failed.",
+                            },
+                          ]);
+                        }}
+                      >
+                        {executingConfirmations ? "Executing..." : "Confirm & Execute"}
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="secondary"
-                  disabled={executingConfirmations}
-                  onClick={() => {
-                    chat.setPendingConfirmations([]);
-                    chat.setTurns((prev) => [
-                      ...prev,
-                      { id: `sys-${Date.now()}`, role: "assistant", text: "> ❌ Action cancelled by user." },
-                    ]);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={executingConfirmations}
-                  onClick={async () => {
-                    setExecutingConfirmations(true);
-                    let allOk = true;
-                    for (const conf of chat.pendingConfirmations) {
-                      try {
-                        const res = await fetch("/api/ai/execute", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ toolName: conf.toolName, args: conf.args }),
-                        });
-                        const data = await res.json();
-                        if (!data.ok) allOk = false;
-                      } catch {
-                        allOk = false;
-                      }
-                    }
-                    setExecutingConfirmations(false);
-                    chat.setPendingConfirmations([]);
-                    chat.setTurns((prev) => [
-                      ...prev,
-                      {
-                        id: `sys-${Date.now()}`,
-                        role: "assistant",
-                        text: allOk ? "> ✅ All actions executed successfully." : "> ⚠️ Some actions failed.",
-                      },
-                    ]);
-                  }}
-                >
-                  {executingConfirmations ? "Executing..." : "Confirm & Execute"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-        </>
-      );
-    })()}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   }
