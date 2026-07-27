@@ -300,7 +300,10 @@ export async function* createInteractionStream(
               try {
                 const pdfBuffer = Buffer.from(data, "base64");
                 const parsed = await pdfParse(pdfBuffer);
-                return { type: "text", text: `[File: ${f.name}]\n${parsed.text}` };
+                return { 
+                  type: "text", 
+                  text: `The user has uploaded a PDF file named "${f.name}". Here is the extracted text content of this file:\n\n<file_content filename="${f.name}">\n${parsed.text}\n</file_content>\n\nPlease use the above extracted text to answer the user's query.` 
+                };
               } catch (e) {
                 console.warn(`Failed to parse PDF ${f.name}:`, e);
               }
@@ -310,7 +313,10 @@ export async function* createInteractionStream(
             try {
               const textStr = Buffer.from(data, "base64").toString("utf-8");
               if (!textStr.includes("\u0000")) {
-                return { type: "text", text: `[File: ${f.name}]\n${textStr}` };
+                return { 
+                  type: "text", 
+                  text: `The user has uploaded a text file named "${f.name}". Here is the content of this file:\n\n<file_content filename="${f.name}">\n${textStr}\n</file_content>` 
+                };
               }
             } catch (e) {
               // ignore
