@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-// @ts-ignore
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import type {
   CreateInteractionInput,
   GoogleAiStreamEvent,
@@ -299,7 +298,9 @@ export async function* createInteractionStream(
             if (mime === "application/pdf") {
               try {
                 const pdfBuffer = Buffer.from(data, "base64");
-                const parsed = await pdfParse(pdfBuffer);
+                const parser = new PDFParse({ data: pdfBuffer });
+                const parsed = await parser.getText();
+                await parser.destroy();
                 return { type: "text", text: `[File: ${f.name}]\n${parsed.text}` };
               } catch (e) {
                 console.warn(`Failed to parse PDF ${f.name}:`, e);
