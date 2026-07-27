@@ -140,7 +140,7 @@ export async function POST(request: Request) {
               const saved = await insertAiMessage({
                 userId: userSession.user.id,
                 conversationId: body.dbConversationId,
-                content: message,
+                content: message || (hasFiles ? `[Attached ${body.files?.length} file(s)]` : ""),
                 aiFeedback: cleaned.content,
                 usage,
               });
