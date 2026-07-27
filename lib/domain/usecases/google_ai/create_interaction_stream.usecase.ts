@@ -1,4 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
+// @ts-ignore
+import pdfParse from "pdf-parse";
 import type {
   CreateInteractionInput,
   GoogleAiStreamEvent,
@@ -284,15 +286,25 @@ export async function* createInteractionStream(
         if (message) {
           parts.push({ type: "text", text: message });
         }
-        parts.push(
-          ...input.files.map((f) => {
+        
+        const mappedFiles = await Promise.all(
+          input.files.map(async (f) => {
             const mime = f.mimeType.toLowerCase();
             const data = f.base64Data.includes(",") ? f.base64Data.split(",")[1] : f.base64Data;
             
             if (mime.startsWith("image/")) return { type: "image", mime_type: mime, data };
             if (mime.startsWith("video/")) return { type: "video", mime_type: mime, data };
             if (mime.startsWith("audio/")) return { type: "audio", mime_type: mime, data };
-            if (mime === "application/pdf" || mime === "text/csv") return { type: "document", mime_type: mime, data };
+            
+            if (mime === "application/pdf") {
+              try {
+                const pdfBuffer = Buffer.from(data, "base64");
+                const parsed = await pdfParse(pdfBuffer);
+                return { type: "text", text: `[File: ${f.name}]\n${parsed.text}` };
+              } catch (e) {
+                console.warn(`Failed to parse PDF ${f.name}:`, e);
+              }
+            }
             
             // Try to decode unknown or text files as text to prevent API errors
             try {
@@ -308,6 +320,7 @@ export async function* createInteractionStream(
             return { type: "document", mime_type: mime || "application/octet-stream", data };
           })
         );
+        parts.push(...mappedFiles);
         currentInput = [{
           role: "user",
           content: parts,
