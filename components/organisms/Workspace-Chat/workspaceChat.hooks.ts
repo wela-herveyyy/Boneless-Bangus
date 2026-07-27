@@ -229,6 +229,8 @@ export function useWorkspaceChat(
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [activeCommand, setActiveCommand] = useState<CommandDefinition | null>(null);
 
+  const [attachments, setAttachments] = useState<File[]>([]);
+
   const threadStateRef = useRef({
     turns,
     dbConversationId,
@@ -443,6 +445,23 @@ export function useWorkspaceChat(
         );
 
       const runStream = async (previousInteractionId?: string) => {
+        const filePayloads = await Promise.all(
+          attachments.map(async (file) => {
+            return new Promise<{ name: string; mimeType: string; base64Data: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  name: file.name,
+                  mimeType: file.type || "application/octet-stream",
+                  base64Data: reader.result as string,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+          })
+        );
+
         // Gemini uses in-process Workspace tools only — do not pass remote MCP
         // (erpnext SSE/HTTP). Remote MCP stays on the Cursor path via promptAiAction.
         const response = await fetch("/api/ai/stream", {
@@ -459,6 +478,7 @@ export function useWorkspaceChat(
               slug,
               config,
             })),
+            files: filePayloads,
           }),
         });
 
@@ -601,7 +621,7 @@ export function useWorkspaceChat(
     async (event?: FormEvent) => {
       event?.preventDefault();
       const text = message.trim();
-      if (!text && !activeCommand) return;
+      if (!text && !activeCommand && attachments.length === 0) return;
       if (sending) return;
 
       const finalPrompt = activeCommand 
@@ -613,9 +633,16 @@ export function useWorkspaceChat(
       setMessage("");
       
       // Keep the UI displaying the original text to the user if they scroll back
-      const displayMessage = activeCommand 
+      let displayMessage = activeCommand 
         ? `${activeCommand.id} ${text}`.trim()
         : text;
+        
+      if (attachments.length > 0) {
+        const fileNames = attachments.map((a) => a.name).join(", ");
+        displayMessage = displayMessage 
+          ? `${displayMessage}\n\n[Attachments: ${fileNames}]` 
+          : `[Attachments: ${fileNames}]`;
+      }
         
       setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: displayMessage }]);
       setActiveCommand(null);
@@ -652,6 +679,7 @@ export function useWorkspaceChat(
             setError(result.error);
           }
         }
+        setAttachments([]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Request failed.");
       }
@@ -772,6 +800,8 @@ export function useWorkspaceChat(
     pendingConfirmations,
     setPendingConfirmations,
     setTurns,
+    attachments,
+    setAttachments,
   };
 }
 

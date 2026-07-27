@@ -46,6 +46,8 @@ export type CreateInteractionInput = {
   userId?: string;
   /** DB conversation ID to fetch history for pre-flight intent checks. */
   dbConversationId?: string;
+  /** Files attached to the interaction (e.g., base64 documents/images). */
+  files?: { name: string; mimeType: string; base64Data: string }[];
 };
 
 export type ConnectWarning = {

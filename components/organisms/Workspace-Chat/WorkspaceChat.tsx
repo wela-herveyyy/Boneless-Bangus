@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { LuMoveVertical, LuPanelRightClose } from "react-icons/lu";
+import { LuMoveVertical, LuPanelRightClose, LuPaperclip, LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { Input } from "@/components/atoms/Input/Input";
@@ -169,9 +169,30 @@ export function WorkspaceChat({
 
   const composer = (
     <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
-      <div className="mb-3">
-        <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending || chat.loadingThread} />
+      <div className="mb-3 flex items-center justify-between">
+        <div className="w-48">
+          <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending || chat.loadingThread} />
+        </div>
       </div>
+      
+      {chat.attachments && chat.attachments.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {chat.attachments.map((file, i) => (
+            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1.5 text-xs text-on-surface">
+              <span className="max-w-[150px] truncate">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => chat.setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                className="text-on-surface-muted hover:text-secondary transition-colors"
+                aria-label="Remove attachment"
+              >
+                <LuX className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <label className="block space-y-3">
         <span className="sr-only">Ask BBAI</span>
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -197,7 +218,23 @@ export function WorkspaceChat({
               </div>
             )}
 
-            <div className="relative flex w-full items-center gap-2 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
+            <div className="relative flex w-full items-center gap-1 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
+              <label className="flex cursor-pointer items-center justify-center p-1.5 text-on-surface-muted transition-colors hover:text-primary">
+                <LuPaperclip className="size-4" />
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const filesArray = Array.from(e.target.files);
+                      chat.setAttachments((prev) => [...prev, ...filesArray]);
+                    }
+                    e.target.value = "";
+                  }}
+                  disabled={chat.sending || chat.loadingThread || chat.routeId === "cursor"}
+                />
+              </label>
               {chat.activeCommand && (
                 <span className="shrink-0 flex items-center gap-1.5 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
                   {chat.activeCommand.id}
@@ -225,7 +262,7 @@ export function WorkspaceChat({
           </div>
           <Button
             type="submit"
-            disabled={chat.sending || chat.loadingThread || (!chat.message.trim() && !chat.activeCommand)}
+            disabled={chat.sending || chat.loadingThread || (!chat.message.trim() && !chat.activeCommand && (!chat.attachments || chat.attachments.length === 0))}
             className="sm:shrink-0"
           >
             {chat.sending ? "Thinking…" : chat.loadingThread ? "Loading…" : "Send"}

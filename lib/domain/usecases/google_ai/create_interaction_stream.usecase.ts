@@ -71,6 +71,10 @@ async function* injectWorkspaceContext(
   let funcCallName: string | undefined;
   let args: Record<string, any> = {};
 
+  if (!message) {
+    return message;
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -165,8 +169,9 @@ export async function* createInteractionStream(
   input: CreateInteractionInput,
 ): AsyncGenerator<GoogleAiStreamEvent> {
   let message = input.message.trim();
-  if (!message) {
-    yield { type: "error", error: "Message is required." };
+  const hasFiles = Array.isArray(input.files) && input.files.length > 0;
+  if (!message && !hasFiles) {
+    yield { type: "error", error: "Message or file is required." };
     return;
   }
 
@@ -273,6 +278,42 @@ export async function* createInteractionStream(
     try {
       const ai = new GoogleGenAI({ apiKey });
       let currentInput: unknown = message;
+      
+      if (input.files && input.files.length > 0) {
+        const parts: any[] = [];
+        if (message) {
+          parts.push({ type: "text", text: message });
+        }
+        parts.push(
+          ...input.files.map((f) => {
+            const mime = f.mimeType.toLowerCase();
+            const data = f.base64Data.includes(",") ? f.base64Data.split(",")[1] : f.base64Data;
+            
+            if (mime.startsWith("image/")) return { type: "image", mime_type: mime, data };
+            if (mime.startsWith("video/")) return { type: "video", mime_type: mime, data };
+            if (mime.startsWith("audio/")) return { type: "audio", mime_type: mime, data };
+            if (mime === "application/pdf" || mime === "text/csv") return { type: "document", mime_type: mime, data };
+            
+            // Try to decode unknown or text files as text to prevent API errors
+            try {
+              const textStr = Buffer.from(data, "base64").toString("utf-8");
+              if (!textStr.includes("\u0000")) {
+                return { type: "text", text: `[File: ${f.name}]\n${textStr}` };
+              }
+            } catch (e) {
+              // ignore
+            }
+            
+            // Fallback
+            return { type: "document", mime_type: mime || "application/octet-stream", data };
+          })
+        );
+        currentInput = [{
+          role: "user",
+          content: parts,
+        }];
+      }
+      
       let toolTurn = 0;
 
       while (toolTurn < MAX_TOOL_TURNS && !completed) {
