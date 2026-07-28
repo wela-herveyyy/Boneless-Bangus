@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { LuFishSymbol } from "react-icons/lu";
+import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
 import {
   getAuthShellContent,
   getAuthWisdom,
@@ -21,7 +22,7 @@ export function AuthShell({ title, description, variant, children }: AuthShellPr
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <aside className="relative hidden overflow-hidden bg-surface-container-low lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
-        <div className="pointer-events-none absolute inset-0 futuristic-glow opacity-60" aria-hidden />
+        <FuturisticBackdrop />
 
         <div className="relative z-10">
           <Link href="/landing" className="inline-flex items-center gap-3 text-primary">
@@ -58,7 +59,8 @@ export function AuthShell({ title, description, variant, children }: AuthShellPr
         <p className="relative z-10 text-xs text-on-surface-muted">Livro Systems Inc.</p>
       </aside>
 
-      <div className="flex flex-col items-center justify-center bg-surface px-6 py-10">
+      <div className="relative flex flex-col items-center justify-center overflow-hidden bg-surface px-6 py-10">
+        <FuturisticBackdrop />
         <div className="mb-6 w-full max-w-md space-y-2 lg:hidden">
           <p className="text-xs font-medium uppercase tracking-wider text-secondary">{wisdom.eyebrow}</p>
           <p className="font-display text-lg font-semibold leading-snug text-on-surface">

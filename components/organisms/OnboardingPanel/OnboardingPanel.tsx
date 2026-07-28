@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { LuFishSymbol } from "react-icons/lu";
+import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
@@ -10,7 +11,6 @@ import {
   getFocusLabel,
   getRoleLabel,
   ONBOARDING_FOCUS,
-  ONBOARDING_ROLES,
   useOnboardingPanel,
 } from "./onboardingPanel.hooks";
 
@@ -62,6 +62,8 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
     setRole,
     focus,
     setFocus,
+    onboardingRoles,
+    loadingRoles,
     loading,
     saving,
     error,
@@ -82,7 +84,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <aside className="relative hidden overflow-hidden bg-surface-container-low lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
-        <div className="pointer-events-none absolute inset-0 futuristic-glow opacity-60" aria-hidden />
+        <FuturisticBackdrop />
 
         <div className="relative z-10">
           <Link href="/landing" className="inline-flex items-center gap-3 text-primary">
@@ -118,7 +120,8 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
         <p className="relative z-10 text-xs text-on-surface-muted">Livro Systems Inc.</p>
       </aside>
 
-      <div className="flex flex-col items-center justify-center bg-surface px-6 py-10">
+      <div className="relative flex flex-col items-center justify-center overflow-hidden bg-surface px-6 py-10">
+        <FuturisticBackdrop />
         <div className="mb-6 w-full max-w-md space-y-2 lg:hidden">
           <p className="text-xs font-medium uppercase tracking-wider text-secondary">Getting started</p>
           <p className="font-display text-lg font-semibold leading-snug text-on-surface">
@@ -183,15 +186,23 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
                 <p className="mt-2 text-sm text-on-surface-muted">What is your role?</p>
               </div>
               <div className="space-y-3 max-h-[300px] overflow-y-auto bbai-scroll pr-1">
-                {ONBOARDING_ROLES.map((option) => (
-                  <ChoiceCard
-                    key={option.value}
-                    selected={role === option.value}
-                    label={option.label}
-                    hint={option.hint}
-                    onSelect={() => setRole(option.value)}
-                  />
-                ))}
+                {loadingRoles ? (
+                  <p className="py-4 text-sm text-on-surface-muted">Loading roles from database…</p>
+                ) : onboardingRoles.length === 0 ? (
+                  <p className="py-4 text-sm text-on-surface-muted">
+                    No onboarding roles available yet. An administrator must insert roles in the system.
+                  </p>
+                ) : (
+                  onboardingRoles.map((option) => (
+                    <ChoiceCard
+                      key={option.value}
+                      selected={role === option.value}
+                      label={option.label}
+                      hint={option.hint}
+                      onSelect={() => setRole(option.value)}
+                    />
+                  ))
+                )}
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="secondary" className="flex-1" onClick={goBack}>
@@ -244,7 +255,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
                 </h1>
                 <p className="mt-2 text-sm text-on-surface-muted">
                   BBAI will prioritize {getFocusLabel(profile.focus).toLowerCase()} for your{" "}
-                  {getRoleLabel(profile.role).toLowerCase()} workflow.
+                  {getRoleLabel(profile.role, onboardingRoles).toLowerCase()} workflow.
                 </p>
               </div>
               <div className="space-y-3 rounded-2xl bg-surface-container-low p-5 text-sm">
@@ -254,7 +265,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
                 </p>
                 <p>
                   <span className="text-on-surface-muted">Role</span>
-                  <span className="mt-1 block font-medium text-on-surface">{getRoleLabel(profile.role)}</span>
+                  <span className="mt-1 block font-medium text-on-surface">{getRoleLabel(profile.role, onboardingRoles)}</span>
                 </p>
                 <p>
                   <span className="text-on-surface-muted">Focus</span>
