@@ -9,7 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { randomUUID } from "crypto";
-import { skill, skillCategory, user, userInstalledSkill } from "../database/schema";
+import { role as roleTable, skill, skillCategory, user, userInstalledSkill } from "../database/schema";
 import { BUILTIN_SKILLS } from "../lib/domain/usecases/skills/builtin_skills";
 
 function argValue(flag: string): string | undefined {
@@ -29,10 +29,12 @@ async function main() {
   const authors = authorEmail
     ? await database.select().from(user).where(eq(user.email, authorEmail)).limit(1)
     : await database
-        .select()
+        .select({ user: user })
         .from(user)
-        .where(eq(user.role, "owner"))
-        .limit(1);
+        .leftJoin(roleTable, eq(user.roleId, roleTable.id))
+        .where(eq(roleTable.value, "owner"))
+        .limit(1)
+        .then((rows) => rows.map((r) => r.user));
 
   let author = authors[0];
   if (!author) {
