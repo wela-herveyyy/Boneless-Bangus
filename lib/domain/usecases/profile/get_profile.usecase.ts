@@ -1,6 +1,7 @@
-import { eq, isNull, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { userSettings, userTeam, user, role as roleTable } from "@/database/schema";
+import { activeMembershipWhere } from "@/lib/domain/usecases/team/active_membership.usecase";
 
 import type { ProfileData } from "@/lib/entities/profile.type";
 
@@ -19,13 +20,10 @@ export async function getProfile(userId: string): Promise<ProfileData> {
   });
 
   const currentTeamRelation = await database.query.userTeam.findFirst({
-    where: and(
-      eq(userTeam.userId, userId),
-      isNull(userTeam.leftAt)
-    ),
+    where: activeMembershipWhere(eq(userTeam.userId, userId)),
     with: {
       team: true,
-    }
+    },
   });
 
   return {

@@ -1,14 +1,6 @@
-/** Strip trailing slash; reject non-http(s). */
-export function normalizeErpnextBaseUrl(raw: string): string | null {
-  const trimmed = raw.trim().replace(/\/+$/, "");
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
+import { normalizeErpBaseUrl } from "@/lib/entities/erpnext.type";
+
+export { normalizeErpBaseUrl as normalizeErpnextBaseUrl };
 
 export function extractSidFromSetCookie(headers: Headers): string | null {
   const cookies =

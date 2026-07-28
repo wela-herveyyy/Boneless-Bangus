@@ -1,9 +1,7 @@
 import { auth } from "@/lib/domain/services/auth.service";
-import { ERP_BASE_URL } from "@/lib/entities/erpnext.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-
-const ERP_URL = ERP_BASE_URL;
+import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
 
 function extractSid(response: Response): string | null {
   const setCookieHeaders = response.headers.getSetCookie?.() ?? [];
@@ -37,11 +35,17 @@ export async function POST(request: Request) {
       pwd?: string;
       tmp_id?: string;
       otp?: string;
+      baseUrl?: string;
     };
+
+    const erpUrl = resolveErpBaseUrl(body.baseUrl);
+    if (!erpUrl) {
+      return Response.json({ ok: false, error: "Invalid ERP URL." }, { status: 400 });
+    }
 
     // Step 2: OTP verification
     if (body.tmp_id && body.otp) {
-      const otpResponse = await fetch(`${ERP_URL}/api/method/login`, {
+      const otpResponse = await fetch(`${erpUrl}/api/method/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ cmd: "login", tmp_id: body.tmp_id, otp: body.otp }),
@@ -92,7 +96,7 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Email and password are required." }, { status: 400 });
     }
 
-    const erpResponse = await fetch(`${ERP_URL}/api/method/login`, {
+    const erpResponse = await fetch(`${erpUrl}/api/method/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ usr, pwd }),

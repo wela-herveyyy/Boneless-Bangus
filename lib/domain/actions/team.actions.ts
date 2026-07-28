@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/domain/services/auth.service";
 import {
+  changeTeamLeader,
   createTeam,
   getManagedTeamId,
   getTeamDetail,
   listTeams,
+  removeTeamMember,
   updateTeamApiKeys,
 } from "@/lib/domain/services/team.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
@@ -18,6 +20,20 @@ import type {
   TeamSelect,
 } from "@/lib/entities/team.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+
+async function canManageTeamRoster(
+  userId: string,
+  role: string,
+  teamId: string,
+): Promise<TeamResult<boolean>> {
+  if (hasPermission(role, USER_PERMISSION.TEAMS_MANAGE)) {
+    return { ok: true, data: true };
+  }
+  const managed = await getManagedTeamId(userId);
+  if (!managed.ok) return managed;
+  if (managed.data === teamId) return { ok: true, data: true };
+  return { ok: false, error: "Only the team leader or an admin can manage this roster." };
+}
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error.";
@@ -58,15 +74,28 @@ export async function listTeamsAction(): Promise<TeamResult<TeamListItem[]>> {
 
 export async function getTeamDetailAction(teamId: string): Promise<TeamResult<TeamDetail>> {
   const action = "teams:detail";
-  const permission = USER_PERMISSION.TEAMS_MANAGE;
 
   try {
     const userSession = await auth();
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
-      return { ok: false, error: "You are not authorized for this action." };
+
+    const access = await canManageTeamRoster(
+      userSession.user.id,
+      userSession.user.role,
+      teamId,
+    );
+    if (!access.ok) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: access.error,
+        role: userSession.user.role,
+        metadata: { teamId },
+      });
+      return { ok: false, error: access.error };
     }
 
     const result = await getTeamDetail(teamId);
@@ -182,6 +211,105 @@ export async function updateTeamApiKeysAction(
     revalidatePath("/admin");
     revalidatePath(`/team/${teamId}`);
     return { ok: true };
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+/** Admin/owner or the team leader can archive a member (not the current leader). */
+export async function removeTeamMemberAction(
+  teamId: string,
+  userId: string,
+): Promise<TeamResult<{ teamId: string; userId: string }>> {
+  const action = "teams:remove-member";
+
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+
+    const access = await canManageTeamRoster(
+      userSession.user.id,
+      userSession.user.role,
+      teamId,
+    );
+    if (!access.ok) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: access.error,
+        role: userSession.user.role,
+        metadata: { teamId, userId },
+      });
+      return { ok: false, error: access.error };
+    }
+
+    const result = await removeTeamMember({ teamId, userId });
+    await logAction({
+      userId: userSession.user.id,
+      action,
+      success: result.ok,
+      error: result.ok ? undefined : result.error,
+      role: userSession.user.role,
+      metadata: { teamId, userId },
+    });
+
+    if (result.ok) {
+      revalidatePath("/workspace");
+      revalidatePath("/admin");
+      revalidatePath(`/team/${teamId}`);
+      revalidatePath(`/user/${userId}`);
+    }
+    return result;
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+/** Admin/owner only — reassign team.managerId to an active member. */
+export async function changeTeamLeaderAction(
+  teamId: string,
+  newManagerId: string,
+): Promise<TeamResult<{ teamId: string; managerId: string }>> {
+  const action = "teams:change-leader";
+  const permission = USER_PERMISSION.TEAMS_MANAGE;
+
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+    if (!hasPermission(userSession.user.role, permission)) {
+      await logAction({
+        userId: userSession.user.id,
+        action,
+        success: false,
+        error: "You are not authorized for this action.",
+        role: userSession.user.role,
+        metadata: { teamId, newManagerId },
+      });
+      return { ok: false, error: "Only owners/admins can change the team leader." };
+    }
+
+    const result = await changeTeamLeader({ teamId, newManagerId });
+    await logAction({
+      userId: userSession.user.id,
+      action,
+      success: result.ok,
+      error: result.ok ? undefined : result.error,
+      role: userSession.user.role,
+      metadata: { teamId, newManagerId },
+    });
+
+    if (result.ok) {
+      revalidatePath("/workspace");
+      revalidatePath("/admin");
+      revalidatePath(`/team/${teamId}`);
+      revalidatePath(`/user/${newManagerId}`);
+    }
+    return result;
   } catch (error) {
     return { ok: false, error: getErrorMessage(error) };
   }

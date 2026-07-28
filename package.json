@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "skip-build": "next build",
     "build": "bunx drizzle-kit migrate && next build",
     "start": "next start",
     "lint": "eslint",

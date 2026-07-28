@@ -21,7 +21,7 @@ export type VerificationAction = {
   message: string;
   confirmLabel?: string;
   confirmVariant?: "primary" | "secondary" | "danger";
-  titleColor?: string;
+  tone?: "default" | "danger";
   onConfirm: () => void | Promise<void>;
 } | null;
 
@@ -309,7 +309,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
         message: `Are you sure you want to delete the role "${label}"? This action cannot be undone.`,
         confirmLabel: "Delete",
         confirmVariant: "danger",
-        titleColor: "text-red-500",
+        tone: "danger",
       },
       async () => {
         setDeletingRoleId(id);

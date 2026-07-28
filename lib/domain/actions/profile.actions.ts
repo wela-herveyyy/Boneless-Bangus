@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { database } from "@/database";
 import { userSettings, team, userTeam } from "@/database/schema";
 import { auth, getSession } from "@/lib/domain/services/auth.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { updateProfileService } from "@/lib/domain/services/profile.service";
+import { activeMembershipWhere } from "@/lib/domain/usecases/team/active_membership.usecase";
 
 type ActionState = { ok: boolean; error?: string } | null;
 
@@ -80,20 +81,39 @@ export async function joinTeamAction(prevState: ActionState, formData: FormData)
       return { ok: false, error: "Team not found." };
     }
 
-    const alreadyInTeam = await database.query.userTeam.findFirst({
-      where: (ut, { and, isNull }) => and(
-        eq(ut.userId, userSession.user.id),
-        eq(ut.teamId, existingTeam.id),
-        isNull(ut.leftAt)
+    const now = new Date();
+    const activeOnTeam = await database.query.userTeam.findFirst({
+      where: activeMembershipWhere(
+        and(eq(userTeam.userId, userSession.user.id), eq(userTeam.teamId, existingTeam.id)),
       ),
     });
 
-    if (!alreadyInTeam) {
-      await database.insert(userTeam).values({
-        id: crypto.randomUUID(),
-        userId: userSession.user.id,
-        teamId: existingTeam.id,
+    if (!activeOnTeam) {
+      // Archive any other active membership first.
+      await database
+        .update(userTeam)
+        .set({ archived: true, leftAt: now })
+        .where(activeMembershipWhere(eq(userTeam.userId, userSession.user.id)));
+
+      const priorOnTeam = await database.query.userTeam.findFirst({
+        where: and(eq(userTeam.userId, userSession.user.id), eq(userTeam.teamId, existingTeam.id)),
       });
+
+      if (priorOnTeam) {
+        await database
+          .update(userTeam)
+          .set({ archived: false, leftAt: null, joinedAt: now })
+          .where(eq(userTeam.id, priorOnTeam.id));
+      } else {
+        await database.insert(userTeam).values({
+          id: crypto.randomUUID(),
+          userId: userSession.user.id,
+          teamId: existingTeam.id,
+          joinedAt: now,
+          leftAt: null,
+          archived: false,
+        });
+      }
     }
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
@@ -114,10 +134,7 @@ export async function leaveTeamAction(prevState: ActionState, formData: FormData
     }
 
     const activeTeamRelation = await database.query.userTeam.findFirst({
-      where: (ut, { and, isNull }) => and(
-        eq(ut.userId, userSession.user.id),
-        isNull(ut.leftAt)
-      ),
+      where: activeMembershipWhere(eq(userTeam.userId, userSession.user.id)),
     });
 
     if (!activeTeamRelation) {
@@ -143,8 +160,9 @@ export async function leaveTeamAction(prevState: ActionState, formData: FormData
       };
     }
 
-    await database.update(userTeam)
-      .set({ leftAt: new Date() as any })
+    await database
+      .update(userTeam)
+      .set({ archived: true, leftAt: new Date() })
       .where(eq(userTeam.id, activeTeamRelation.id));
 
     await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });

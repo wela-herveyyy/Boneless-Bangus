@@ -1,8 +1,6 @@
 import { auth } from "@/lib/domain/services/auth.service";
-import { ERP_BASE_URL } from "@/lib/entities/erpnext.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
-
-const ERP_URL = ERP_BASE_URL;
+import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
 
 /**
  * Validate an ERPNext sid.
@@ -18,15 +16,20 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Not authorized." }, { status: 403 });
     }
 
-    const body = (await request.json()) as { sid?: string };
+    const body = (await request.json()) as { sid?: string; baseUrl?: string };
     const sid = body.sid?.trim();
     if (!sid) {
       return Response.json({ ok: false, error: "sid is required." }, { status: 400 });
     }
 
+    const erpUrl = resolveErpBaseUrl(body.baseUrl);
+    if (!erpUrl) {
+      return Response.json({ ok: false, error: "Invalid ERP URL." }, { status: 400 });
+    }
+
     let erpRes: Response;
     try {
-      erpRes = await fetch(`${ERP_URL}/api/method/frappe.auth.get_logged_user`, {
+      erpRes = await fetch(`${erpUrl}/api/method/frappe.auth.get_logged_user`, {
         headers: {
           Accept: "application/json",
           Cookie: `sid=${sid}`,

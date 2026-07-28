@@ -17,6 +17,7 @@ import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import type { AiKeySource } from "@/lib/entities/ai.type";
+import { notifySkillsChanged } from "@/lib/utils/skills-events";
 import {
   getFocusLabel,
   getRoleLabel,
@@ -662,6 +663,7 @@ export function WorkspaceChat({
                     }
                     setExecutingConfirmations(false);
                     chat.setPendingConfirmations(otherConfs);
+                    if (allOk) notifySkillsChanged();
                     chat.setTurns((prev) => [
                       ...prev,
                       {
@@ -724,7 +726,11 @@ export function WorkspaceChat({
                             }
                           }
                           setExecutingConfirmations(false);
+                          const createdSkill = chat.pendingConfirmations.some(
+                            (c) => c.toolName === "create_skill",
+                          );
                           chat.setPendingConfirmations([]);
+                          if (allOk && createdSkill) notifySkillsChanged();
                           chat.setTurns((prev) => [
                             ...prev,
                             {

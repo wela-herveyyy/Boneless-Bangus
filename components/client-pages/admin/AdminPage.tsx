@@ -4,10 +4,10 @@ import Link from "next/link";
 import { LuRefreshCw, LuShield, LuUsersRound } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
-import { Portal } from "@/components/atoms/Portal/Portal";
 import type { UserRole, UserSelect } from "@/lib/entities/users.type";
 import { AdminShell } from "@/components/molecules/AdminShell/AdminShell";
-import { VerificationModal } from "@/components/molecules/VerificationModal/VerificationModal";
+import { ConfirmModal } from "@/components/molecules/ConfirmModal/ConfirmModal";
+import { Modal } from "@/components/molecules/Modal/Modal";
 import { useAdminPage } from "./adminPage.hooks";
 
 type AdminPageProps = {
@@ -54,15 +54,15 @@ export function AdminPage({
       }}
       onNavigateTab={admin.navigateTab}
     >
-      <VerificationModal
+      <ConfirmModal
         isOpen={!!admin.verificationAction}
         title={admin.verificationAction?.title ?? ""}
         message={admin.verificationAction?.message ?? ""}
         confirmLabel={admin.verificationAction?.confirmLabel}
         confirmVariant={admin.verificationAction?.confirmVariant}
-        titleColor={admin.verificationAction?.titleColor}
+        tone={admin.verificationAction?.tone}
         onCancel={admin.closeVerification}
-        onConfirm={admin.verificationAction?.onConfirm ?? (() => {})}
+        onConfirm={() => void admin.verificationAction?.onConfirm?.()}
       />
 
         <header className="mb-8">
@@ -343,188 +343,152 @@ export function AdminPage({
           </section>
         )}
 
-      {admin.createTeamOpen ? (
-        <Portal>
-          <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
-            <div
-              className="ghost-border flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="create-team-title"
+      <Modal
+        isOpen={admin.createTeamOpen}
+        onClose={admin.closeCreateTeam}
+        title="Create team"
+        description="The manager becomes team leader and cannot leave the team."
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={admin.closeCreateTeam}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={admin.creatingTeam || !admin.teamName.trim()}
+              onClick={() => void admin.createTeam()}
             >
-              <div>
-                <h3 id="create-team-title" className="font-display text-xl font-semibold text-on-surface">
-                  Create team
-                </h3>
-                <p className="mt-1 text-xs text-on-surface-muted">
-                  The manager becomes team leader and cannot leave the team.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <Input
-                  value={admin.teamName}
-                  onChange={(e) => admin.setTeamName(e.target.value)}
-                  placeholder="Team name"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.teamDescription}
-                  onChange={(e) => admin.setTeamDescription(e.target.value)}
-                  placeholder="Description (optional)"
-                  className="bg-surface-container-low"
-                />
-                <select
-                  value={admin.teamManagerId}
-                  onChange={(e) => admin.setTeamManagerId(e.target.value)}
-                  className="w-full rounded-xl bg-surface-container-low px-3 py-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="">Team leader: you (default)</option>
-                  {admin.users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="secondary" onClick={admin.closeCreateTeam}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={admin.creatingTeam || !admin.teamName.trim()}
-                  onClick={() => void admin.createTeam()}
-                >
-                  {admin.creatingTeam ? "Creating…" : "Create team"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Portal>
-      ) : null}
+              {admin.creatingTeam ? "Creating…" : "Create team"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            value={admin.teamName}
+            onChange={(e) => admin.setTeamName(e.target.value)}
+            placeholder="Team name"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.teamDescription}
+            onChange={(e) => admin.setTeamDescription(e.target.value)}
+            placeholder="Description (optional)"
+            className="bg-surface-container-low"
+          />
+          <select
+            value={admin.teamManagerId}
+            onChange={(e) => admin.setTeamManagerId(e.target.value)}
+            className="w-full rounded-xl bg-surface-container-low px-3 py-3 text-sm text-on-surface outline-none focus:shadow-[0_0_0_2px_var(--color-primary)]"
+          >
+            <option value="">Team leader: you (default)</option>
+            {admin.users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+        </div>
+      </Modal>
 
-      {admin.createRoleOpen ? (
-        <Portal>
-          <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
-            <div
-              className="ghost-border flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="create-role-title"
+      <Modal
+        isOpen={admin.createRoleOpen}
+        onClose={admin.closeCreateRole}
+        title="Create role"
+        description="Define a new dynamic role for users and onboarding selection."
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={admin.closeCreateRole}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={admin.creatingRole || !admin.roleValue.trim() || !admin.roleLabel.trim()}
+              onClick={() => void admin.createRole()}
             >
-              <div>
-                <h3 id="create-role-title" className="font-display text-xl font-semibold text-on-surface">
-                  Create role
-                </h3>
-                <p className="mt-1 text-xs text-on-surface-muted">
-                  Define a new dynamic role for users and onboarding selection.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <Input
-                  value={admin.roleValue}
-                  onChange={(e) => admin.setRoleValue(e.target.value)}
-                  placeholder="Role identifier (e.g. tech, sales, data-eng)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.roleLabel}
-                  onChange={(e) => admin.setRoleLabel(e.target.value)}
-                  placeholder="Display label (e.g. Tech Infrastructure)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.roleHint}
-                  onChange={(e) => admin.setRoleHint(e.target.value)}
-                  placeholder="Short hint for onboarding (optional)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.roleDescription}
-                  onChange={(e) => admin.setRoleDescription(e.target.value)}
-                  placeholder="Description & responsibilities (optional)"
-                  className="bg-surface-container-low"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="secondary" onClick={admin.closeCreateRole}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={admin.creatingRole || !admin.roleValue.trim() || !admin.roleLabel.trim()}
-                  onClick={() => void admin.createRole()}
-                >
-                  {admin.creatingRole ? "Creating…" : "Create role"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Portal>
-      ) : null}
+              {admin.creatingRole ? "Creating…" : "Create role"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            value={admin.roleValue}
+            onChange={(e) => admin.setRoleValue(e.target.value)}
+            placeholder="Role identifier (e.g. tech, sales, data-eng)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.roleLabel}
+            onChange={(e) => admin.setRoleLabel(e.target.value)}
+            placeholder="Display label (e.g. Tech Infrastructure)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.roleHint}
+            onChange={(e) => admin.setRoleHint(e.target.value)}
+            placeholder="Short hint for onboarding (optional)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.roleDescription}
+            onChange={(e) => admin.setRoleDescription(e.target.value)}
+            placeholder="Description & responsibilities (optional)"
+            className="bg-surface-container-low"
+          />
+        </div>
+      </Modal>
 
-      {admin.editingRoleId ? (
-        <Portal>
-          <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
-            <div
-              className="ghost-border flex w-full max-w-md flex-col gap-4 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="edit-role-title"
+      <Modal
+        isOpen={Boolean(admin.editingRoleId)}
+        onClose={admin.cancelEditRole}
+        title="Edit role"
+        description="Modify existing role details and descriptions."
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={admin.cancelEditRole}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                admin.updatingRole || !admin.editRoleValue.trim() || !admin.editRoleLabel.trim()
+              }
+              onClick={() => void admin.saveRole()}
             >
-              <div>
-                <h3 id="edit-role-title" className="font-display text-xl font-semibold text-on-surface">
-                  Edit role
-                </h3>
-                <p className="mt-1 text-xs text-on-surface-muted">
-                  Modify existing role details and descriptions.
-                </p>
-              </div>
-              <div className="space-y-3">
-                <Input
-                  value={admin.editRoleValue}
-                  onChange={(e) => admin.setEditRoleValue(e.target.value)}
-                  disabled={admin.editRoleValue === "owner" || admin.editRoleValue === "admin"}
-                  placeholder="Role identifier (e.g. tech, sales, data-eng)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.editRoleLabel}
-                  onChange={(e) => admin.setEditRoleLabel(e.target.value)}
-                  placeholder="Display label (e.g. Tech Infrastructure)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.editRoleHint}
-                  onChange={(e) => admin.setEditRoleHint(e.target.value)}
-                  placeholder="Short hint for onboarding (optional)"
-                  className="bg-surface-container-low"
-                />
-                <Input
-                  value={admin.editRoleDescription}
-                  onChange={(e) => admin.setEditRoleDescription(e.target.value)}
-                  placeholder="Description & responsibilities (optional)"
-                  className="bg-surface-container-low"
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="secondary" onClick={admin.cancelEditRole}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  disabled={
-                    admin.updatingRole || !admin.editRoleValue.trim() || !admin.editRoleLabel.trim()
-                  }
-                  onClick={() => void admin.saveRole()}
-                >
-                  {admin.updatingRole ? "Saving…" : "Update role"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Portal>
-      ) : null}
+              {admin.updatingRole ? "Saving…" : "Update role"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            value={admin.editRoleValue}
+            onChange={(e) => admin.setEditRoleValue(e.target.value)}
+            disabled={admin.editRoleValue === "owner" || admin.editRoleValue === "admin"}
+            placeholder="Role identifier (e.g. tech, sales, data-eng)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.editRoleLabel}
+            onChange={(e) => admin.setEditRoleLabel(e.target.value)}
+            placeholder="Display label (e.g. Tech Infrastructure)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.editRoleHint}
+            onChange={(e) => admin.setEditRoleHint(e.target.value)}
+            placeholder="Short hint for onboarding (optional)"
+            className="bg-surface-container-low"
+          />
+          <Input
+            value={admin.editRoleDescription}
+            onChange={(e) => admin.setEditRoleDescription(e.target.value)}
+            placeholder="Description & responsibilities (optional)"
+            className="bg-surface-container-low"
+          />
+        </div>
+      </Modal>
     </AdminShell>
   );
 }

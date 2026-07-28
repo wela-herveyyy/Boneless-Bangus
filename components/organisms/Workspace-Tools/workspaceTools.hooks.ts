@@ -2,52 +2,115 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRightSidebar } from "@/components/molecules/RightSidebar/RightSidebar";
-import type {
-  ErpSession,
-  ErpOtpState,
-  ErpDashboard,
-  ErpLoginResponse,
-  SprintBacklogItem,
+import {
+  ERP_BASE_URL,
+  ERP_MCP_SERVER_KEY,
+  SCHOOL_ERP_MCP_SERVER_KEY,
+  normalizeErpBaseUrl,
+  type ErpSession,
+  type ErpOtpState,
+  type ErpDashboard,
+  type SchoolErpOverview,
+  type ErpLoginResponse,
+  type SprintBacklogItem,
 } from "@/lib/entities/erpnext.type";
 
-const ERP_SID_KEY = "bbai_erp_sid";
-const ERP_USER_KEY = "bbai_erp_user";
-const ERP_EMAIL_KEY = "bbai_erp_email";
+export type ErpToolKind = "erpnext" | "school_erpnext";
 
-function readStoredSession(): ErpSession | null {
+export type ErpToolStorage = {
+  sidKey: string;
+  userKey: string;
+  emailKey: string;
+  baseUrlKey: string;
+  eventName: string;
+};
+
+export type ErpToolConfig = {
+  kind: ErpToolKind;
+  sidebarId: string;
+  storage: ErpToolStorage;
+  /** When set, login always uses this site (no URL picker). */
+  fixedBaseUrl: string | null;
+  mcpServerKey: string;
+};
+
+export const LIVRO_ERP_TOOL: ErpToolConfig = {
+  kind: "erpnext",
+  sidebarId: "tools",
+  storage: {
+    sidKey: "bbai_erp_sid",
+    userKey: "bbai_erp_user",
+    emailKey: "bbai_erp_email",
+    baseUrlKey: "bbai_erp_base_url",
+    eventName: "bbai-erp-session",
+  },
+  fixedBaseUrl: normalizeErpBaseUrl(ERP_BASE_URL),
+  mcpServerKey: ERP_MCP_SERVER_KEY,
+};
+
+export const SCHOOL_ERP_TOOL: ErpToolConfig = {
+  kind: "school_erpnext",
+  sidebarId: "school-erp",
+  storage: {
+    sidKey: "bbai_school_erp_sid",
+    userKey: "bbai_school_erp_user",
+    emailKey: "bbai_school_erp_email",
+    baseUrlKey: "bbai_school_erp_base_url",
+    eventName: "bbai-school-erp-session",
+  },
+  fixedBaseUrl: null,
+  mcpServerKey: SCHOOL_ERP_MCP_SERVER_KEY,
+};
+
+function readStoredSession(config: ErpToolConfig): ErpSession | null {
   if (typeof window === "undefined") return null;
-  const sid = localStorage.getItem(ERP_SID_KEY)?.trim();
+  const sid = localStorage.getItem(config.storage.sidKey)?.trim();
   if (!sid) return null;
+
+  const baseUrl =
+    config.fixedBaseUrl ||
+    normalizeErpBaseUrl(localStorage.getItem(config.storage.baseUrlKey) ?? "");
+  if (!baseUrl) return null;
+
   return {
     sid,
-    fullName: localStorage.getItem(ERP_USER_KEY)?.trim() || "User",
-    email: localStorage.getItem(ERP_EMAIL_KEY)?.trim() || "",
+    fullName: localStorage.getItem(config.storage.userKey)?.trim() || "User",
+    email: localStorage.getItem(config.storage.emailKey)?.trim() || "",
+    baseUrl,
   };
 }
 
-function writeStoredSession(session: ErpSession) {
-  localStorage.setItem(ERP_SID_KEY, session.sid);
-  localStorage.setItem(ERP_USER_KEY, session.fullName);
-  localStorage.setItem(ERP_EMAIL_KEY, session.email);
+function notifySessionChanged(config: ErpToolConfig) {
+  window.dispatchEvent(new Event(config.storage.eventName));
 }
 
-function clearStoredSession() {
-  localStorage.removeItem(ERP_SID_KEY);
-  localStorage.removeItem(ERP_USER_KEY);
-  localStorage.removeItem(ERP_EMAIL_KEY);
+function writeStoredSession(config: ErpToolConfig, session: ErpSession) {
+  localStorage.setItem(config.storage.sidKey, session.sid);
+  localStorage.setItem(config.storage.userKey, session.fullName);
+  localStorage.setItem(config.storage.emailKey, session.email);
+  localStorage.setItem(config.storage.baseUrlKey, session.baseUrl);
+  notifySessionChanged(config);
+}
+
+function clearStoredSession(config: ErpToolConfig) {
+  localStorage.removeItem(config.storage.sidKey);
+  localStorage.removeItem(config.storage.userKey);
+  localStorage.removeItem(config.storage.emailKey);
+  localStorage.removeItem(config.storage.baseUrlKey);
+  notifySessionChanged(config);
 }
 
 type SidCheck =
   | { status: "valid"; email: string }
   | { status: "expired" }
-  | { status: "unknown" }; // BBAI not ready / network — keep stored sid
+  | { status: "unknown" };
 
-async function validateErpSid(sid: string): Promise<SidCheck> {
+async function validateErpSid(sid: string, baseUrl: string): Promise<SidCheck> {
   try {
     const res = await fetch("/api/erp/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sid }),
+      body: JSON.stringify({ sid, baseUrl }),
     });
     const json = (await res.json()) as {
       ok: boolean;
@@ -57,11 +120,9 @@ async function validateErpSid(sid: string): Promise<SidCheck> {
     if (json.ok && json.data?.email) {
       return { status: "valid", email: json.data.email };
     }
-    // Only wipe when ERP explicitly says Guest / bad sid
     if (json.error === "Session expired.") {
       return { status: "expired" };
     }
-    // BBAI auth not ready, no permission yet, ERP blip, 5xx — keep SID
     return { status: "unknown" };
   } catch {
     return { status: "unknown" };
@@ -70,16 +131,96 @@ async function validateErpSid(sid: string): Promise<SidCheck> {
 
 async function erpQuery<T = Record<string, unknown>>(
   sid: string,
+  baseUrl: string,
   doctype: string,
   options?: { fields?: string[]; filters?: unknown[]; limit?: number; orderBy?: string },
 ): Promise<T[]> {
   const res = await fetch("/api/erp/proxy", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sid, doctype, ...options }),
+    body: JSON.stringify({ sid, baseUrl, doctype, action: "list", ...options }),
   });
   const json = (await res.json()) as { ok: boolean; data?: T[]; error?: string };
   return json.ok ? (json.data ?? []) : [];
+}
+
+async function erpCount(
+  sid: string,
+  baseUrl: string,
+  doctype: string,
+  filters?: unknown,
+): Promise<number> {
+  try {
+    const res = await fetch("/api/erp/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sid, baseUrl, doctype, action: "count", filters: filters ?? [] }),
+    });
+    const json = (await res.json()) as { ok: boolean; data?: number };
+    return json.ok && typeof json.data === "number" ? json.data : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function erpGet(
+  sid: string,
+  baseUrl: string,
+  doctype: string,
+  name?: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch("/api/erp/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sid, baseUrl, doctype, action: "get", name }),
+    });
+    const json = (await res.json()) as { ok: boolean; data?: Record<string, unknown> | null };
+    return json.ok && json.data && typeof json.data === "object" ? json.data : null;
+  } catch {
+    return null;
+  }
+}
+
+const EMPTY_SCHOOL_OVERVIEW: SchoolErpOverview = {
+  loading: false,
+  schoolYear: null,
+  schoolCode: null,
+  schoolName: null,
+  studentsBed: 0,
+  studentsCollege: 0,
+  teachers: 0,
+  classes: 0,
+  settings: [],
+};
+
+function pickSetting(
+  doc: Record<string, unknown> | null,
+  keys: string[],
+): string | null {
+  if (!doc) return null;
+  for (const key of keys) {
+    const value = doc[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number") return String(value);
+  }
+  return null;
+}
+
+function settingsFromDoc(
+  doc: Record<string, unknown> | null,
+  labels: { key: string; label: string }[],
+): { label: string; value: string }[] {
+  if (!doc) return [];
+  const rows: { label: string; value: string }[] = [];
+  for (const { key, label } of labels) {
+    const raw = doc[key];
+    if (raw === null || raw === undefined || raw === "") continue;
+    const value = typeof raw === "string" || typeof raw === "number" ? String(raw) : null;
+    if (!value) continue;
+    rows.push({ label, value });
+  }
+  return rows;
 }
 
 function weeksSpanned(rows: { start_date?: string; creation?: string }[]): number {
@@ -92,8 +233,7 @@ function weeksSpanned(rows: { start_date?: string; creation?: string }[]): numbe
   return Math.max(1, Math.round(range / (7 * 24 * 60 * 60 * 1000)) || 1);
 }
 
-export function useErpLogin() {
-  // Server + first client paint must match — restore SID only in useEffect
+export function useErpLogin(config: ErpToolConfig) {
   const [erpSession, setErpSession] = useState<ErpSession | null>(null);
   const [sessionRestoring, setSessionRestoring] = useState(false);
   const [otpState, setOtpState] = useState<ErpOtpState | null>(null);
@@ -107,25 +247,26 @@ export function useErpLogin() {
     sprintBacklogs: [],
     loading: false,
   });
+  const [schoolOverview, setSchoolOverview] = useState<SchoolErpOverview>(EMPTY_SCHOOL_OVERVIEW);
 
-  const fetchDashboard = useCallback(async (sid: string, email: string) => {
+  const fetchLivroDashboard = useCallback(async (sid: string, email: string, baseUrl: string) => {
     setDashboard((d) => ({ ...d, loading: true }));
 
     try {
       const [timesheets, tasks, backlogs] = await Promise.all([
-        erpQuery<{ name: string; total_hours: number; start_date: string }>(sid, "Timesheet", {
+        erpQuery<{ name: string; total_hours: number; start_date: string }>(sid, baseUrl, "Timesheet", {
           fields: ["name", "total_hours", "start_date"],
           filters: [["docstatus", "=", 1]],
           limit: 200,
           orderBy: "start_date desc",
         }),
-        erpQuery<{ name: string; status: string; creation: string }>(sid, "Task", {
+        erpQuery<{ name: string; status: string; creation: string }>(sid, baseUrl, "Task", {
           fields: ["name", "status", "creation"],
           filters: [["status", "=", "Completed"]],
           limit: 200,
           orderBy: "creation desc",
         }),
-        erpQuery<SprintBacklogItem>(sid, "Sprint Backlogs", {
+        erpQuery<SprintBacklogItem>(sid, baseUrl, "Sprint Backlogs", {
           fields: [
             "name", "subject", "status", "sprint_assign", "priority",
             "type", "module", "current_assignee", "dev_assignee_name",
@@ -154,12 +295,131 @@ export function useErpLogin() {
     }
   }, []);
 
-  // Auto-connect from localStorage SID after mount (avoids SSR hydration mismatch)
+  const fetchSchoolOverview = useCallback(async (sid: string, baseUrl: string) => {
+    setSchoolOverview((prev) => ({ ...prev, loading: true }));
+
+    try {
+      const schoolYears = await erpQuery<{ name: string; year?: string; is_current?: number }>(
+        sid,
+        baseUrl,
+        "School Year",
+        {
+          fields: ["name", "year", "is_current"],
+          filters: [["is_current", "=", 1]],
+          limit: 1,
+        },
+      );
+      let schoolYear =
+        schoolYears[0]?.name ||
+        schoolYears[0]?.year ||
+        null;
+
+      if (!schoolYear) {
+        const anyYear = await erpQuery<{ name: string; year?: string }>(sid, baseUrl, "School Year", {
+          fields: ["name", "year"],
+          limit: 1,
+          orderBy: "modified desc",
+        });
+        schoolYear = anyYear[0]?.name || anyYear[0]?.year || null;
+      }
+
+      const yearFilters = schoolYear ? [["school_year", "=", schoolYear]] : [];
+      const enrolledFilters = schoolYear
+        ? [
+            ["school_year", "=", schoolYear],
+            ["officially_enrolled", "=", "Yes"],
+          ]
+        : [["officially_enrolled", "=", "Yes"]];
+
+      const [
+        studentsBed,
+        studentsCollege,
+        teachersBed,
+        teachersCollege,
+        classesBed,
+        classesCollege,
+        schoolSettings,
+        generalSettings,
+      ] = await Promise.all([
+        erpCount(sid, baseUrl, "Enrollees", enrolledFilters),
+        erpCount(sid, baseUrl, "College Enrollees", enrolledFilters),
+        erpCount(sid, baseUrl, "Teacher", yearFilters),
+        erpCount(sid, baseUrl, "College Faculty", []),
+        erpCount(sid, baseUrl, "Class", yearFilters),
+        erpCount(sid, baseUrl, "College Classes", yearFilters),
+        erpGet(sid, baseUrl, "School Settings"),
+        erpGet(sid, baseUrl, "General Settings"),
+      ]);
+
+      const settingsDoc = schoolSettings || generalSettings;
+      const schoolCode = pickSetting(settingsDoc, [
+        "school_code",
+        "code",
+        "branch_code",
+        "company_code",
+      ]);
+      const schoolName = pickSetting(settingsDoc, [
+        "school_name",
+        "school",
+        "company",
+        "branch_name",
+        "name",
+      ]);
+
+      const settings = settingsFromDoc(settingsDoc, [
+        { key: "school_year", label: "School year" },
+        { key: "current_school_year", label: "Current school year" },
+        { key: "school_code", label: "School code" },
+        { key: "code", label: "Code" },
+        { key: "school_name", label: "School name" },
+        { key: "region", label: "Region" },
+        { key: "division", label: "Division" },
+        { key: "district", label: "District" },
+        { key: "address", label: "Address" },
+        { key: "email", label: "Email" },
+        { key: "phone", label: "Phone" },
+        { key: "website", label: "Website" },
+      ]);
+
+      if (schoolYear && !settings.some((row) => row.label === "School year")) {
+        settings.unshift({ label: "School year", value: schoolYear });
+      }
+      if (schoolCode && !settings.some((row) => row.label.toLowerCase().includes("code"))) {
+        settings.unshift({ label: "School code", value: schoolCode });
+      }
+
+      setSchoolOverview({
+        loading: false,
+        schoolYear,
+        schoolCode,
+        schoolName,
+        studentsBed,
+        studentsCollege,
+        teachers: teachersBed + teachersCollege,
+        classes: classesBed + classesCollege,
+        settings,
+      });
+    } catch {
+      setSchoolOverview((prev) => ({ ...prev, loading: false }));
+    }
+  }, []);
+
+  const fetchDashboard = useCallback(
+    async (sid: string, email: string, baseUrl: string) => {
+      if (config.kind === "school_erpnext") {
+        await fetchSchoolOverview(sid, baseUrl);
+        return;
+      }
+      await fetchLivroDashboard(sid, email, baseUrl);
+    },
+    [config.kind, fetchLivroDashboard, fetchSchoolOverview],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      const stored = readStoredSession();
+      const stored = readStoredSession(config);
       if (!stored) {
         if (!cancelled) setSessionRestoring(false);
         return;
@@ -170,18 +430,16 @@ export function useErpLogin() {
         setErpSession(stored);
       }
 
-      let check = await validateErpSid(stored.sid);
-      // Retry once if BBAI auth wasn't ready
+      let check = await validateErpSid(stored.sid, stored.baseUrl);
       if (check.status === "unknown") {
         await new Promise((r) => setTimeout(r, 400));
         if (cancelled) return;
-        check = await validateErpSid(stored.sid);
+        check = await validateErpSid(stored.sid, stored.baseUrl);
       }
       if (cancelled) return;
 
       if (check.status === "expired") {
-        // Real Guest / dead sid from ERP — only then force re-login
-        clearStoredSession();
+        clearStoredSession(config);
         setErpSession(null);
         setSessionRestoring(false);
         return;
@@ -192,69 +450,86 @@ export function useErpLogin() {
           sid: stored.sid,
           fullName: stored.fullName || check.email,
           email: stored.email || check.email,
+          baseUrl: stored.baseUrl,
         };
-        writeStoredSession(session);
+        writeStoredSession(config, session);
         setErpSession(session);
         setSessionRestoring(false);
-        void fetchDashboard(session.sid, session.email);
+        void fetchDashboard(session.sid, session.email, session.baseUrl);
         return;
       }
 
-      // unknown (ERP blip / BBAI not ready): keep stored session, still load dashboard
       setErpSession(stored);
       setSessionRestoring(false);
-      void fetchDashboard(stored.sid, stored.email);
+      void fetchDashboard(stored.sid, stored.email, stored.baseUrl);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [fetchDashboard]);
+  }, [config, fetchDashboard]);
 
   const saveSession = useCallback(
     (session: ErpSession) => {
-      writeStoredSession(session);
+      writeStoredSession(config, session);
       setErpSession(session);
-      void fetchDashboard(session.sid, session.email);
+      void fetchDashboard(session.sid, session.email, session.baseUrl);
     },
-    [fetchDashboard],
+    [config, fetchDashboard],
   );
 
-  const loginErp = useCallback(async (usr: string, pwd: string) => {
-    setLoginLoading(true);
-    setLoginError(null);
+  const loginErp = useCallback(
+    async (usr: string, pwd: string, baseUrl?: string) => {
+      setLoginLoading(true);
+      setLoginError(null);
 
-    try {
-      const res = await fetch("/api/erp/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usr, pwd }),
-      });
-
-      const json = (await res.json()) as ErpLoginResponse;
-
-      if (!json.ok) {
-        setLoginError(json.error);
+      const siteUrl =
+        config.fixedBaseUrl || normalizeErpBaseUrl(baseUrl ?? "");
+      if (!siteUrl) {
+        setLoginError("Invalid ERP URL.");
+        setLoginLoading(false);
         return;
       }
 
-      if ("needs_otp" in json.data) {
-        setOtpState({
-          tmp_id: json.data.tmp_id,
-          prompt: json.data.prompt,
-          method: json.data.method,
-          usr,
+      try {
+        const res = await fetch("/api/erp/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usr, pwd, baseUrl: siteUrl }),
         });
-        return;
-      }
 
-      saveSession({ sid: json.data.sid, fullName: json.data.fullName, email: usr });
-    } catch (err) {
-      setLoginError(err instanceof Error ? err.message : "Login failed.");
-    } finally {
-      setLoginLoading(false);
-    }
-  }, [saveSession]);
+        const json = (await res.json()) as ErpLoginResponse;
+
+        if (!json.ok) {
+          setLoginError(json.error);
+          return;
+        }
+
+        if ("needs_otp" in json.data) {
+          setOtpState({
+            tmp_id: json.data.tmp_id,
+            prompt: json.data.prompt,
+            method: json.data.method,
+            usr,
+          });
+          localStorage.setItem(config.storage.baseUrlKey, siteUrl);
+          return;
+        }
+
+        saveSession({
+          sid: json.data.sid,
+          fullName: json.data.fullName,
+          email: usr,
+          baseUrl: siteUrl,
+        });
+      } catch (err) {
+        setLoginError(err instanceof Error ? err.message : "Login failed.");
+      } finally {
+        setLoginLoading(false);
+      }
+    },
+    [config, saveSession],
+  );
 
   const verifyOtp = useCallback(
     async (otp: string) => {
@@ -262,11 +537,25 @@ export function useErpLogin() {
       setLoginLoading(true);
       setLoginError(null);
 
+      const siteUrl =
+        config.fixedBaseUrl ||
+        normalizeErpBaseUrl(localStorage.getItem(config.storage.baseUrlKey) ?? "");
+      if (!siteUrl) {
+        setLoginError("Invalid ERP URL.");
+        setLoginLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch("/api/erp/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tmp_id: otpState.tmp_id, otp, usr: otpState.usr }),
+          body: JSON.stringify({
+            tmp_id: otpState.tmp_id,
+            otp,
+            usr: otpState.usr,
+            baseUrl: siteUrl,
+          }),
         });
 
         const json = (await res.json()) as ErpLoginResponse;
@@ -277,7 +566,12 @@ export function useErpLogin() {
         }
 
         if ("sid" in json.data) {
-          saveSession({ sid: json.data.sid, fullName: json.data.fullName, email: otpState.usr });
+          saveSession({
+            sid: json.data.sid,
+            fullName: json.data.fullName,
+            email: otpState.usr,
+            baseUrl: siteUrl,
+          });
           setOtpState(null);
         }
       } catch (err) {
@@ -286,7 +580,7 @@ export function useErpLogin() {
         setLoginLoading(false);
       }
     },
-    [otpState, saveSession],
+    [config, otpState, saveSession],
   );
 
   const cancelOtp = useCallback(() => {
@@ -295,7 +589,7 @@ export function useErpLogin() {
   }, []);
 
   const logoutErp = useCallback(() => {
-    clearStoredSession();
+    clearStoredSession(config);
     setErpSession(null);
     setOtpState(null);
     setLoginError(null);
@@ -307,7 +601,8 @@ export function useErpLogin() {
       sprintBacklogs: [],
       loading: false,
     });
-  }, []);
+    setSchoolOverview(EMPTY_SCHOOL_OVERVIEW);
+  }, [config]);
 
   return {
     erpSession,
@@ -320,10 +615,16 @@ export function useErpLogin() {
     loginLoading,
     loginError,
     dashboard,
-    refreshDashboard: () => erpSession && fetchDashboard(erpSession.sid, erpSession.email),
+    schoolOverview,
+    refreshDashboard: () =>
+      erpSession && fetchDashboard(erpSession.sid, erpSession.email, erpSession.baseUrl),
   };
 }
 
 export function useToolsSidebar() {
   return useRightSidebar("tools");
+}
+
+export function useSchoolErpSidebar() {
+  return useRightSidebar("school-erp");
 }

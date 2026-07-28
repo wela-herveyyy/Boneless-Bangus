@@ -399,6 +399,7 @@ export const userTeam = mysqlTable("user_team", {
     .references(() => team.id, { onDelete: "cascade" }),
   joinedAt: timestamp("joined_at", { fsp: 3 }).defaultNow().notNull(),
   leftAt: timestamp("left_at", { fsp: 3 }),
+  archived: boolean("archived").default(false).notNull(),
 });
 
 export const teamRelations = relations(team, ({ one, many }) => ({

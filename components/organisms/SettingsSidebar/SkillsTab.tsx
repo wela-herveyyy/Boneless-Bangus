@@ -9,6 +9,7 @@ import { DeleteSkillModal } from "@/components/molecules/DeleteSkillModal/Delete
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import { getSkillsAction, createSkillAction, updateSkillAction, deleteSkillAction, getSkillCategoriesAction } from "@/lib/domain/actions/skills.actions";
 import type { SkillWithDetails, SkillCategorySelect } from "@/lib/entities/skills.type";
+import { notifySkillsChanged, SKILLS_CHANGED_EVENT } from "@/lib/utils/skills-events";
 
 export function SkillsTab() {
   const [skills, setSkills] = useState<SkillWithDetails[]>([]);
@@ -41,6 +42,14 @@ export function SkillsTab() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const onSkillsChanged = () => {
+      void loadData();
+    };
+    window.addEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
+    return () => window.removeEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
   }, []);
 
   const openForm = (skill?: SkillWithDetails) => {
@@ -88,6 +97,7 @@ export function SkillsTab() {
         isGlobal: newSkillForm.isGlobal
       });
     }
+    notifySkillsChanged();
     await loadData();
     closeForm();
   };
@@ -99,6 +109,7 @@ export function SkillsTab() {
   const confirmDelete = async () => {
     if (!skillToDelete) return;
     await deleteSkillAction(skillToDelete);
+    notifySkillsChanged();
     await loadData();
     setSkillToDelete(null);
   };

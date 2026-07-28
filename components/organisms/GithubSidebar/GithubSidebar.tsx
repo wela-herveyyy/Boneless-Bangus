@@ -26,6 +26,7 @@ import {
   RightSidebarHeader,
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
+import { SidebarLoading } from "@/components/molecules/SidebarLoading/SidebarLoading";
 import type { GithubRepoSummary } from "@/lib/entities/github.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { getRoleLabel } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
@@ -171,10 +172,11 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
           )}
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-on-surface-variant">
-              <HiOutlineArrowPath className="size-6 animate-spin text-primary" />
-              <span className="text-xs">Checking connection status...</span>
-            </div>
+            <SidebarLoading
+              title="Checking connection"
+              subtitle="Looking up your GitHub session…"
+              icon={<SiGithub className="size-5" aria-hidden />}
+            />
           ) : !authRecord?.isConnected ? (
             <div className="flex flex-col items-center justify-center gap-5 rounded-2xl bg-surface-container-low/40 p-6 text-center shadow-inner">
               <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">

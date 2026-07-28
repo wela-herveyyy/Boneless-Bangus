@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { getSkillsAction, createSkillAction } from "@/lib/domain/actions/skills.actions";
 import { installSkillAction, uninstallSkillAction, deleteSkillAction } from "@/lib/domain/actions/skills.actions";
+import { notifySkillsChanged, SKILLS_CHANGED_EVENT } from "@/lib/utils/skills-events";
 export type Skill = {
   id: string;
   name: string;
@@ -81,6 +82,14 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const onSkillsChanged = () => {
+      void loadData();
+    };
+    window.addEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
+    return () => window.removeEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
+  }, [loadData]);
+
   const filteredSkills = skills.filter((skill) => {
     // Global marketplace skills + your own private skills (skill-maker / DB)
     if (!skill.isGlobal && !skill.isAuthor) return false;
@@ -110,6 +119,7 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
     const res = await installSkillAction(skillToInstall);
     if (res.ok) {
       setSkillToInstall(null);
+      notifySkillsChanged();
       await loadData();
     } else {
       console.error(res.error);
@@ -125,6 +135,7 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
     const res = await uninstallSkillAction(skillToUninstall);
     if (res.ok) {
       setSkillToUninstall(null);
+      notifySkillsChanged();
       await loadData();
     } else {
       console.error(res.error);
@@ -149,7 +160,8 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
     });
 
     if (res.ok) {
-      await loadData(); // refresh the list
+      notifySkillsChanged();
+      await loadData();
       setNewSkillForm({ name: "", description: "", instructions: "", category: "", isGlobal: false });
       setIsAddingFormOpen(false);
     } else {
@@ -167,6 +179,7 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
     if (res.ok) {
       if (selectedSkillId === skillToDelete) setSelectedSkillId(null);
       setSkillToDelete(null);
+      notifySkillsChanged();
       await loadData();
     } else {
       console.error(res.error);

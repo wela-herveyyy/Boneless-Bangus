@@ -91,11 +91,13 @@ async function ask(rl: ReturnType<typeof createInterface>, label: string) {
 
 async function promptMissing(
   args: Args,
-): Promise<
-  Required<Pick<Args, "email" | "name" | "password" | "role">> & {
-    image: string | null;
-  }
-> {
+): Promise<{
+  email: string;
+  name: string;
+  password: string;
+  role: Role;
+  image: string | null;
+}> {
   const rl = createInterface({ input, output });
   try {
     console.log("Create / update account\n");
@@ -137,17 +139,19 @@ async function promptMissing(
       image = (await ask(rl, "Image URL (optional, Enter to skip)")) || null;
     }
 
-    return { email, name, password, role, image };
+    return { email, name, password, role: role as Role, image };
   } finally {
     rl.close();
   }
 }
 
-async function ensureRoleId(
-  database: ReturnType<typeof drizzle>,
-  role: Role,
-  now: Date,
-): Promise<string> {
+function createDb(pool: mysql.Pool) {
+  return drizzle(pool);
+}
+
+type Db = ReturnType<typeof createDb>;
+
+async function ensureRoleId(database: Db, role: Role, now: Date): Promise<string> {
   const [existingRole] = await database
     .select({ id: roleTable.id })
     .from(roleTable)
@@ -187,7 +191,7 @@ async function main() {
     uri: process.env.DATABASE_URL,
     connectionLimit: 2,
   });
-  const database = drizzle(pool);
+  const database = createDb(pool);
 
   try {
     const now = new Date();

@@ -1,6 +1,7 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { user, userSettings, userTeam, role as roleTable } from "@/database/schema";
+import { activeMembershipWhere } from "@/lib/domain/usecases/team/active_membership.usecase";
 import type { AdminUserDetail, UserResult } from "@/lib/entities/users.type";
 import { EMPTY_USAGE, getUserApiUsage } from "./get_user_api_usage.usecase";
 
@@ -32,7 +33,7 @@ export async function getAdminUserDetail(userId: string): Promise<UserResult<Adm
     });
 
     const membership = await database.query.userTeam.findFirst({
-      where: and(eq(userTeam.userId, id), isNull(userTeam.leftAt)),
+      where: activeMembershipWhere(eq(userTeam.userId, id)),
       with: { team: true },
     });
 

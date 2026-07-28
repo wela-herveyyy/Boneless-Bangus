@@ -1,7 +1,8 @@
-import { and, count, eq, inArray, isNull, sql, sum } from "drizzle-orm";
+import { and, count, countDistinct, eq, gte, isNull, sql, sum } from "drizzle-orm";
 import { database } from "@/database";
 import { aiConversation, aiMessage, userTeam } from "@/database/schema";
 import type { TeamApiUsage, TeamResult } from "@/lib/entities/team.type";
+import { activeMembershipWhere } from "./active_membership.usecase";
 
 const EMPTY_BUCKET = {
   promptCount: 0,
@@ -31,6 +32,7 @@ function bucketKey(source: string | null): keyof TeamApiUsage["byKeySource"] {
   return "unknown";
 }
 
+/** Usage only counts messages created on/after each member's team joinedAt. */
 export async function getTeamApiUsage(teamId: string): Promise<TeamResult<TeamApiUsage>> {
   const id = teamId.trim();
   if (!id) {
@@ -41,17 +43,27 @@ export async function getTeamApiUsage(teamId: string): Promise<TeamResult<TeamAp
     const members = await database
       .select({ userId: userTeam.userId })
       .from(userTeam)
-      .where(and(eq(userTeam.teamId, id), isNull(userTeam.leftAt)));
+      .where(activeMembershipWhere(eq(userTeam.teamId, id)));
 
-    const memberIds = members.map((m) => m.userId);
-    if (memberIds.length === 0) {
+    if (members.length === 0) {
       return { ok: true, data: EMPTY_USAGE };
     }
 
+    const membershipJoin = and(
+      eq(userTeam.userId, aiConversation.userId),
+      eq(userTeam.teamId, id),
+      eq(userTeam.archived, false),
+      isNull(userTeam.leftAt),
+    );
+
+    const afterJoin = gte(aiMessage.createdAt, userTeam.joinedAt);
+
     const [conversationRow] = await database
-      .select({ conversationCount: count(aiConversation.id) })
-      .from(aiConversation)
-      .where(inArray(aiConversation.userId, memberIds));
+      .select({ conversationCount: countDistinct(aiConversation.id) })
+      .from(aiMessage)
+      .innerJoin(aiConversation, eq(aiMessage.conversationId, aiConversation.id))
+      .innerJoin(userTeam, membershipJoin)
+      .where(afterJoin);
 
     const [totals] = await database
       .select({
@@ -62,7 +74,8 @@ export async function getTeamApiUsage(teamId: string): Promise<TeamResult<TeamAp
       })
       .from(aiMessage)
       .innerJoin(aiConversation, eq(aiMessage.conversationId, aiConversation.id))
-      .where(inArray(aiConversation.userId, memberIds));
+      .innerJoin(userTeam, membershipJoin)
+      .where(afterJoin);
 
     const sourceRows = await database
       .select({
@@ -74,7 +87,8 @@ export async function getTeamApiUsage(teamId: string): Promise<TeamResult<TeamAp
       })
       .from(aiMessage)
       .innerJoin(aiConversation, eq(aiMessage.conversationId, aiConversation.id))
-      .where(inArray(aiConversation.userId, memberIds))
+      .innerJoin(userTeam, membershipJoin)
+      .where(afterJoin)
       .groupBy(aiMessage.keySource);
 
     const byKeySource: TeamApiUsage["byKeySource"] = {

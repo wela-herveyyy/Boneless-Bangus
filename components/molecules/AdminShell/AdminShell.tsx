@@ -25,6 +25,11 @@ type AdminShellProps = {
   children: React.ReactNode;
   /** When set, Users/Teams/Roles use callbacks instead of navigation (admin home). */
   onNavigateTab?: (tab: "users" | "teams" | "roles") => void;
+  /**
+   * `full` — admin Users/Teams/Roles nav.
+   * `teamLeader` — only team profile + back to chat (no admin links).
+   */
+  navMode?: "full" | "teamLeader";
 };
 
 function roleLabel(role: string) {
@@ -58,9 +63,11 @@ export function AdminShell({
   counts,
   children,
   onNavigateTab,
+  navMode = "full",
 }: AdminShellProps) {
   const displayName = currentUserName?.trim() || "Admin";
   const displayRole = String(currentUserRole ?? "admin");
+  const isTeamLeaderNav = navMode === "teamLeader";
 
   const usersActive = active === "users" || active === "user";
   const teamsActive = active === "teams" || active === "team";
@@ -118,38 +125,54 @@ export function AdminShell({
           </span>
           <div className="min-w-0">
             <p className="font-display text-sm font-semibold text-on-surface">BBAI Control</p>
-            <p className="text-xs text-on-surface-muted">Administration</p>
+            <p className="text-xs text-on-surface-muted">
+              {isTeamLeaderNav ? "Team leader" : "Administration"}
+            </p>
           </div>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-muted">
-            Manage
-          </p>
-          <TabLink
-            tab="users"
-            href="/admin?tab=users"
-            isActive={usersActive}
-            icon={<LuUsers className="size-4 shrink-0" aria-hidden />}
-            label="Users"
-            count={counts?.users}
-          />
-          <TabLink
-            tab="teams"
-            href="/admin?tab=teams"
-            isActive={teamsActive}
-            icon={<LuUsersRound className="size-4 shrink-0" aria-hidden />}
-            label="Teams"
-            count={counts?.teams ?? "—"}
-          />
-          <TabLink
-            tab="roles"
-            href="/admin?tab=roles"
-            isActive={rolesActive}
-            icon={<LuShield className="size-4 shrink-0" aria-hidden />}
-            label="Roles"
-            count={counts?.roles ?? "—"}
-          />
+          {isTeamLeaderNav ? (
+            <>
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-muted">
+                Your team
+              </p>
+              <div className={navClass(true)}>
+                <LuUsersRound className="size-4 shrink-0" aria-hidden />
+                Team profile
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-muted">
+                Manage
+              </p>
+              <TabLink
+                tab="users"
+                href="/admin?tab=users"
+                isActive={usersActive}
+                icon={<LuUsers className="size-4 shrink-0" aria-hidden />}
+                label="Users"
+                count={counts?.users}
+              />
+              <TabLink
+                tab="teams"
+                href="/admin?tab=teams"
+                isActive={teamsActive}
+                icon={<LuUsersRound className="size-4 shrink-0" aria-hidden />}
+                label="Teams"
+                count={counts?.teams ?? "—"}
+              />
+              <TabLink
+                tab="roles"
+                href="/admin?tab=roles"
+                isActive={rolesActive}
+                icon={<LuShield className="size-4 shrink-0" aria-hidden />}
+                label="Roles"
+                count={counts?.roles ?? "—"}
+              />
+            </>
+          )}
 
           <div className="mt-6 px-3">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-muted">
@@ -185,45 +208,61 @@ export function AdminShell({
 
       <main className="relative z-10 min-w-0 flex-1 px-5 py-8 sm:px-8 lg:px-10">
         <div className="mb-6 flex items-center gap-2 md:hidden">
-          <Link
-            href="/admin?tab=users"
-            className={[
-              "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              usersActive
-                ? "bg-surface-container-lowest text-on-surface shadow-bloom"
-                : "bg-surface-container-low text-on-surface-muted",
-            ].join(" ")}
-          >
-            Users
-          </Link>
-          <Link
-            href="/admin?tab=teams"
-            className={[
-              "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              teamsActive
-                ? "bg-surface-container-lowest text-on-surface shadow-bloom"
-                : "bg-surface-container-low text-on-surface-muted",
-            ].join(" ")}
-          >
-            Teams
-          </Link>
-          <Link
-            href="/admin?tab=roles"
-            className={[
-              "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              rolesActive
-                ? "bg-surface-container-lowest text-on-surface shadow-bloom"
-                : "bg-surface-container-low text-on-surface-muted",
-            ].join(" ")}
-          >
-            Roles
-          </Link>
-          <Link
-            href="/workspace"
-            className="ml-auto rounded-xl bg-surface-container-low px-3 py-2 text-sm text-on-surface-muted"
-          >
-            Chat
-          </Link>
+          {isTeamLeaderNav ? (
+            <>
+              <span className="rounded-xl bg-surface-container-lowest px-3 py-2 text-sm font-medium text-on-surface shadow-bloom">
+                Team profile
+              </span>
+              <Link
+                href="/workspace"
+                className="ml-auto rounded-xl bg-surface-container-low px-3 py-2 text-sm text-on-surface-muted"
+              >
+                Chat
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/admin?tab=users"
+                className={[
+                  "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  usersActive
+                    ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                    : "bg-surface-container-low text-on-surface-muted",
+                ].join(" ")}
+              >
+                Users
+              </Link>
+              <Link
+                href="/admin?tab=teams"
+                className={[
+                  "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  teamsActive
+                    ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                    : "bg-surface-container-low text-on-surface-muted",
+                ].join(" ")}
+              >
+                Teams
+              </Link>
+              <Link
+                href="/admin?tab=roles"
+                className={[
+                  "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                  rolesActive
+                    ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                    : "bg-surface-container-low text-on-surface-muted",
+                ].join(" ")}
+              >
+                Roles
+              </Link>
+              <Link
+                href="/workspace"
+                className="ml-auto rounded-xl bg-surface-container-low px-3 py-2 text-sm text-on-surface-muted"
+              >
+                Chat
+              </Link>
+            </>
+          )}
         </div>
         {children}
       </main>

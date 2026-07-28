@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  LuFingerprint,
+  LuSchool,
   LuLogIn,
   LuLogOut,
   LuArrowLeft,
@@ -10,7 +10,13 @@ import {
   LuClock,
   LuCircleCheck,
   LuRefreshCw,
+  LuChevronDown,
+  LuUsers,
+  LuGraduationCap,
+  LuBookOpen,
+  LuInfo,
 } from "react-icons/lu";
+import { SiErpnext } from "react-icons/si";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import {
@@ -20,11 +26,21 @@ import {
   RightSidebarHeader,
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
-import { useToolsSidebar, useErpLogin } from "./workspaceTools.hooks";
-import type {
-  ErpDashboard,
-  ErpOtpState,
-  SprintBacklogItem,
+import { SidebarLoading } from "@/components/molecules/SidebarLoading/SidebarLoading";
+import {
+  LIVRO_ERP_TOOL,
+  SCHOOL_ERP_TOOL,
+  useErpLogin,
+  useSchoolErpSidebar,
+  useToolsSidebar,
+  type ErpToolConfig,
+} from "./workspaceTools.hooks";
+import {
+  listSchoolErpUrlPresets,
+  type ErpDashboard,
+  type SchoolErpOverview,
+  type ErpOtpState,
+  type SprintBacklogItem,
 } from "@/lib/entities/erpnext.type";
 
 /* ── Login form ─────────────────────────────────────────── */
@@ -33,35 +49,119 @@ function ErpLoginForm({
   onSubmit,
   loading,
   error,
+  showUrlField,
+  emailPlaceholder = "you@livro.systems",
+  submitLabel = "Login to ERPNext",
 }: {
-  onSubmit: (usr: string, pwd: string) => void;
+  onSubmit: (usr: string, pwd: string, baseUrl?: string) => void;
   loading: boolean;
   error: string | null;
+  showUrlField?: boolean;
+  emailPlaceholder?: string;
+  submitLabel?: string;
 }) {
+  const presets = listSchoolErpUrlPresets();
+  const [baseUrl, setBaseUrl] = useState(() => presets[0] ?? "");
   const [usr, setUsr] = useState("");
   const [pwd, setPwd] = useState("");
+  const [presetsOpen, setPresetsOpen] = useState(false);
+  const presetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!presetsOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!presetRef.current?.contains(event.target as Node)) setPresetsOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [presetsOpen]);
 
   return (
     <form
       className="space-y-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(usr, pwd);
+        onSubmit(usr, pwd, showUrlField ? baseUrl : undefined);
       }}
     >
+      {showUrlField ? (
+        <div className="space-y-1.5">
+          <label htmlFor="school-erp-url" className="block text-xs font-medium text-on-surface-muted">
+            School ERP URL
+          </label>
+          <div ref={presetRef} className="relative flex gap-1.5">
+            <Input
+              id="school-erp-url"
+              type="url"
+              placeholder="https://school.example.com"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              required
+              disabled={loading}
+              autoComplete="url"
+              className="min-w-0 flex-1"
+            />
+            {presets.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  disabled={loading}
+                  aria-label="Choose school ERP URL preset"
+                  aria-haspopup="listbox"
+                  aria-expanded={presetsOpen}
+                  onClick={() => setPresetsOpen((open) => !open)}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50"
+                >
+                  <LuChevronDown
+                    className={["size-4 transition-transform", presetsOpen ? "rotate-180" : ""].join(" ")}
+                    aria-hidden
+                  />
+                </button>
+                {presetsOpen ? (
+                  <ul
+                    role="listbox"
+                    aria-label="School ERP URL presets"
+                    className="absolute right-0 top-full z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-2xl bg-surface-container-lowest py-1 shadow-bloom bbai-scroll"
+                  >
+                    {presets.map((preset) => (
+                      <li key={preset} role="option" aria-selected={preset === baseUrl}>
+                        <button
+                          type="button"
+                          className={[
+                            "w-full truncate px-3 py-2 text-left text-xs transition-colors",
+                            preset === baseUrl
+                              ? "bg-primary/8 font-medium text-primary"
+                              : "text-on-surface hover:bg-surface-container-low",
+                          ].join(" ")}
+                          onClick={() => {
+                            setBaseUrl(preset);
+                            setPresetsOpen(false);
+                          }}
+                        >
+                          {preset}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="space-y-1.5">
         <label htmlFor="erp-usr" className="block text-xs font-medium text-on-surface-muted">
-          Email
+          Username / email
         </label>
         <Input
           id="erp-usr"
-          type="email"
-          placeholder="you@livro.systems"
+          type="text"
+          placeholder={emailPlaceholder}
           value={usr}
           onChange={(e) => setUsr(e.target.value)}
           required
           disabled={loading}
-          autoComplete="email"
+          autoComplete="username"
         />
       </div>
       <div className="space-y-1.5">
@@ -84,9 +184,13 @@ function ErpLoginForm({
           {error}
         </p>
       ) : null}
-      <Button type="submit" disabled={loading || !usr || !pwd} className="w-full gap-2">
+      <Button
+        type="submit"
+        disabled={loading || !usr || !pwd || (showUrlField && !baseUrl)}
+        className="w-full gap-2"
+      >
         <LuLogIn className="size-4" aria-hidden />
-        {loading ? "Logging in…" : "Login to ERPNext"}
+        {loading ? "Logging in…" : submitLabel}
       </Button>
     </form>
   );
@@ -275,18 +379,65 @@ function SprintBacklogList({ items }: { items: SprintBacklogItem[] }) {
 
 /* ── Dashboard (post-login) ─────────────────────────────── */
 
+function DashboardActions({
+  loading,
+  onRefresh,
+  onLogout,
+}: {
+  loading: boolean;
+  onRefresh: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Button
+        type="button"
+        variant="secondary"
+        className="flex-1 gap-1.5"
+        onClick={onRefresh}
+        disabled={loading}
+      >
+        <LuRefreshCw className={["size-3.5", loading ? "animate-spin" : ""].join(" ")} aria-hidden />
+        Refresh
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
+        onClick={onLogout}
+      >
+        <LuLogOut className="size-3.5" aria-hidden />
+        Logout
+      </Button>
+    </div>
+  );
+}
+
 function ErpDashboardView({
+  baseUrl,
   dashboard,
   onRefresh,
   onLogout,
 }: {
+  baseUrl: string;
   dashboard: ErpDashboard;
   onRefresh: () => void;
   onLogout: () => void;
 }) {
   return (
     <div className="space-y-4">
-      {/* Stats row */}
+      <p className="truncate rounded-xl bg-surface-container-low px-3 py-2 text-[11px] text-on-surface-muted">
+        {baseUrl}
+      </p>
+
+      <div className="flex gap-2.5 rounded-xl bg-primary/8 px-3 py-2.5">
+        <LuInfo className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+        <p className="text-xs leading-relaxed text-on-surface">
+          Whatever data this ERPNext account can access,{" "}
+          <span className="font-semibold">BBAI</span> can access through ERPNext MCP tools.
+        </p>
+      </div>
+
       <div className="space-y-2">
         <StatCard
           icon={<LuClock className="size-4" />}
@@ -302,7 +453,6 @@ function ErpDashboardView({
         />
       </div>
 
-      {/* Sprint backlogs */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
           Sprint Backlogs
@@ -318,45 +468,148 @@ function ErpDashboardView({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          className="flex-1 gap-1.5"
-          onClick={onRefresh}
-          disabled={dashboard.loading}
-        >
-          <LuRefreshCw className={["size-3.5", dashboard.loading ? "animate-spin" : ""].join(" ")} aria-hidden />
-          Refresh
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
-          onClick={onLogout}
-        >
-          <LuLogOut className="size-3.5" aria-hidden />
-          Logout
-        </Button>
-      </div>
+      <DashboardActions
+        loading={dashboard.loading}
+        onRefresh={onRefresh}
+        onLogout={onLogout}
+      />
     </div>
   );
 }
 
-/* ── Main sidebar ───────────────────────────────────────── */
+function SchoolErpDashboardView({
+  baseUrl,
+  overview,
+  onRefresh,
+  onLogout,
+}: {
+  baseUrl: string;
+  overview: SchoolErpOverview;
+  onRefresh: () => void;
+  onLogout: () => void;
+}) {
+  const totalStudents = overview.studentsBed + overview.studentsCollege;
 
-export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
-  const sidebar = useToolsSidebar();
-  const erp = useErpLogin();
+  return (
+    <div className="space-y-4">
+      <p className="truncate rounded-xl bg-surface-container-low px-3 py-2 text-[11px] text-on-surface-muted">
+        {baseUrl}
+      </p>
+
+      <div className="flex gap-2.5 rounded-xl bg-primary/8 px-3 py-2.5">
+        <LuInfo className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+        <p className="text-xs leading-relaxed text-on-surface">
+          Whatever data this school account can access, <span className="font-semibold">BBAI</span>{" "}
+          can access through School ERP MCP tools.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <StatCard
+          icon={<LuUsers className="size-4" />}
+          label="Students (total)"
+          value={overview.loading ? "…" : String(totalStudents)}
+          sub={
+            overview.loading
+              ? "Loading…"
+              : `BED ${overview.studentsBed} · College ${overview.studentsCollege}`
+          }
+        />
+        <StatCard
+          icon={<LuGraduationCap className="size-4" />}
+          label="Teachers / faculty"
+          value={overview.loading ? "…" : String(overview.teachers)}
+          sub={overview.schoolYear ? overview.schoolYear : "All years"}
+        />
+        <StatCard
+          icon={<LuBookOpen className="size-4" />}
+          label="Classes"
+          value={overview.loading ? "…" : String(overview.classes)}
+          sub="BED + College"
+        />
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
+          General settings
+        </p>
+        {overview.loading ? (
+          <div className="space-y-2">
+            <div className="h-10 animate-pulse rounded-xl bg-surface-container-high/60" />
+            <div className="h-10 animate-pulse rounded-xl bg-surface-container-high/60" />
+          </div>
+        ) : overview.settings.length > 0 ? (
+          <ul className="space-y-1.5">
+            {overview.settings.map((row) => (
+              <li
+                key={`${row.label}-${row.value}`}
+                className="flex items-start justify-between gap-3 rounded-xl bg-surface-container-high/60 px-3 py-2"
+              >
+                <span className="text-[11px] text-on-surface-muted">{row.label}</span>
+                <span className="max-w-[60%] truncate text-right text-xs font-medium text-on-surface">
+                  {row.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-xl bg-surface-container-high/60 px-3 py-3 text-xs text-on-surface-muted">
+            {overview.schoolName || overview.schoolCode || overview.schoolYear
+              ? [
+                  overview.schoolName && `School: ${overview.schoolName}`,
+                  overview.schoolCode && `Code: ${overview.schoolCode}`,
+                  overview.schoolYear && `Year: ${overview.schoolYear}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "No general settings available for this account."}
+          </p>
+        )}
+      </div>
+
+      <DashboardActions
+        loading={overview.loading}
+        onRefresh={onRefresh}
+        onLogout={onLogout}
+      />
+    </div>
+  );
+}
+
+/* ── Shared ERP tool sidebar ────────────────────────────── */
+
+function ErpToolsPanel({
+  config,
+  sidebar,
+  icon,
+  title,
+  brandLabel,
+  loginHint,
+  showUrlField,
+  emailPlaceholder,
+  submitLabel,
+  topOffset,
+}: {
+  config: ErpToolConfig;
+  sidebar: ReturnType<typeof useToolsSidebar>;
+  icon: ReactNode;
+  title: string;
+  brandLabel: string;
+  loginHint: string;
+  showUrlField?: boolean;
+  emailPlaceholder?: string;
+  submitLabel?: string;
+  topOffset?: string;
+}) {
+  const erp = useErpLogin(config);
 
   return (
     <>
       <RightSidebarTrigger
         sidebar={sidebar}
-        icon={<LuFingerprint className="size-6" aria-hidden />}
-        labelOpen="Hide ERPNext tools"
-        labelClosed="Show ERPNext tools"
+        icon={icon}
+        labelOpen={`Hide ${brandLabel}`}
+        labelClosed={`Show ${brandLabel}`}
         topOffset={topOffset}
       />
 
@@ -373,22 +626,37 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
                   erp.erpSession ? "bg-emerald-500" : "bg-on-surface-muted/40",
                 ].join(" ")}
               />
-              ERPNext
+              {brandLabel}
             </span>
           }
-          title="Tools"
-          closeLabel="Close tools"
+          title={title}
+          closeLabel={`Close ${brandLabel}`}
         />
 
         <RightSidebarContent>
           {erp.sessionRestoring ? (
-            <p className="text-xs text-on-surface-muted">Reconnecting ERPNext…</p>
-          ) : erp.erpSession ? (
-            <ErpDashboardView
-              dashboard={erp.dashboard}
-              onRefresh={erp.refreshDashboard}
-              onLogout={erp.logoutErp}
+            <SidebarLoading
+              title={`Reconnecting ${brandLabel}`}
+              subtitle="Restoring your session and pulling the latest overview…"
+              icon={icon}
+              variant={config.kind === "school_erpnext" ? "overview" : "connection"}
             />
+          ) : erp.erpSession ? (
+            config.kind === "school_erpnext" ? (
+              <SchoolErpDashboardView
+                baseUrl={erp.erpSession.baseUrl}
+                overview={erp.schoolOverview}
+                onRefresh={erp.refreshDashboard}
+                onLogout={erp.logoutErp}
+              />
+            ) : (
+              <ErpDashboardView
+                baseUrl={erp.erpSession.baseUrl}
+                dashboard={erp.dashboard}
+                onRefresh={erp.refreshDashboard}
+                onLogout={erp.logoutErp}
+              />
+            )
           ) : erp.otpState ? (
             <div className="space-y-3">
               <p className="text-xs leading-relaxed text-on-surface-muted">
@@ -404,18 +672,55 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-xs leading-relaxed text-on-surface-muted">
-                Login to view timesheet hours, tasks, and sprint backlogs.
-              </p>
+              <p className="text-xs leading-relaxed text-on-surface-muted">{loginHint}</p>
               <ErpLoginForm
                 onSubmit={erp.loginErp}
                 loading={erp.loginLoading}
                 error={erp.loginError}
+                showUrlField={showUrlField}
+                emailPlaceholder={emailPlaceholder}
+                submitLabel={submitLabel}
               />
             </div>
           )}
         </RightSidebarContent>
       </RightSidebarPanel>
     </>
+  );
+}
+
+/** Livro internal ERPNext — fixed site (`erp.livro.systems`). */
+export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
+  const sidebar = useToolsSidebar();
+  return (
+    <ErpToolsPanel
+      config={LIVRO_ERP_TOOL}
+      sidebar={sidebar}
+      icon={<SiErpnext className="size-5" aria-hidden />}
+      title="Tools"
+      brandLabel="ERPNext"
+      loginHint="Login to Livro ERPNext for timesheets, tasks, and sprint backlogs."
+      submitLabel="Login to ERPNext"
+      topOffset={topOffset}
+    />
+  );
+}
+
+/** School ERP sites — dynamic `X-ERPNext-URL` per school. */
+export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
+  const sidebar = useSchoolErpSidebar();
+  return (
+    <ErpToolsPanel
+      config={SCHOOL_ERP_TOOL}
+      sidebar={sidebar}
+      icon={<LuSchool className="size-6" aria-hidden />}
+      title="School"
+      brandLabel="School ERP"
+      loginHint="Sign in to a school ERP site. The selected URL is sent as X-ERPNext-URL for MCP tools."
+      showUrlField
+      emailPlaceholder="Administrator or you@school.edu"
+      submitLabel="Login to school ERP"
+      topOffset={topOffset}
+    />
   );
 }

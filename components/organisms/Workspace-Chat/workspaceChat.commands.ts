@@ -1,141 +1,98 @@
-import { ToolSkill } from "@/lib/entities/commands.type";
+import type { ToolSkill } from "@/lib/entities/commands.type";
+import {
+  builtinSkillsWithSlash,
+  type BuiltinSkillDefinition,
+} from "@/lib/domain/usecases/skills/builtin_skills";
 
 export interface CommandDefinition {
   id: string; // e.g. "/google-workspace-morning"
   label: string; // e.g. "morning"
-  description: string; // e.g. "Provide my morning briefing (from Google Workspace)"
-  promptText: string; // The predefined text to insert when selected
+  description: string;
+  promptText: string;
 }
 
-const COMMAND_REGISTRY: Record<string, { description: string; promptText: string }> = {
-  // Daily Briefing & Triage (Cross-App)
-  "google-workspace:morning": {
-    description: "Morning briefing (from Google Workspace)",
-    promptText: "Provide my morning briefing. List my meetings for today in chronological order, and summarize any unread emails received since 5 PM yesterday. Highlight anything that looks like an action item.",
-  },
-  "google-workspace:wrapup": {
-    description: "End of day review (from Google Workspace)",
-    promptText: "Review my activity for today. Summarize any unresolved action items I received via email today, and list my first three meetings for tomorrow morning so I can prepare.",
-  },
-  "google-workspace:prep": {
-    description: "Meeting prep (from Google Workspace)",
-    promptText: "Look at my next scheduled meeting. Identify the attendees, search my inbox for the most recent email thread with them, and summarize our last conversation so I have context before joining.",
-  },
+function mcpMatches(slugs: string[], commandName: string): boolean {
+  const needle = commandName.toLowerCase();
+  return slugs.some((slug) => {
+    const s = slug.toLowerCase();
+    if (needle === "google-workspace") {
+      return s.includes("google") || s.includes("gws");
+    }
+    if (needle === "erpnext") {
+      return s.includes("erp");
+    }
+    return s.includes(needle);
+  });
+}
 
-  // Gmail Management
-  "google-workspace:catchup": {
-    description: "Summarize unread emails (from Google Workspace)",
-    promptText: "Summarize my unread emails from the last 24 hours. Group them by topic or project, and specifically flag any direct questions asked of me.",
-  },
-  "google-workspace:urgent": {
-    description: "Find urgent emails (from Google Workspace)",
-    promptText: "Scan my unread emails for the last 3 days for keywords like 'urgent', 'ASAP', 'action required', or 'deadline'. Summarize what is needed and who is asking for it.",
-  },
-  "google-workspace:draft-decline": {
-    description: "Draft a polite decline (from Google Workspace)",
-    promptText: "Draft a polite, professional reply to the most recent email request. Politely decline, stating that my current workload does not allow me to take this on right now.",
-  },
-  "google-workspace:draft-followup": {
-    description: "Draft a friendly followup (from Google Workspace)",
-    promptText: "Draft a short, friendly follow-up for the last email I sent. Check in to see if there are any updates or if they need any further information from my end.",
-  },
+function commandFromBuiltin(
+  skill: BuiltinSkillDefinition,
+  installedSkills?: { name: string; content: string }[],
+): CommandDefinition | null {
+  const slash = skill.slash;
+  if (!slash) return null;
 
-  // Calendar & Scheduling
-  "google-workspace:agenda": {
-    description: "List today's remaining agenda (from Google Workspace)",
-    promptText: "List all my remaining calendar events for today. Include the meeting title, time, duration, and the list of attendees.",
-  },
-  "google-workspace:find-time": {
-    description: "Find available time slots (from Google Workspace)",
-    promptText: "Look at my calendar for the next 3 business days and find three available {minutes}-minute slots between 9 AM and 5 PM. Format them as a clean, bulleted list.",
-  },
-  "google-workspace:free-tomorrow": {
-    description: "Calculate free time tomorrow (from Google Workspace)",
-    promptText: "Calculate exactly how much un-scheduled free time I have during working hours tomorrow, and list the specific continuous time blocks that are open.",
-  },
-  "google-workspace:conflicts": {
-    description: "Find meeting conflicts (from Google Workspace)",
-    promptText: "Scan my calendar for the rest of the week and identify any overlapping or double-booked meetings. Draft a short, polite email I can send to the organizer of the smaller meeting to request a reschedule.",
-  },
-
-  // ERPNext
-  "erpnext:get-customer": {
-    description: "Get customer details (from ERPNext)",
-    promptText: "Get details for customer [Name].",
-  },
-  "erpnext:create-invoice": {
-    description: "Create a sales invoice (from ERPNext)",
-    promptText: "Create a sales invoice for customer [Name] with amount [Amount].",
-  },
-  "erpnext:check-stock": {
-    description: "Check item stock (from ERPNext)",
-    promptText: "Check the stock for item [Item Name].",
-  },
-  "erpnext:request-leave": {
-    description: "File leave in ERPNext and email the approver (Gmail)",
-    promptText:
-      "Follow the skill \"ERPNext Leave + Gmail Approver\". Use Cursor tools: create a Leave Application in ERPNext for me, then send_email via Google Workspace to the approver. Ask me only for missing details (leave type, from/to dates, reason, approver email if unknown, and whether this is a test). After both steps, summarize document id, status (Draft vs Submitted), and email confirmation.",
-  },
-  "erpnext:wrapup": {
-    description: "End of day review (ERPNext + Gmail/Calendar)",
-    promptText:
-      "Follow the skill \"ERPNext + Gmail End of Day Wrap-Up\". Use Cursor with ERPNext MCP and Google Workspace tools. Default to today. Summarize my ERP timesheet/attendance, open todos (due today and overdue), and relevant HR items; then triage today's email action items and list my first three meetings tomorrow morning. Read-only unless I ask to create or submit something.",
-  },
-};
-
-/**
- * Generates the unified slash command definition for a given ToolSkill.
- * Ensures type safety across the MCP tools.
- */
-export function buildCommandDefinition(skill: ToolSkill): CommandDefinition {
-  const { commandName, subCommand } = skill;
-  const key = `${commandName}:${subCommand}`;
-  const registryEntry = COMMAND_REGISTRY[key];
-  
-  const description = registryEntry?.description ?? `${subCommand} (from ${commandName})`;
-  const promptText = registryEntry?.promptText ?? `Use the ${subCommand} tool from ${commandName}.`;
+  const fromDb = installedSkills?.find((s) => s.name === skill.name);
 
   return {
-    id: `/${commandName}-${subCommand}`,
-    label: subCommand,
-    description,
-    promptText,
+    id: `/${slash.commandName}-${slash.subCommand}`,
+    label: slash.subCommand,
+    description: skill.description,
+    // Dedicated slash prompt, else prefer DB-seeded body, else builtin instructions
+    promptText: slash.promptText ?? fromDb?.content ?? skill.instructions,
   };
 }
 
 /**
- * A dynamic generator of available commands based on the active MCP servers.
+ * Generates the unified slash command definition for a given ToolSkill.
+ * Resolves prompt/description from seeded built-in skills (DB source of truth).
  */
-export function getAvailableCommands(activeMcpServerSlugs: string[], installedSkills?: { name: string; content: string }[]): CommandDefinition[] {
-  const commands: CommandDefinition[] = [];
+export function buildCommandDefinition(skill: ToolSkill): CommandDefinition {
+  const { commandName, subCommand } = skill;
+  const builtin = builtinSkillsWithSlash().find(
+    (s) => s.slash?.commandName === commandName && s.slash.subCommand === subCommand,
+  );
 
-  const hasGws = activeMcpServerSlugs.some((slug) => {
-    const s = slug.toLowerCase();
-    return s.includes("google") || s.includes("gws");
-  });
-
-  if (hasGws) {
-    commands.push(
-      // Daily Briefing & Triage (Cross-App)
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "morning" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "wrapup" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "prep" }),
-      
-      // Gmail Management
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "catchup" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "urgent" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-decline" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "draft-followup" }),
-
-      // Calendar & Scheduling
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "agenda" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "find-time" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "free-tomorrow" }),
-      buildCommandDefinition({ commandName: "google-workspace", subCommand: "conflicts" })
+  if (builtin) {
+    return (
+      commandFromBuiltin(builtin) ?? {
+        id: `/${commandName}-${subCommand}`,
+        label: subCommand,
+        description: `${subCommand} (from ${commandName})`,
+        promptText: `Use the ${subCommand} tool from ${commandName}.`,
+      }
     );
   }
 
-  // Universal Commands
+  return {
+    id: `/${commandName}-${subCommand}`,
+    label: subCommand,
+    description: `${subCommand} (from ${commandName})`,
+    promptText: `Use the ${subCommand} tool from ${commandName}.`,
+  };
+}
+
+/**
+ * Slash commands from seeded DB skills (`BUILTIN_SKILLS` → `bun run seed:skills`),
+ * gated by active MCP servers, plus installed custom skills and /skill-maker.
+ */
+export function getAvailableCommands(
+  activeMcpServerSlugs: string[],
+  installedSkills?: { name: string; content: string }[],
+): CommandDefinition[] {
+  const commands: CommandDefinition[] = [];
+  const usedSkillNames = new Set<string>();
+
+  for (const skill of builtinSkillsWithSlash()) {
+    const slash = skill.slash!;
+    if (!mcpMatches(activeMcpServerSlugs, slash.commandName)) continue;
+    const cmd = commandFromBuiltin(skill, installedSkills);
+    if (!cmd) continue;
+    commands.push(cmd);
+    usedSkillNames.add(skill.name);
+  }
+
+  // Universal
   commands.push({
     id: "/skill-maker",
     label: "skill-maker",
@@ -144,26 +101,11 @@ export function getAvailableCommands(activeMcpServerSlugs: string[], installedSk
       "I want to create a new skill. Ask me one by one: 1) Name, 2) Description, 3) Instructions/Workflow. Treat my replies as plain text for those fields only — do not run other tools during Q&A. When done, optimize the text, then call skills_create_skill (or skills__create_skill) to SAVE IT IN THE DATABASE. Never edit repo files like builtin_skills.ts. Skills are Private by default unless I ask to publish.",
   });
 
-  const hasErpNext = activeMcpServerSlugs.some((slug) => {
-    const s = slug.toLowerCase();
-    return s.includes("erp");
-  });
-
-  if (hasErpNext) {
-    commands.push(
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "get-customer" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "create-invoice" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "check-stock" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "request-leave" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "wrapup" }),
-      buildCommandDefinition({ commandName: "erpnext", subCommand: "github-debug" }),
-    );
-  }
-
   if (installedSkills && installedSkills.length > 0) {
     for (const skill of installedSkills) {
+      if (usedSkillNames.has(skill.name)) continue;
       commands.push({
-        id: `/${skill.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        id: `/${skill.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
         label: skill.name,
         description: `Execute custom skill: ${skill.name}`,
         promptText: `[Execute Skill: ${skill.name}]\nFollow the instructions defined in this skill for my request:\n`,
@@ -173,5 +115,3 @@ export function getAvailableCommands(activeMcpServerSlugs: string[], installedSk
 
   return commands;
 }
-
-

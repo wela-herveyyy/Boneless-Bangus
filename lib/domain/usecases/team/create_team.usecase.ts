@@ -1,7 +1,8 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { team, user, userTeam } from "@/database/schema";
 import type { CreateTeamInput, TeamResult, TeamSelect } from "@/lib/entities/team.type";
+import { activeMembershipWhere } from "./active_membership.usecase";
 
 function randomTeamCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -59,11 +60,11 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamResult<Tea
 
     await database.insert(team).values(row);
 
-    // Keep one active team membership: leave any current team first.
+    // Keep one active team membership: archive any current team first.
     await database
       .update(userTeam)
-      .set({ leftAt: now })
-      .where(and(eq(userTeam.userId, input.managerId), isNull(userTeam.leftAt)));
+      .set({ archived: true, leftAt: now })
+      .where(activeMembershipWhere(eq(userTeam.userId, input.managerId)));
 
     await database.insert(userTeam).values({
       id: crypto.randomUUID(),
@@ -71,6 +72,7 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamResult<Tea
       teamId: id,
       joinedAt: now,
       leftAt: null,
+      archived: false,
     });
 
     return { ok: true, data: row };

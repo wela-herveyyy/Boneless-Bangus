@@ -1,7 +1,8 @@
-import { count, eq, isNull } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { database } from "@/database";
 import { team, user, userTeam } from "@/database/schema";
 import type { TeamListItem, TeamResult } from "@/lib/entities/team.type";
+import { activeMembershipWhere } from "./active_membership.usecase";
 
 export async function listTeams(): Promise<TeamResult<TeamListItem[]>> {
   try {
@@ -27,7 +28,7 @@ export async function listTeams(): Promise<TeamResult<TeamListItem[]>> {
         memberCount: count(userTeam.id),
       })
       .from(userTeam)
-      .where(isNull(userTeam.leftAt))
+      .where(activeMembershipWhere())
       .groupBy(userTeam.teamId);
 
     const countByTeam = new Map(memberCounts.map((r) => [r.teamId, Number(r.memberCount)]));

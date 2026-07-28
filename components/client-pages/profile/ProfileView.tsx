@@ -7,6 +7,7 @@ import { LuX } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
+import { ConfirmModal } from "@/components/molecules/ConfirmModal/ConfirmModal";
 import { updateApiKeysAction, joinTeamAction, leaveTeamAction, updatePersonalInfoAction } from "@/lib/domain/actions/profile.actions";
 import { updateTeamApiKeysAction } from "@/lib/domain/actions/team.actions";
 
@@ -222,17 +223,25 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
                     <p className="text-sm text-on-surface-muted font-mono">Code: {userTeam.teamCode}</p>
                     {userTeam.isManager ? (
                       <p className="mt-2 text-xs text-on-surface-muted">
-                        As team leader you manage shared API keys and cannot leave this team.
+                        As team leader you manage shared API keys, can revoke members, and cannot leave
+                        this team.
                       </p>
                     ) : null}
                   </div>
-                  {!userTeam.isManager ? (
+                  {userTeam.isManager ? (
+                    <Link
+                      href={`/team/${userTeam.teamId}`}
+                      className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-transform active:scale-[0.98]"
+                    >
+                      Manage team
+                    </Link>
+                  ) : (
                     <form action={(formData) => setConfirmAction({ type: "leave_team", formData })}>
                       <Button type="submit" variant="danger">
                         Leave Team
                       </Button>
                     </form>
-                  ) : null}
+                  )}
                 </div>
               ) : (
                 <div className="mb-4 rounded-xl bg-surface-container-high p-4">
@@ -428,37 +437,39 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
         </div>
       </div>
 
-      {confirmAction && (
-        <div className="fixed inset-0 z-140 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border animate-in fade-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-display font-semibold text-on-surface mb-2">
-              {confirmAction.type === "save_keys" && "Save API Keys?"}
-              {confirmAction.type === "save_team_keys" && "Save Team API Keys?"}
-              {confirmAction.type === "save_personal_info" && "Save Personal Info?"}
-              {confirmAction.type === "join_team" && "Join Team?"}
-              {confirmAction.type === "leave_team" && "Leave Team?"}
-            </h3>
-            <p className="text-sm text-on-surface-muted mb-6">
-              {confirmAction.type === "save_keys" && "Are you sure you want to update your API keys?"}
-              {confirmAction.type === "save_team_keys" &&
-                "These keys are shared with team members who do not have a personal key."}
-              {confirmAction.type === "save_personal_info" && "Are you sure you want to update your personal information?"}
-              {confirmAction.type === "join_team" && "Are you sure you want to join this team?"}
-              {confirmAction.type === "leave_team" && "Are you sure you want to leave your current team?"}
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="secondary" onClick={() => setConfirmAction(null)}>Cancel</Button>
-              <Button
-                type="button"
-                variant={confirmAction.type === "leave_team" ? "danger" : "primary"}
-                onClick={handleConfirm}
-              >
-                Confirm
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={Boolean(confirmAction)}
+        title={
+          confirmAction?.type === "save_keys"
+            ? "Save API keys?"
+            : confirmAction?.type === "save_team_keys"
+              ? "Save team API keys?"
+              : confirmAction?.type === "save_personal_info"
+                ? "Save personal info?"
+                : confirmAction?.type === "join_team"
+                  ? "Join team?"
+                  : confirmAction?.type === "leave_team"
+                    ? "Leave team?"
+                    : "Confirm"
+        }
+        message={
+          confirmAction?.type === "save_keys"
+            ? "Update your personal API keys?"
+            : confirmAction?.type === "save_team_keys"
+              ? "These keys are shared with team members who do not have a personal key."
+              : confirmAction?.type === "save_personal_info"
+                ? "Update your personal information?"
+                : confirmAction?.type === "join_team"
+                  ? "Join this team with the code you entered?"
+                  : confirmAction?.type === "leave_team"
+                    ? "Leave your current team? You can rejoin later with a join code."
+                    : ""
+        }
+        confirmVariant={confirmAction?.type === "leave_team" ? "danger" : "primary"}
+        tone={confirmAction?.type === "leave_team" ? "danger" : "default"}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={handleConfirm}
+      />
     </>
   );
 }

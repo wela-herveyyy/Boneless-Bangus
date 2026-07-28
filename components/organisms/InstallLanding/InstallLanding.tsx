@@ -61,6 +61,12 @@ export function InstallLanding() {
             >
               ← Home
             </Link>
+            <Link
+              href="/docs"
+              className="text-sm text-on-surface-muted transition-colors hover:text-primary"
+            >
+              Docs
+            </Link>
             <span className="hidden text-sm text-on-surface-muted lg:inline">BBAI workspace</span>
           </div>
           <StatusOrb label={statusLabel} variant={statusVariant} />

@@ -1,7 +1,8 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { team, user, userTeam, role as roleTable } from "@/database/schema";
 import type { TeamDetail, TeamResult } from "@/lib/entities/team.type";
+import { activeMembershipWhere } from "./active_membership.usecase";
 import { getTeamApiUsage } from "./get_team_api_usage.usecase";
 
 export async function getTeamDetail(teamId: string): Promise<TeamResult<TeamDetail>> {
@@ -44,7 +45,7 @@ export async function getTeamDetail(teamId: string): Promise<TeamResult<TeamDeta
       .from(userTeam)
       .innerJoin(user, eq(userTeam.userId, user.id))
       .leftJoin(roleTable, eq(user.roleId, roleTable.id))
-      .where(and(eq(userTeam.teamId, id), isNull(userTeam.leftAt)));
+      .where(activeMembershipWhere(eq(userTeam.teamId, id)));
 
     const usageResult = await getTeamApiUsage(id);
     if (!usageResult.ok) {

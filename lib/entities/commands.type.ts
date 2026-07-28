@@ -1,6 +1,6 @@
-// Tool / Skill command registry
+// Tool / Skill command registry — subcommands must match `BUILTIN_SKILLS` slash keys.
 
-export type GwsCommands = 
+export type GwsCommands =
   | "morning"
   | "wrapup"
   | "prep"
@@ -20,17 +20,15 @@ export type ErpNextCommands =
   | "request-leave"
   | "wrapup";
 
-
 export interface ToolSkillMap {
-  "erpnext": ErpNextCommands;
+  erpnext: ErpNextCommands;
   "google-workspace": GwsCommands;
 }
 
 /**
  * Distributive conditional type that maps a tool/skill to its exact format.
- * E.g. { commandName: "google-workspace", subCommand: "search_threads" }
+ * E.g. { commandName: "google-workspace", subCommand: "morning" }
  */
-export type ToolSkill<T extends keyof ToolSkillMap = keyof ToolSkillMap> = 
-  T extends unknown
-    ? { commandName: T; subCommand: ToolSkillMap[T] }
-    : never;
+export type ToolSkill<T extends keyof ToolSkillMap = keyof ToolSkillMap> = T extends unknown
+  ? { commandName: T; subCommand: ToolSkillMap[T] }
+  : never;

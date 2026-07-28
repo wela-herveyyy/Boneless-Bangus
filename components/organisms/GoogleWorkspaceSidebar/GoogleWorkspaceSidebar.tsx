@@ -20,6 +20,7 @@ import {
   RightSidebarHeader,
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
+import { SidebarLoading } from "@/components/molecules/SidebarLoading/SidebarLoading";
 import { useGoogleWorkspaceSidebar, type GoogleWorkspaceTab } from "./googleWorkspaceSidebar.hooks";
 import { WorkspaceCalendarWidget } from "@/components/organisms/WorkspaceCalendarWidget/WorkspaceCalendarWidget";
 import { WorkspaceEmailsWidget } from "@/components/organisms/WorkspaceEmailsWidget/WorkspaceEmailsWidget";
@@ -97,12 +98,12 @@ export function GoogleWorkspaceSidebar({ topOffset }: { topOffset?: string } = {
             </div>
           )}
 
-          {/* Loading State */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-on-surface-variant">
-              <HiOutlineArrowPath className="size-6 animate-spin text-primary" />
-              <span className="text-xs">Checking connection status...</span>
-            </div>
+            <SidebarLoading
+              title="Checking connection"
+              subtitle="Looking up your Google Workspace session…"
+              icon={<SiGoogle className="size-5" aria-hidden />}
+            />
           ) : !authRecord?.isConnected ? (
             /* Disconnected / 1-Click Connect Card */
             <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-primary/25 bg-surface-container-low/40 p-6 text-center shadow-inner">

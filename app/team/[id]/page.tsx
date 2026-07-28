@@ -3,7 +3,10 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { TeamProfilePage } from "@/components/client-pages/team-profile/TeamProfilePage";
 import { getTeamDetailAction } from "@/lib/domain/actions/team.actions";
+import { getUsersAction } from "@/lib/domain/actions/users.actions";
 import { auth } from "@/lib/domain/services/auth.service";
+import { getManagedTeamId } from "@/lib/domain/services/team.service";
+import { canManageTeams } from "@/lib/entities/team.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 type PageProps = {
@@ -34,20 +37,35 @@ async function TeamProfileContent({ params }: PageProps) {
     redirect(`/sign-in?callbackURL=${encodeURIComponent(`/team/${id}`)}`);
   }
 
-  if (!hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE)) {
-    redirect("/workspace?error=" + encodeURIComponent("Admin access required."));
+  const isAdmin = hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE);
+  if (!isAdmin) {
+    const managed = await getManagedTeamId(userSession.user.id);
+    if (!managed.ok || managed.data !== id) {
+      redirect("/workspace?error=" + encodeURIComponent("Team access required."));
+    }
   }
 
   const detailResult = await getTeamDetailAction(id);
   if (!detailResult.ok) {
-    redirect(`/admin?error=${encodeURIComponent(detailResult.error)}`);
+    redirect(
+      isAdmin
+        ? `/admin?error=${encodeURIComponent(detailResult.error)}`
+        : `/workspace?error=${encodeURIComponent(detailResult.error)}`,
+    );
   }
+
+  const usersResult = isAdmin ? await getUsersAction() : null;
+  const candidateUsers = usersResult?.ok ? usersResult.data : [];
 
   return (
     <TeamProfilePage
       initialDetail={detailResult.data}
-      currentUserName={userSession.user.name?.trim() || userSession.user.email || "Admin"}
+      candidateUsers={candidateUsers}
+      currentUserName={userSession.user.name?.trim() || userSession.user.email || "User"}
       currentUserRole={userSession.user.role}
+      currentUserId={userSession.user.id}
+      canChangeLeader={canManageTeams(userSession.user.role)}
+      canManageRoster={true}
     />
   );
 }

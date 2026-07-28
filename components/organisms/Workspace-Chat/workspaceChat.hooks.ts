@@ -25,11 +25,31 @@ import {
   type GoogleAiModel,
 } from "@/lib/entities/google_ai.type";
 import { loadUserAiConfigFromIdb } from "@/lib/utils/mcp-idb";
-import { buildErpMcpConfig, ERP_MCP_SERVER_KEY } from "@/lib/entities/erpnext.type";
+import { notifySkillsChanged, SKILLS_CHANGED_EVENT } from "@/lib/utils/skills-events";
+import {
+  buildErpMcpConfig,
+  buildSchoolErpMcpConfig,
+  ERP_MCP_SERVER_KEY,
+  normalizeErpBaseUrl,
+  SCHOOL_ERP_MCP_SERVER_KEY,
+  type ErpMcpServerConfig,
+} from "@/lib/entities/erpnext.type";
 import { getAvailableCommands, type CommandDefinition } from "./workspaceChat.commands";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
+
+function readInternalErpMcpServers(): Record<string, ErpMcpServerConfig> {
+  const livro = buildErpMcpConfig(localStorage.getItem("bbai_erp_sid"));
+  const school = buildSchoolErpMcpConfig(
+    localStorage.getItem("bbai_school_erp_sid"),
+    normalizeErpBaseUrl(localStorage.getItem("bbai_school_erp_base_url") ?? ""),
+  );
+  return {
+    ...(livro ? { [ERP_MCP_SERVER_KEY]: livro } : {}),
+    ...(school ? { [SCHOOL_ERP_MCP_SERVER_KEY]: school } : {}),
+  };
+}
 export const AI_PROVIDER_OPTIONS: { value: AiProvider; label: string }[] = [
   { value: AI_PROVIDER.CURSOR, label: "Cursor" },
   { value: AI_PROVIDER.GOOGLE_AI, label: "Google" },
@@ -295,6 +315,33 @@ export function useWorkspaceChat(
     setGoogleModelState(readStoredGoogleModel());
   }, []);
 
+  const reloadSkills = useCallback(async () => {
+    const [localRecordsResult, dbSkillsResult] = await Promise.all([
+      listLocalRecordsAction().catch(() => null),
+      getSkillsAction().catch(() => ({ ok: false as const, data: [] as { name: string; instructions: string }[] })),
+    ]);
+
+    let allSkills: CursorSkill[] = [];
+
+    if (localRecordsResult && localRecordsResult.ok) {
+      const sk = localRecordsResult.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
+      if (sk) {
+        const parsedLocal = parseSkills(sk.value);
+        if (parsedLocal) allSkills = [...parsedLocal];
+      }
+    }
+
+    if (dbSkillsResult.ok && dbSkillsResult.data) {
+      for (const dbSkill of dbSkillsResult.data) {
+        if (!allSkills.find((s) => s.name === dbSkill.name)) {
+          allSkills.push({ name: dbSkill.name, content: dbSkill.instructions });
+        }
+      }
+    }
+
+    setSkills(allSkills.length > 0 ? allSkills : undefined);
+  }, []);
+
   useEffect(() => {
     void (async () => {
       const [localRecordsResult, idbConfig, dbSkillsResult] = await Promise.all([
@@ -331,20 +378,42 @@ export function useWorkspaceChat(
       // IDB configs may contain richer auth shapes (credentialRef) not in CursorMcpServerConfig
       const serversFromIdb = idbConfig?.mcpServers as Record<string, unknown> | undefined;
 
-      const erpSid = localStorage.getItem("bbai_erp_sid");
-      const erpMcp = buildErpMcpConfig(erpSid);
-
       const mergedServers: Record<string, CursorMcpServerConfig> = {
-        ...(erpMcp ? { [ERP_MCP_SERVER_KEY]: erpMcp } : {}),
+        ...readInternalErpMcpServers(),
         ...(serversFromRecords ?? {}),
-        ...(serversFromIdb ?? {}),
+        ...((serversFromIdb as Record<string, CursorMcpServerConfig> | undefined) ?? {}),
       };
 
       if (Object.keys(mergedServers).length > 0) {
         setMcpServers(mergedServers);
       }
     })();
-  }, []);
+
+    const syncErpMcp = () => {
+      setMcpServers((prev) => {
+        const next = { ...(prev ?? {}) };
+        delete next[ERP_MCP_SERVER_KEY];
+        delete next[SCHOOL_ERP_MCP_SERVER_KEY];
+        Object.assign(next, readInternalErpMcpServers());
+        return Object.keys(next).length > 0 ? next : undefined;
+      });
+    };
+
+    const onSkillsChanged = () => {
+      void reloadSkills();
+    };
+
+    window.addEventListener("storage", syncErpMcp);
+    window.addEventListener("bbai-erp-session", syncErpMcp);
+    window.addEventListener("bbai-school-erp-session", syncErpMcp);
+    window.addEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
+    return () => {
+      window.removeEventListener("storage", syncErpMcp);
+      window.removeEventListener("bbai-erp-session", syncErpMcp);
+      window.removeEventListener("bbai-school-erp-session", syncErpMcp);
+      window.removeEventListener(SKILLS_CHANGED_EVENT, onSkillsChanged);
+    };
+  }, [reloadSkills]);
 
   useEffect(() => {
     const activeId = options?.activeChatId ?? null;
@@ -747,12 +816,19 @@ export function useWorkspaceChat(
             )
           );
 
+          const liveMcpServers: Record<string, CursorMcpServerConfig> = {
+            ...(mcpServers ?? {}),
+          };
+          delete liveMcpServers[ERP_MCP_SERVER_KEY];
+          delete liveMcpServers[SCHOOL_ERP_MCP_SERVER_KEY];
+          Object.assign(liveMcpServers, readInternalErpMcpServers());
+
           const result = await promptAiAction({
             provider,
             message: text,
             name: user?.name,
             email: user?.email,
-            mcpServers,
+            mcpServers: Object.keys(liveMcpServers).length > 0 ? liveMcpServers : undefined,
             skills,
             dbConversationId,
             files: filePayloads,
@@ -760,6 +836,8 @@ export function useWorkspaceChat(
           });
 
           if (result.ok) {
+            // skill-maker / skills_create_skill may have written to DB during this turn
+            notifySkillsChanged();
             setProviderConversationId(result.data.conversationId);
             if (result.data.dbConversationId) {
               setDbConversationId(result.data.dbConversationId);
