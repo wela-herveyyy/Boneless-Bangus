@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import type { UserRole, UserSelect } from "@/lib/entities/users.type";
+import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
+import { VerificationModal } from "@/components/molecules/VerificationModal/VerificationModal";
 import { useAdminPage } from "./adminPage.hooks";
 
 type AdminPageProps = {
@@ -61,6 +63,17 @@ export function AdminPage({
 
   return (
     <div className="relative flex min-h-screen bg-surface">
+      <FuturisticBackdrop />
+      <VerificationModal
+        isOpen={!!admin.verificationAction}
+        title={admin.verificationAction?.title ?? ""}
+        message={admin.verificationAction?.message ?? ""}
+        confirmLabel={admin.verificationAction?.confirmLabel}
+        confirmVariant={admin.verificationAction?.confirmVariant}
+        titleColor={admin.verificationAction?.titleColor}
+        onCancel={admin.closeVerification}
+        onConfirm={admin.verificationAction?.onConfirm ?? (() => {})}
+      />
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-surface-container-low/80 backdrop-blur-[20px] md:flex">
         <div className="flex items-center gap-3 px-5 py-6">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-primary to-primary-container text-on-primary shadow-bloom">
@@ -106,6 +119,22 @@ export function AdminPage({
             Teams
             <span className="ml-auto rounded-lg bg-surface-container-high px-2 py-0.5 text-[11px] tabular-nums text-on-surface-muted">
               {admin.teams.length || "—"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => admin.setTab("roles")}
+            className={[
+              "flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition-colors",
+              admin.tab === "roles"
+                ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                : "text-on-surface-muted hover:bg-surface-container-high/70 hover:text-on-surface",
+            ].join(" ")}
+          >
+            <LuShield className="size-4 shrink-0" aria-hidden />
+            Roles
+            <span className="ml-auto rounded-lg bg-surface-container-high px-2 py-0.5 text-[11px] tabular-nums text-on-surface-muted">
+              {admin.roles.length || "—"}
             </span>
           </button>
 
@@ -167,6 +196,18 @@ export function AdminPage({
           >
             Teams
           </button>
+          <button
+            type="button"
+            onClick={() => admin.setTab("roles")}
+            className={[
+              "rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+              admin.tab === "roles"
+                ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                : "bg-surface-container-low text-on-surface-muted",
+            ].join(" ")}
+          >
+            Roles
+          </button>
           <Link
             href="/workspace"
             className="ml-auto rounded-xl bg-surface-container-low px-3 py-2 text-sm text-on-surface-muted"
@@ -177,19 +218,25 @@ export function AdminPage({
 
         <header className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            {admin.tab === "users" ? "Access" : "Organization"}
+            {admin.tab === "users" ? "Access" : admin.tab === "teams" ? "Organization" : "Permissions & Onboarding"}
           </p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
-            {admin.tab === "users" ? "People & access" : "Teams & shared keys"}
+            {admin.tab === "users"
+              ? "People & access"
+              : admin.tab === "teams"
+                ? "Teams & shared keys"
+                : "Role Management"}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-on-surface-muted">
             {admin.tab === "users"
               ? "Change roles, open profiles, and review prompt history."
-              : "Create teams, assign leaders, and set shared Cursor / Gemini keys."}
+              : admin.tab === "teams"
+                ? "Create teams, assign leaders, and set shared Cursor / Gemini keys."
+                : "Create and manage system roles used during onboarding and user assignment."}
           </p>
         </header>
 
-        <div className="mb-8 grid gap-3 sm:grid-cols-3">
+        <div className="mb-8 grid gap-3 sm:grid-cols-4">
           <div className="rounded-2xl bg-surface-container-low p-4">
             <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Users</p>
             <p className="mt-2 font-display text-2xl font-semibold text-on-surface">
@@ -206,6 +253,12 @@ export function AdminPage({
             <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Teams</p>
             <p className="mt-2 font-display text-2xl font-semibold text-on-surface">
               {admin.loadingTeams && admin.teams.length === 0 ? "…" : admin.teams.length}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-surface-container-low p-4">
+            <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Roles</p>
+            <p className="mt-2 font-display text-2xl font-semibold text-on-surface">
+              {admin.loadingRoles && admin.roles.length === 0 ? "…" : admin.roles.length}
             </p>
           </div>
         </div>
@@ -302,100 +355,77 @@ export function AdminPage({
                   </span>
                   <p className="text-sm font-medium text-on-surface">Select a user</p>
                   <p className="mt-1 max-w-xs text-xs text-on-surface-muted">
-                    Open a profile to audit keys, team membership, and prompt history.
+                    Choose someone on the left to inspect API key status, usage stats, and chat logs.
                   </p>
                 </div>
               ) : admin.loadingDetail ? (
-                <p className="text-sm text-on-surface-muted">Loading user…</p>
+                <p className="text-sm text-on-surface-muted">Loading profile and chat list…</p>
               ) : admin.detail ? (
-                <div className="space-y-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="font-display text-2xl font-semibold text-on-surface">
-                        {admin.detail.user.name}
-                      </h2>
-                      <p className="text-sm text-on-surface-muted">{admin.detail.user.email}</p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <Link href={`/user/${admin.detail.user.id}`}>
-                        <Button type="button" variant="primary">
-                          Full profile
-                        </Button>
-                      </Link>
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                          Profile view
+                        </p>
+                        <h2 className="mt-1 font-display text-xl font-bold text-on-surface">
+                          {admin.detail.user.name}
+                        </h2>
+                        <p className="text-xs text-on-surface-muted">{admin.detail.user.email}</p>
+                      </div>
                       <Button type="button" variant="secondary" onClick={admin.closeUser}>
                         Close
                       </Button>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <KeyStatus ok={admin.detail.hasPersonalCursorKey} label="Personal Cursor Key" />
+                      <KeyStatus ok={admin.detail.hasPersonalGeminiKey} label="Personal Gemini Key" />
+                      {admin.detail.team ? (
+                        <span className="rounded-xl bg-surface-container-highest px-2.5 py-1 text-xs text-on-surface">
+                          Team: {admin.detail.team.teamName} ({admin.detail.team.teamCode})
+                        </span>
+                      ) : (
+                        <span className="text-xs text-on-surface-muted">No active team</span>
+                      )}
+                    </div>
                   </div>
 
-                  {admin.detail.usage ? (
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-2xl bg-surface-container-lowest p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">
-                          Conversations
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-on-surface">
+                  <div className="rounded-2xl bg-surface-container-lowest p-4">
+                    <p className="text-xs font-semibold text-on-surface">AI API Usage</p>
+                    <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <div>
+                        <dt className="text-[11px] text-on-surface-muted">Chats</dt>
+                        <dd className="mt-0.5 font-display text-lg font-semibold text-on-surface">
                           {admin.detail.usage.conversationCount}
-                        </p>
+                        </dd>
                       </div>
-                      <div className="rounded-2xl bg-surface-container-lowest p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">
-                          Tokens
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-on-surface">
+                      <div>
+                        <dt className="text-[11px] text-on-surface-muted">Prompts</dt>
+                        <dd className="mt-0.5 font-display text-lg font-semibold text-on-surface">
+                          {admin.detail.usage.promptCount}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[11px] text-on-surface-muted">Total Tokens</dt>
+                        <dd className="mt-0.5 font-display text-lg font-semibold text-on-surface">
                           {admin.detail.usage.totalTokens.toLocaleString()}
-                        </p>
+                        </dd>
                       </div>
-                      <div className="rounded-2xl bg-surface-container-lowest p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">
-                          Cost
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-on-surface">
-                          ${admin.detail.usage.totalCost}
-                        </p>
+                      <div>
+                        <dt className="text-[11px] text-on-surface-muted">Est. Cost</dt>
+                        <dd className="mt-0.5 font-display text-lg font-semibold text-tertiary">
+                          {admin.detail.usage.totalCost}
+                        </dd>
                       </div>
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-surface-container-lowest p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Role</p>
-                      <p className="mt-1 text-sm font-medium text-on-surface">
-                        {roleLabel(admin.detail.user.role)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-surface-container-lowest p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Team</p>
-                      <p className="mt-1 text-sm font-medium text-on-surface">
-                        {admin.detail.team
-                          ? `${admin.detail.team.teamName} · ${admin.detail.team.teamCode}`
-                          : "No team"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-surface-container-lowest p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">
-                        Cursor key
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-on-surface">
-                        {admin.detail.hasPersonalCursorKey ? "Set" : "Not set"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-surface-container-lowest p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">
-                        Gemini key
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-on-surface">
-                        {admin.detail.hasPersonalGeminiKey ? "Set" : "Not set"}
-                      </p>
-                    </div>
+                    </dl>
                   </div>
 
                   <div>
-                    <h3 className="mb-3 text-sm font-semibold text-on-surface">Prompt history</h3>
+                    <h3 className="mb-2 font-display text-sm font-semibold text-on-surface">
+                      Conversations
+                    </h3>
                     {admin.conversations.length === 0 ? (
-                      <p className="rounded-2xl bg-surface-container-lowest px-4 py-8 text-center text-xs text-on-surface-muted">
-                        No conversations for this user.
-                      </p>
+                      <p className="text-xs text-on-surface-muted">No chat history recorded yet.</p>
                     ) : (
                       <ul className="mb-3 max-h-48 space-y-1.5 overflow-y-auto">
                         {admin.conversations.map((c) => (
@@ -459,7 +489,7 @@ export function AdminPage({
               )}
             </section>
           </div>
-        ) : (
+        ) : admin.tab === "teams" ? (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <section className="rounded-3xl bg-surface-container-low p-5 sm:p-6">
               <h2 className="font-display text-lg font-semibold text-on-surface">Create team</h2>
@@ -587,6 +617,158 @@ export function AdminPage({
                       ) : null}
                     </li>
                   ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        ) : (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <section className="rounded-3xl bg-surface-container-low p-5 sm:p-6">
+              <h2 className="font-display text-lg font-semibold text-on-surface">
+                {admin.editingRoleId ? "Edit role" : "Create role"}
+              </h2>
+              <p className="mt-1 mb-5 text-xs text-on-surface-muted">
+                {admin.editingRoleId
+                  ? "Modify existing role details and descriptions."
+                  : "Define a new dynamic role for users and onboarding selection."}
+              </p>
+              <div className="space-y-3">
+                <Input
+                  value={admin.editingRoleId ? admin.editRoleValue : admin.roleValue}
+                  onChange={(e) =>
+                    admin.editingRoleId ? admin.setEditRoleValue(e.target.value) : admin.setRoleValue(e.target.value)
+                  }
+                  disabled={Boolean(
+                    admin.editingRoleId &&
+                    (admin.editRoleValue === "owner" || admin.editRoleValue === "admin"),
+                  )}
+                  placeholder="Role identifier (e.g. tech, sales, data-eng)"
+                />
+                <Input
+                  value={admin.editingRoleId ? admin.editRoleLabel : admin.roleLabel}
+                  onChange={(e) =>
+                    admin.editingRoleId ? admin.setEditRoleLabel(e.target.value) : admin.setRoleLabel(e.target.value)
+                  }
+                  placeholder="Display label (e.g. Tech Infrastructure)"
+                />
+                <Input
+                  value={admin.editingRoleId ? admin.editRoleHint : admin.roleHint}
+                  onChange={(e) =>
+                    admin.editingRoleId ? admin.setEditRoleHint(e.target.value) : admin.setRoleHint(e.target.value)
+                  }
+                  placeholder="Short hint for onboarding (optional)"
+                />
+                <Input
+                  value={admin.editingRoleId ? admin.editRoleDescription : admin.roleDescription}
+                  onChange={(e) =>
+                    admin.editingRoleId
+                      ? admin.setEditRoleDescription(e.target.value)
+                      : admin.setRoleDescription(e.target.value)
+                  }
+                  placeholder="Description & responsibilities (optional)"
+                />
+                {admin.editingRoleId ? (
+                  <div className="flex gap-2 pt-1">
+                    <Button type="button" variant="secondary" onClick={admin.cancelEditRole} className="w-1/2">
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={admin.updatingRole || !admin.editRoleValue.trim() || !admin.editRoleLabel.trim()}
+                      onClick={() => void admin.saveRole()}
+                      className="w-1/2"
+                    >
+                      {admin.updatingRole ? "Saving…" : "Update role"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={admin.creatingRole || !admin.roleValue.trim() || !admin.roleLabel.trim()}
+                    onClick={() => void admin.createRole()}
+                    className="w-full"
+                  >
+                    {admin.creatingRole ? "Creating…" : "Create role"}
+                  </Button>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-3xl bg-surface-container-low p-5 sm:p-6">
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-semibold text-on-surface">Roles</h2>
+                  <p className="text-xs text-on-surface-muted">Dynamic records managed by Admin and Owner accounts</p>
+                </div>
+                <Button type="button" variant="secondary" onClick={() => void admin.refreshRoles()}>
+                  <LuRefreshCw className="size-4" />
+                </Button>
+              </div>
+              {admin.loadingRoles ? (
+                <p className="text-sm text-on-surface-muted">Loading roles…</p>
+              ) : admin.roles.length === 0 ? (
+                <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl bg-surface-container-lowest px-4 text-center">
+                  <span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-surface-container-high text-on-surface-muted">
+                    <LuShield className="size-5" />
+                  </span>
+                  <p className="text-sm font-medium text-on-surface">No roles yet</p>
+                  <p className="mt-1 text-xs text-on-surface-muted">
+                    Create your first system role record using the form on the left.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {admin.roles.map((role) => {
+                    const isProtected = role.value === "owner" || role.value === "admin";
+                    return (
+                      <li key={role.id} className="rounded-2xl bg-surface-container-lowest p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-on-surface">{role.label}</p>
+                              <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary">
+                                {role.value}
+                              </span>
+                              {isProtected ? (
+                                <span className="rounded-md bg-tertiary/10 px-2 py-0.5 text-[10px] font-semibold text-tertiary">
+                                  System Protected
+                                </span>
+                              ) : null}
+                            </div>
+                            {role.hint ? (
+                              <p className="mt-1.5 text-xs font-medium text-on-surface-muted">
+                                Onboarding Hint: {role.hint}
+                              </p>
+                            ) : null}
+                            {role.description ? (
+                              <p className="mt-1 text-xs text-on-surface-muted">{role.description}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="text-xs"
+                              onClick={() => admin.startEditRole(role)}
+                            >
+                              Edit
+                            </Button>
+                            {!isProtected ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="text-xs text-secondary hover:bg-secondary-container/50"
+                                disabled={admin.deletingRoleId === role.id}
+                                onClick={() => void admin.removeRole(role.id, role.label)}
+                              >
+                                {admin.deletingRoleId === role.id ? "…" : "Delete"}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
