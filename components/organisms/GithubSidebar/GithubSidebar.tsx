@@ -27,9 +27,9 @@ import {
   RightSidebarContent,
 } from "@/components/molecules/RightSidebar/RightSidebar";
 import type { GithubRepoSummary } from "@/lib/entities/github.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { getRoleLabel } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { useGithubSidebar } from "./githubSidebar.hooks";
-
-const ALLOWED_ROLES = ["owner", "admin", "dev", "qa", "po", "pm"];
 
 function RepoList({
   repos,
@@ -105,13 +105,8 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
     organizations: true,
   });
 
-  // Conditionally hide the sidebar entirely if the user does not have a valid role
-  if (!loading && authRecord && !ALLOWED_ROLES.includes(authRecord.role)) {
-    return null;
-  }
-
-  // Also hide if it's still loading initially (prevents flash of wrong state)
-  if (loading && !authRecord) {
+  // Hide if still loading, if auth failed/missing, or if user role lacks GITHUB_MCP_ACCESS permission
+  if (loading || !authRecord || !hasPermission(authRecord.role, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
     return null;
   }
 
@@ -240,7 +235,7 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
                         : "GitHub PAT Active"}
                       {authRecord?.role && (
                         <span className="rounded-sm bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
-                          {authRecord.role}
+                          {getRoleLabel(authRecord.role)}
                         </span>
                       )}
                     </div>
