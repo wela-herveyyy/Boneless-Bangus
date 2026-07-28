@@ -1,6 +1,5 @@
-import { Agent, type McpServerConfig } from "@cursor/sdk";
-// @ts-ignore
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { Agent, type McpServerConfig, type SDKUserMessage } from "@cursor/sdk";
+import { processUploadedFiles } from "@/lib/domain/usecases/files/extract_file_content.usecase";
 import type {
   CursorResult,
   PromptAgentInput,
@@ -73,81 +72,66 @@ export async function promptAgent(
     ? "GitHub tools are available via the user's saved PAT (custom tools). For a multi-repo overview across personal, collaborator, and organization repos, call github_list_my_repositories. Prefer that over guessing from the local workspace or a single open repo.\n\n"
     : "";
 
-  // Extract text content from attached files and append to the prompt.
-  // PDFs and text files are supported; images are skipped on the Cursor path.
+  // Process attached files: images → native vision, everything else → extracted text in prompt
   let fileContext = "";
+  const sdkImages: NonNullable<SDKUserMessage["images"]> = [];
+
   if (input.files && input.files.length > 0) {
-    const extractedParts = await Promise.all(
-      input.files.map(async (f) => {
-        const mime = f.mimeType.toLowerCase();
-        const data = f.base64Data.includes(",") ? f.base64Data.split(",")[1] : f.base64Data;
+    const { textParts, images } = await processUploadedFiles(input.files);
 
-        // Skip images — Cursor prompt is text-only
-        if (mime.startsWith("image/") || mime.startsWith("video/") || mime.startsWith("audio/")) {
-          return null;
-        }
+    if (textParts.length > 0) {
+      fileContext = `\n\n${textParts.join("\n\n")}`;
+    }
 
-        if (mime === "application/pdf") {
-          try {
-            const pdfBuffer = Buffer.from(data, "base64");
-            const parsed = await pdfParse(pdfBuffer);
-            return `The user has uploaded a PDF file named "${f.name}". Here is the extracted text content:\n\n<file_content filename="${f.name}">\n${parsed.text}\n</file_content>`;
-          } catch (e) {
-            console.warn(`[Cursor] Failed to parse PDF ${f.name}:`, e);
-            return null;
-          }
-        }
-
-        // Try to decode as UTF-8 text
-        try {
-          const textStr = Buffer.from(data, "base64").toString("utf-8");
-          if (!textStr.includes("\u0000")) {
-            return `The user has uploaded a text file named "${f.name}". Here is the content:\n\n<file_content filename="${f.name}">\n${textStr}\n</file_content>`;
-          }
-        } catch {
-          // ignore
-        }
-
-        return null;
-      })
-    );
-    const validParts = extractedParts.filter(Boolean) as string[];
-    if (validParts.length > 0) {
-      fileContext = `\n\n${validParts.join("\n\n")}`;
+    for (const img of images) {
+      // SDKImage with base64 data
+      sdkImages.push({ data: img.data, mimeType: img.mimeType });
     }
   }
 
+  const promptText = `${who}${skillBlock}${workspaceHint}${githubHint}${message}${fileContext}`;
+
+  const agentOptions = {
+    apiKey,
+    model: { id: input.modelId ?? "composer-2.5" },
+    mcpServers:
+      mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+    local: {
+      cwd: input.cwd ?? process.cwd(),
+      ...(hasCustomTools ? { customTools } : {}),
+    },
+  };
+
   try {
-    const run = await Agent.prompt(
-      `${who}${skillBlock}${workspaceHint}${githubHint}${message}${fileContext}`,
-      {
-        apiKey,
-        model: { id: input.modelId ?? "composer-2.5" },
-        mcpServers:
-          mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
-        local: {
-          cwd: input.cwd ?? process.cwd(),
-          ...(hasCustomTools ? { customTools } : {}),
-        },
-      },
-    );
-
-    if (run.status === "error") {
-      return {
-        ok: false,
-        error: run.error?.message ?? "Cursor agent run failed.",
+    const agent = await Agent.create(agentOptions);
+    try {
+      const userMessage: SDKUserMessage = {
+        text: promptText,
+        ...(sdkImages.length > 0 ? { images: sdkImages } : {}),
       };
-    }
+      const run = await agent.send(userMessage);
+      const result = await run.wait();
 
-    return {
-      ok: true,
-      data: {
-        status: run.status,
-        result: run.result,
-        requestId: run.requestId,
-        durationMs: run.durationMs,
-      },
-    };
+      if (result.status === "error") {
+        return {
+          ok: false,
+          error: result.error?.message ?? "Cursor agent run failed.",
+        };
+      }
+
+      return {
+        ok: true,
+        data: {
+          status: result.status,
+          result: result.result,
+          requestId: result.requestId,
+          durationMs: result.durationMs,
+        },
+      };
+    } finally {
+      // Always close the agent session to avoid leaks
+      await agent.close();
+    }
   } catch (error) {
     return {
       ok: false,
