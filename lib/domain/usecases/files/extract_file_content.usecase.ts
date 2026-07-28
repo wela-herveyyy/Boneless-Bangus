@@ -2,7 +2,7 @@
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 // @ts-ignore – mammoth ships its own types but they are not always resolved by tsc
 import mammoth from "mammoth";
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
 // @ts-ignore – officeparser has no type declarations
 import officeparser from "officeparser";
 
