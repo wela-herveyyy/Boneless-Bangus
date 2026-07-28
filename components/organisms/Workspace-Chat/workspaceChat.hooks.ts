@@ -8,6 +8,7 @@ import {
   type OnboardingProfile,
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
+import { getCurrentUserRoleAction } from "@/lib/domain/actions/profile.actions";
 import { getSkillsAction } from "@/lib/domain/actions/skills.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
 import { AI_PROVIDER, type AiProvider } from "@/lib/entities/ai.type";
@@ -135,29 +136,42 @@ function readStoredGoogleModel(): GoogleAiModel {
   return GOOGLE_AI_DEFAULT_MODEL;
 }
 
-export function useWorkspaceProfile(userId?: string) {
+export function useWorkspaceProfile(userId?: string, dbRole?: string | null) {
   const [profile, setProfile] = useState<OnboardingProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [liveRole, setLiveRole] = useState<string | null>(dbRole || null);
 
   const loadProfile = useCallback(async () => {
-    const result = await listLocalRecordsAction();
+    const [liveRoleRes, result] = await Promise.all([
+      getCurrentUserRoleAction(),
+      listLocalRecordsAction(),
+    ]);
+
+    const resolvedRole = liveRoleRes.ok && liveRoleRes.role ? liveRoleRes.role : (dbRole || "");
+    if (resolvedRole) {
+      setLiveRole(resolvedRole);
+    }
 
     if (result.ok) {
       const key = getOnboardingStorageKey(userId);
       const record = result.data.find((item) => item.key === key);
       if (record) {
-        setProfile(parseProfile(record.value));
+        const parsed = parseProfile(record.value);
+        if (parsed) {
+          parsed.role = resolvedRole;
+          setProfile(parsed);
+        }
       }
     }
 
     setLoading(false);
-  }, [userId]);
+  }, [userId, dbRole]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
 
-  return { profile, loading };
+  return { profile, loading, liveRole };
 }
 
 export type ChatTurn = {

@@ -14,6 +14,7 @@ import {
 } from "@/components/organisms/Workspace-Sidebar/WorkspaceSidebar";
 import { ProfileView } from "@/components/client-pages/profile/ProfileView";
 import type { UserRole } from "@/lib/entities/users.type";
+import { useFetchDynamicRoles } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 
 type WorkspacePageProps = {
   userId: string;
@@ -44,8 +45,9 @@ export function WorkspacePage({
   showAdminLink = false,
   userRole = null,
 }: WorkspacePageProps) {
+  useFetchDynamicRoles();
   const sidebar = useWorkspaceSidebar();
-  const { profile, loading } = useWorkspaceProfile(userId);
+  const { profile, loading, liveRole } = useWorkspaceProfile(userId, userRole);
   const displayName = getDisplayName(profile, userName);
 
   const onConversationSaved = useCallback(
@@ -72,7 +74,7 @@ export function WorkspacePage({
         userEmail={userEmail}
         sidebar={sidebar}
         showAdminLink={showAdminLink}
-        userRole={userRole}
+        userRole={liveRole || userRole}
       />
       <WorkspaceChat
         userEmail={userEmail}
