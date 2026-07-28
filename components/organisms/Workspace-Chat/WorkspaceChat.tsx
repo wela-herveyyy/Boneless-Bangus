@@ -248,14 +248,25 @@ export function WorkspaceChat({
                   </button>
                 </span>
               )}
-              <input
-                type="text"
+              <textarea
+                rows={1}
                 placeholder={chat.activeCommand ? "Add additional context..." : "e.g. What tasks are overdue?"}
                 aria-label="Ask BBAI"
-                className="w-full bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
+                className="w-full resize-none bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
+                style={{ maxHeight: "8rem", overflowY: "auto" }}
                 value={chat.message}
                 onChange={(event) => chat.setMessage(event.target.value)}
-                onKeyDown={chat.handleCommandKeyDown}
+                onKeyDown={(event) => {
+                  // Shift+Enter → insert newline (let default behaviour run)
+                  if (event.key === "Enter" && event.shiftKey) return;
+                  // Enter alone → submit
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    chat.send(event as unknown as React.FormEvent);
+                    return;
+                  }
+                  chat.handleCommandKeyDown(event as unknown as React.KeyboardEvent<HTMLInputElement>);
+                }}
                 disabled={chat.sending || chat.loadingThread}
               />
             </div>
