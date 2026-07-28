@@ -16,8 +16,9 @@ import {
 } from "@/lib/domain/services/google_workspace_auth.service";
 import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeSession, type ExecuteToolResult } from "@/lib/domain/services/mcp_runtime.service";
 import { getGoogleWorkspaceAuth } from "@/lib/domain/usecases/google_workspace_auth/get_google_workspace_auth.usecase";
+import { resolveApiKey } from "@/lib/domain/usecases/ai/resolve_api_key.usecase";
+import { AI_PROVIDER } from "@/lib/entities/ai.type";
 import { getSession } from "../auth/get_session.usecase";
-import { getProfile } from "../profile/get_profile.usecase";
 import {
   sendGmailMessageUseCase,
 } from "@/lib/domain/usecases/mcp_google_workspace/gmail.usecases";
@@ -177,21 +178,17 @@ export async function* createInteractionStream(
     return;
   }
 
-  let apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
   const session = await getSession();
-  if (session?.user?.id) {
-    const profile = await getProfile(session.user.id);
-    if (profile.settings?.geminiApiKey) {
-      apiKey = profile.settings.geminiApiKey;
-    } else if (profile.team?.geminiApiKey) {
-      apiKey = profile.team.geminiApiKey;
-    }
-  }
-
-  if (!apiKey) {
-    yield { type: "error", error: "GEMINI_API_KEY is not set in environment or your profile." };
+  const resolved = await resolveApiKey(
+    session?.user?.id ?? input.userId,
+    AI_PROVIDER.GOOGLE_AI,
+    input.keySource,
+  );
+  if (!resolved.ok) {
+    yield { type: "error", error: resolved.error };
     return;
   }
+  const apiKey = resolved.apiKey;
 
   const modelOrAgent = input.model ?? GOOGLE_AI_DEFAULT_MODEL;
   const isAgent = GOOGLE_AI_AGENTS.has(modelOrAgent);

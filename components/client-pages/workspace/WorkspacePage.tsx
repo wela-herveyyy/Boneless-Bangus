@@ -84,6 +84,12 @@ export function WorkspacePage({
         sidebarOpen={sidebar.isOpen}
         activeChatId={sidebar.activeChatId}
         onConversationSaved={onConversationSaved}
+        apiKeys={{
+          personalCursor: Boolean(userSettings?.cursorApiKey),
+          personalGemini: Boolean(userSettings?.geminiApiKey),
+          teamCursor: Boolean(userTeam?.cursorApiKey),
+          teamGemini: Boolean(userTeam?.geminiApiKey),
+        }}
       />
       {sidebar.isProfileOpen && (
         <ProfileView

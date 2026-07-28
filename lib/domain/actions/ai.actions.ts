@@ -153,7 +153,11 @@ export async function promptAiAction(
 
     const cleaned = cleanupAiPrompt(result.data.text, result.data.usage);
     const hasFiles = Array.isArray(input.files) && input.files.length > 0;
-    const keySource = await resolveApiKeySource(userSession.user.id, input.provider);
+    const keySource = await resolveApiKeySource(
+      userSession.user.id,
+      input.provider,
+      input.keySource,
+    );
     const saved = await insertAiMessage({
       userId: userSession.user.id,
       conversationId: input.dbConversationId,

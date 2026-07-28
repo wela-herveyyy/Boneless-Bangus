@@ -88,6 +88,8 @@ export type PromptAiInput = {
   dbConversationId?: string;
   /** File attachments (PDFs and text files extracted as text; images skipped on Cursor path). */
   files?: { name: string; mimeType: string; base64Data: string }[];
+  /** Force personal / team / system key (must be configured). */
+  keySource?: AiKeySource;
 };
 
 export type PromptAiOutput = {

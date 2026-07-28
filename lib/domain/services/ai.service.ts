@@ -32,6 +32,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         mcpServers: input.mcpServers,
         skills: input.skills,
         files: input.files,
+        keySource: input.keySource,
       });
       if (!result.ok) return result;
       return {
@@ -68,6 +69,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         model: input.model,
         previousInteractionId: input.previousInteractionId,
         systemInstruction,
+        keySource: input.keySource,
         ...(workspaceConnected && userId
           ? {
             tools: WORKSPACE_GEMINI_TOOLS,

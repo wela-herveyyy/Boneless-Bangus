@@ -85,9 +85,9 @@ export type ErpDashboard = {
 };
 
 
-export const ERP_BASE_URL = "https://erp.livro.systems";
-export const ERP_MCP_URL = "https://ayey82hkd1erps3z9c0jl5yt.wela.dev/mcp";
-export const ERP_MCP_SERVER_KEY = "erpnext";
+export const ERP_BASE_URL = process.env.NEXT_PUBLIC_ERP_BASE_URL ?? "";
+export const ERP_MCP_URL = process.env.NEXT_PUBLIC_ERP_MCP_URL ?? "";
+export const ERP_MCP_SERVER_KEY = process.env.NEXT_PUBLIC_ERP_MCP_SERVER_KEY ?? "erpnext";
 
 export type ErpMcpServerConfig = {
   type: "http";
@@ -97,10 +97,10 @@ export type ErpMcpServerConfig = {
 
 /**
  * Build the MCP server entry for ERPNext from an active session sid.
- * Returns `null` when sid is falsy.
+ * Returns `null` when sid is falsy or ERP env URLs are missing.
  */
 export function buildErpMcpConfig(sid: string | null): ErpMcpServerConfig | null {
-  if (!sid) return null;
+  if (!sid || !ERP_MCP_URL || !ERP_BASE_URL) return null;
   return {
     type: "http",
     url: ERP_MCP_URL,

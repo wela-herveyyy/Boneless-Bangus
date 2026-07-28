@@ -1,19 +1,65 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
-import { LuMoveVertical, LuPanelRightClose, LuPaperclip, LuX } from "react-icons/lu";
+import { Fragment, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  LuArrowUp,
+  LuCheck,
+  LuChevronDown,
+  LuKeyRound,
+  LuLoaderCircle,
+  LuMoveVertical,
+  LuPanelRightClose,
+  LuPaperclip,
+  LuX,
+} from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
-import { Input } from "@/components/atoms/Input/Input";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
+import type { AiKeySource } from "@/lib/entities/ai.type";
 import {
   getFocusLabel,
   getRoleLabel,
   AI_ROUTE_OPTIONS,
+  isKeySourceAvailable,
   useWorkspaceChat,
   type AiRouteId,
+  type WorkspaceChatApiKeys,
 } from "./workspaceChat.hooks";
+
+const KEY_SOURCE_OPTIONS: {
+  id: AiKeySource;
+  label: string;
+  hint: string;
+}[] = [
+  { id: "personal", label: "Personal", hint: "Your own API key" },
+  { id: "team", label: "Team", hint: "Shared team key" },
+  { id: "system", label: "System", hint: "Platform default" },
+];
+
+function useMenuDismiss(
+  open: boolean,
+  setOpen: (open: boolean) => void,
+  rootRef: RefObject<HTMLDivElement | null>,
+) {
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, setOpen, rootRef]);
+}
 
 function AiRouteMenu({
   value,
@@ -27,26 +73,7 @@ function AiRouteMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = AI_ROUTE_OPTIONS.find((option) => option.id === value) ?? AI_ROUTE_OPTIONS[0];
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useMenuDismiss(open, setOpen, rootRef);
 
   return (
     <div ref={rootRef} className="relative z-50">
@@ -57,28 +84,38 @@ function AiRouteMenu({
         aria-expanded={open}
         aria-label="AI model"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-3 rounded-xl bg-surface-container-low px-4 py-2.5 text-left transition-colors hover:bg-surface-container-high disabled:opacity-60"
+        className={[
+          "group inline-flex max-w-full items-center gap-2.5 rounded-2xl px-3 py-2 text-left",
+          "bg-surface-container-low/80 transition-colors duration-200",
+          "hover:bg-surface-container-high disabled:opacity-50",
+          open ? "bg-surface-container-high" : "",
+        ].join(" ")}
       >
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-medium text-on-surface">{selected.label}</span>
-          <span className="block truncate text-xs text-on-surface-muted">{selected.hint}</span>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-[11px] font-semibold tracking-wide text-primary">
+          {selected.label.slice(0, 1)}
         </span>
-        <span
+        <span className="min-w-0">
+          <span className="block truncate font-display text-sm font-semibold leading-tight text-on-surface">
+            {selected.label}
+          </span>
+          <span className="block truncate text-[11px] leading-tight text-on-surface-muted">
+            {selected.hint}
+          </span>
+        </span>
+        <LuChevronDown
           aria-hidden
           className={[
-            "text-on-surface-muted transition-transform duration-200",
+            "size-4 shrink-0 text-on-surface-muted transition-transform duration-200 group-hover:text-on-surface",
             open ? "rotate-180" : "",
           ].join(" ")}
-        >
-          ▾
-        </span>
+        />
       </button>
 
       {open ? (
         <ul
           role="listbox"
           aria-label="AI model"
-          className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-xl bg-surface-container-lowest py-1 shadow-bloom"
+          className="absolute bottom-full left-0 z-50 mb-2 min-w-56 overflow-hidden rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border"
         >
           {AI_ROUTE_OPTIONS.map((option) => {
             const active = option.id === value;
@@ -87,25 +124,120 @@ function AiRouteMenu({
                 <button
                   type="button"
                   className={[
-                    "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors",
-                    active
-                      ? "bg-surface-container-low text-on-surface"
-                      : "text-on-surface hover:bg-surface-container-low",
+                    "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                    active ? "bg-primary/8" : "hover:bg-surface-container-low",
                   ].join(" ")}
                   onClick={() => {
                     onChange(option.id);
                     setOpen(false);
                   }}
                 >
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium">{option.label}</span>
+                  <span
+                    className={[
+                      "flex size-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold",
+                      active
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-container-low text-primary",
+                    ].join(" ")}
+                  >
+                    {option.label.slice(0, 1)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-on-surface">{option.label}</span>
                     <span className="block text-xs text-on-surface-muted">{option.hint}</span>
                   </span>
-                  {active ? (
-                    <span className="text-xs font-medium text-primary" aria-hidden>
-                      ✓
+                  {active ? <LuCheck className="size-4 shrink-0 text-primary" aria-hidden /> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function KeySourceMenu({
+  value,
+  onChange,
+  provider,
+  apiKeys,
+  disabled,
+}: {
+  value: AiKeySource;
+  onChange: (source: AiKeySource) => void;
+  provider: ReturnType<typeof useWorkspaceChat>["provider"];
+  apiKeys?: WorkspaceChatApiKeys;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = KEY_SOURCE_OPTIONS.find((option) => option.id === value) ?? KEY_SOURCE_OPTIONS[2];
+  useMenuDismiss(open, setOpen, rootRef);
+
+  return (
+    <div ref={rootRef} className="relative z-50">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="API key source"
+        onClick={() => setOpen((prev) => !prev)}
+        className={[
+          "inline-flex items-center gap-1.5 rounded-2xl px-3 py-2",
+          "bg-surface-container-low/80 text-xs font-medium text-on-surface",
+          "transition-colors duration-200 hover:bg-surface-container-high disabled:opacity-50",
+          open ? "bg-surface-container-high" : "",
+        ].join(" ")}
+      >
+        <LuKeyRound className="size-3.5 shrink-0 text-primary" aria-hidden />
+        <span>{selected.label}</span>
+        <LuChevronDown
+          aria-hidden
+          className={[
+            "size-3.5 shrink-0 text-on-surface-muted transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        />
+      </button>
+
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="API key source"
+          className="absolute bottom-full left-0 z-50 mb-2 min-w-52 overflow-hidden rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border"
+        >
+          {KEY_SOURCE_OPTIONS.map((option) => {
+            const available = isKeySourceAvailable(option.id, provider, apiKeys);
+            const active = option.id === value;
+            return (
+              <li
+                key={option.id}
+                role="option"
+                aria-selected={active}
+                aria-disabled={!available}
+              >
+                <button
+                  type="button"
+                  disabled={!available}
+                  className={[
+                    "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                    active ? "bg-primary/8" : "hover:bg-surface-container-low",
+                    !available ? "cursor-not-allowed opacity-40 hover:bg-transparent" : "",
+                  ].join(" ")}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-on-surface">{option.label}</span>
+                    <span className="block text-xs text-on-surface-muted">
+                      {available ? option.hint : "Not configured"}
                     </span>
-                  ) : null}
+                  </span>
+                  {active ? <LuCheck className="size-4 shrink-0 text-primary" aria-hidden /> : null}
                 </button>
               </li>
             );
@@ -124,6 +256,7 @@ type WorkspaceChatProps = {
   sidebarOpen: boolean;
   activeChatId?: string | null;
   onConversationSaved?: (dbConversationId: string) => void;
+  apiKeys?: WorkspaceChatApiKeys;
 };
 
 export function WorkspaceChat({
@@ -134,6 +267,7 @@ export function WorkspaceChat({
   sidebarOpen,
   activeChatId = null,
   onConversationSaved,
+  apiKeys,
 }: WorkspaceChatProps) {
   const firstName = displayName.split(" ")[0];
   const chat = useWorkspaceChat(
@@ -141,7 +275,7 @@ export function WorkspaceChat({
       name: profile?.name || displayName,
       email: userEmail,
     },
-    { activeChatId, onConversationSaved },
+    { activeChatId, onConversationSaved, apiKeys },
   );
   const threadRef = useRef<HTMLDivElement>(null);
   const [showRightTriggers, setShowRightTriggers] = useState(false);
@@ -167,23 +301,31 @@ export function WorkspaceChat({
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
   }, [chat.turns, chat.sending, chat.streamingAssistantId, chat.thinkingText]);
 
+  const canSend =
+    !chat.sending &&
+    !chat.loadingThread &&
+    Boolean(chat.message.trim() || chat.activeCommand || (chat.attachments && chat.attachments.length > 0));
+
+  const composerBusy = chat.sending || chat.loadingThread;
+
   const composer = (
-    <form onSubmit={chat.send} className="rounded-2xl bg-surface-container-lowest p-4 shadow-bloom sm:p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="w-48">
-          <AiRouteMenu value={chat.routeId} onChange={chat.setRoute} disabled={chat.sending || chat.loadingThread} />
-        </div>
-      </div>
-      
-      {chat.attachments && chat.attachments.length > 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
+    <form
+      onSubmit={chat.send}
+      className="rounded-[1.75rem] bg-surface-container-lowest p-2 shadow-bloom ghost-border sm:p-2.5"
+    >
+      {chat.attachments && chat.attachments.length > 0 ? (
+        <div className="mb-2 flex flex-wrap gap-2 px-1.5 pt-1">
           {chat.attachments.map((file, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-lg bg-surface-container-low px-2.5 py-1.5 text-xs text-on-surface">
-              <span className="max-w-[150px] truncate">{file.name}</span>
+            <div
+              key={`${file.name}-${i}`}
+              className="flex items-center gap-1.5 rounded-xl bg-surface-container-low px-2.5 py-1.5 text-xs text-on-surface"
+            >
+              <LuPaperclip className="size-3 shrink-0 text-on-surface-muted" aria-hidden />
+              <span className="max-w-40 truncate">{file.name}</span>
               <button
                 type="button"
-                onClick={() => chat.setAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                className="text-on-surface-muted hover:text-secondary transition-colors"
+                onClick={() => chat.setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                className="rounded-md p-0.5 text-on-surface-muted transition-colors hover:bg-surface-container-lowest hover:text-secondary"
                 aria-label="Remove attachment"
               >
                 <LuX className="size-3.5" />
@@ -191,97 +333,135 @@ export function WorkspaceChat({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
-      <label className="block space-y-3">
-        <span className="sr-only">Ask BBAI</span>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-1">
-            {chat.showCommandMenu && chat.filteredCommands.length > 0 && (
-              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl bg-surface-container-lowest py-2 shadow-bloom border border-surface-container-high/50 max-h-60 overflow-y-auto bbai-scroll">
-                {chat.filteredCommands.map((cmd, i) => (
-                  <button
-                    key={cmd.id}
-                    type="button"
-                    onClick={() => chat.handleCommandSelect(cmd)}
-                    className={[
-                      "w-full text-left px-4 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between group",
-                      i === chat.selectedCommandIndex ? "bg-surface-container-low" : ""
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="text-sm font-semibold text-primary whitespace-nowrap">{cmd.id}</span>
-                      <span className="text-xs text-on-surface-muted truncate">{cmd.description}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="relative flex w-full items-center gap-1 rounded-xl bg-surface-container-low px-2 py-1 transition-colors input-glow focus-within:bg-surface-container-lowest">
-              <label className="flex cursor-pointer items-center justify-center p-1.5 text-on-surface-muted transition-colors hover:text-primary">
-                <LuPaperclip className="size-4" />
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      const filesArray = Array.from(e.target.files);
-                      chat.setAttachments((prev) => [...prev, ...filesArray]);
-                    }
-                    e.target.value = "";
-                  }}
-                  disabled={chat.sending || chat.loadingThread}
-                />
-              </label>
-              {chat.activeCommand && (
-                <span className="shrink-0 flex items-center gap-1.5 rounded bg-primary/20 px-2 py-1 text-xs font-semibold text-primary">
-                  {chat.activeCommand.id}
-                  <button
-                    type="button"
-                    onClick={() => chat.setActiveCommand(null)}
-                    className="flex size-4 items-center justify-center rounded-full hover:bg-primary/20 hover:text-primary-variant transition-colors"
-                    aria-label="Remove command"
-                  >
-                    &times;
-                  </button>
+      <div className="relative">
+        {chat.showCommandMenu && chat.filteredCommands.length > 0 ? (
+          <div className="absolute bottom-full left-0 z-50 mb-2 max-h-60 w-full overflow-y-auto rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border bbai-scroll">
+            {chat.filteredCommands.map((cmd, i) => (
+              <button
+                key={cmd.id}
+                type="button"
+                onClick={() => chat.handleCommandSelect(cmd)}
+                className={[
+                  "flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors",
+                  i === chat.selectedCommandIndex
+                    ? "bg-primary/8"
+                    : "hover:bg-surface-container-low",
+                ].join(" ")}
+              >
+                <span className="whitespace-nowrap font-display text-sm font-semibold text-primary">
+                  {cmd.id}
                 </span>
-              )}
-              <textarea
-                rows={1}
-                placeholder={chat.activeCommand ? "Add additional context..." : "e.g. What tasks are overdue?"}
-                aria-label="Ask BBAI"
-                className="w-full resize-none bg-transparent px-2 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-muted"
-                style={{ maxHeight: "8rem", overflowY: "auto" }}
-                value={chat.message}
-                onChange={(event) => chat.setMessage(event.target.value)}
-                onKeyDown={(event) => {
-                  // Shift+Enter → insert newline (let default behaviour run)
-                  if (event.key === "Enter" && event.shiftKey) return;
-                  // Enter alone → submit
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    chat.send(event as unknown as React.FormEvent);
-                    return;
-                  }
-                  chat.handleCommandKeyDown(event as unknown as React.KeyboardEvent<HTMLInputElement>);
-                }}
-                disabled={chat.sending || chat.loadingThread}
-              />
-            </div>
+                <span className="truncate text-xs text-on-surface-muted">{cmd.description}</span>
+              </button>
+            ))}
           </div>
-          <Button
+        ) : null}
+
+        <div className="input-glow flex items-end gap-1.5 rounded-[1.35rem] bg-surface-container-low px-1.5 py-1.5 transition-[background-color,box-shadow] duration-200 focus-within:bg-surface-container-lowest">
+          <label className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl text-on-surface-muted transition-colors hover:bg-surface-container-lowest hover:text-primary">
+            <LuPaperclip className="size-4" />
+            <span className="sr-only">Attach files</span>
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  const filesArray = Array.from(e.target.files);
+                  chat.setAttachments((prev) => [...prev, ...filesArray]);
+                }
+                e.target.value = "";
+              }}
+              disabled={composerBusy}
+            />
+          </label>
+
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2 py-1">
+            {chat.activeCommand ? (
+              <span className="mb-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary/12 px-2.5 py-1 text-xs font-semibold text-primary">
+                {chat.activeCommand.id}
+                <button
+                  type="button"
+                  onClick={() => chat.setActiveCommand(null)}
+                  className="flex size-4 items-center justify-center rounded-full transition-colors hover:bg-primary/20"
+                  aria-label="Remove command"
+                >
+                  <LuX className="size-3" />
+                </button>
+              </span>
+            ) : null}
+            <textarea
+              rows={1}
+              placeholder={
+                chat.activeCommand ? "Add additional context…" : "e.g. What tasks are overdue?"
+              }
+              aria-label="Ask BBAI"
+              className="max-h-32 min-h-10 min-w-48 flex-1 resize-none bg-transparent py-2 text-[15px] leading-5 text-on-surface outline-none placeholder:text-on-surface-muted/80"
+              value={chat.message}
+              onChange={(event) => {
+                chat.setMessage(event.target.value);
+                const el = event.currentTarget;
+                el.style.height = "auto";
+                el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && event.shiftKey) return;
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  chat.send(event as unknown as React.FormEvent);
+                  return;
+                }
+                chat.handleCommandKeyDown(
+                  event as unknown as React.KeyboardEvent<HTMLInputElement>,
+                );
+              }}
+              disabled={composerBusy}
+            />
+          </div>
+
+          <button
             type="submit"
-            disabled={chat.sending || chat.loadingThread || (!chat.message.trim() && !chat.activeCommand && (!chat.attachments || chat.attachments.length === 0))}
-            className="sm:shrink-0"
+            disabled={!canSend}
+            className={[
+              "btn-primary-gradient mb-0.5 inline-flex size-10 shrink-0 items-center justify-center rounded-2xl text-on-primary",
+              "shadow-bloom transition-[transform,opacity] duration-150",
+              "enabled:active:scale-[0.98] disabled:opacity-35",
+            ].join(" ")}
+            aria-label={chat.sending ? "Thinking" : chat.loadingThread ? "Loading" : "Send"}
           >
-            {chat.sending ? "Thinking…" : chat.loadingThread ? "Loading…" : "Send"}
-          </Button>
+            {chat.sending ? (
+              <LuLoaderCircle className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <LuArrowUp className="size-4" aria-hidden />
+            )}
+          </button>
         </div>
-      </label>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-0.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <AiRouteMenu
+            value={chat.routeId}
+            onChange={chat.setRoute}
+            disabled={composerBusy}
+          />
+          <KeySourceMenu
+            value={chat.keySource}
+            onChange={chat.setKeySource}
+            provider={chat.provider}
+            apiKeys={apiKeys}
+            disabled={composerBusy}
+          />
+        </div>
+        <p className="hidden px-1 text-[11px] text-on-surface-muted sm:block">
+          Enter to send · Shift+Enter for new line
+        </p>
+      </div>
+
       {chat.error ? (
-        <p className="mt-3 text-sm text-secondary" role="alert">
+        <p className="mt-2 px-1.5 text-sm text-secondary" role="alert">
           {chat.error}
         </p>
       ) : null}

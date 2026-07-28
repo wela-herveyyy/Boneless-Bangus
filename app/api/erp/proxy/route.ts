@@ -1,7 +1,8 @@
 import { auth } from "@/lib/domain/services/auth.service";
+import { ERP_BASE_URL } from "@/lib/entities/erpnext.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
-const ERP_URL = "https://erp.livro.systems";
+const ERP_URL = ERP_BASE_URL;
 
 export async function POST(request: Request) {
   try {

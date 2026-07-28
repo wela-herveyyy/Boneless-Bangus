@@ -1,8 +1,9 @@
 import { auth } from "@/lib/domain/services/auth.service";
+import { ERP_BASE_URL } from "@/lib/entities/erpnext.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 
-const ERP_URL = "https://erp.livro.systems";
+const ERP_URL = ERP_BASE_URL;
 
 function extractSid(response: Response): string | null {
   const setCookieHeaders = response.headers.getSetCookie?.() ?? [];

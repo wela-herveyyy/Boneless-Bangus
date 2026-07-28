@@ -11,7 +11,12 @@ import {
 import { resolveApiKeySource } from "@/lib/domain/usecases/ai/resolve_api_key_source.usecase";
 import { WORKSPACE_GEMINI_SYSTEM_HINT } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-import { AI_PROVIDER } from "@/lib/entities/ai.type";
+import { AI_PROVIDER, type AiKeySource } from "@/lib/entities/ai.type";
+
+function parseKeySource(value: unknown): AiKeySource | undefined {
+  if (value === "personal" || value === "team" || value === "system") return value;
+  return undefined;
+}
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
@@ -58,7 +63,9 @@ export async function POST(request: Request) {
       email?: string;
       mcpServers?: unknown[];
       files?: { name: string; mimeType: string; base64Data: string }[];
+      keySource?: AiKeySource;
     };
+    const keySource = parseKeySource(body.keySource);
 
     const message = body.message?.trim() ?? "";
     const hasFiles = Array.isArray(body.files) && body.files.length > 0;
@@ -95,6 +102,7 @@ export async function POST(request: Request) {
             userId: userSession.user.id,
             dbConversationId: body.dbConversationId,
             files: body.files,
+            keySource,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -138,9 +146,10 @@ export async function POST(request: Request) {
                 outputTokens: apiOutputTokens,
               });
               const cleaned = cleanupAiPrompt(accumulated, usage);
-              const keySource = await resolveApiKeySource(
+              const resolvedKeySource = await resolveApiKeySource(
                 userSession.user.id,
                 AI_PROVIDER.GOOGLE_AI,
+                keySource,
               );
 
               const saved = await insertAiMessage({
@@ -149,7 +158,7 @@ export async function POST(request: Request) {
                 content: message || (hasFiles ? `[Attached ${body.files?.length} file(s)]` : ""),
                 aiFeedback: cleaned.content,
                 usage,
-                keySource,
+                keySource: resolvedKeySource,
               });
 
               if (!saved.ok) {

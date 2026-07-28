@@ -48,6 +48,8 @@ export type CreateInteractionInput = {
   dbConversationId?: string;
   /** Files attached to the interaction (e.g., base64 documents/images). */
   files?: { name: string; mimeType: string; base64Data: string }[];
+  /** Force personal / team / system key (must be configured). */
+  keySource?: "personal" | "team" | "system";
 };
 
 export type ConnectWarning = {

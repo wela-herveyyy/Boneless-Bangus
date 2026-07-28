@@ -6,8 +6,9 @@ import type {
   PromptAgentInput,
   PromptAgentOutput,
 } from "@/lib/entities/cursor.type";
+import { resolveApiKey } from "@/lib/domain/usecases/ai/resolve_api_key.usecase";
+import { AI_PROVIDER } from "@/lib/entities/ai.type";
 import { getSession } from "../auth/get_session.usecase";
-import { getProfile } from "../profile/get_profile.usecase";
 import {
   getPromptSkills,
   mergePromptSkills,
@@ -25,22 +26,13 @@ export async function promptAgent(
     return { ok: false, error: "Message is required." };
   }
 
-  let apiKey = process.env.CURSOR_API_KEY;
   let userId: string | undefined;
   const session = await getSession();
-  if (session?.user?.id) {
-    userId = session.user.id;
-    const profile = await getProfile(session.user.id);
-    if (profile.settings?.cursorApiKey) {
-      apiKey = profile.settings.cursorApiKey;
-    } else if (profile.team?.cursorApiKey) {
-      apiKey = profile.team.cursorApiKey;
-    }
-  }
+  if (session?.user?.id) userId = session.user.id;
 
-  if (!apiKey) {
-    return { ok: false, error: "CURSOR_API_KEY is not set in environment or your profile." };
-  }
+  const resolved = await resolveApiKey(userId, AI_PROVIDER.CURSOR, input.keySource);
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const apiKey = resolved.apiKey;
 
   const who =
     input.name || input.email

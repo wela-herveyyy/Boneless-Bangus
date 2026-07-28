@@ -40,6 +40,8 @@ export type PromptAgentInput = {
   skills?: CursorSkill[];
   /** File attachments — PDFs and text files will be extracted and injected as prompt context. Images are skipped on the Cursor path. */
   files?: { name: string; mimeType: string; base64Data: string }[];
+  /** Force personal / team / system key (must be configured). */
+  keySource?: "personal" | "team" | "system";
 };
 
 export type PromptAgentOutput = {

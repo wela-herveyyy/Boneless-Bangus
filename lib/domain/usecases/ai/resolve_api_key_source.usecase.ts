@@ -1,20 +1,13 @@
-import { getProfile } from "@/lib/domain/usecases/profile/get_profile.usecase";
-import { AI_PROVIDER, type AiKeySource, type AiProvider } from "@/lib/entities/ai.type";
+import { resolveApiKey } from "@/lib/domain/usecases/ai/resolve_api_key.usecase";
+import type { AiKeySource, AiProvider } from "@/lib/entities/ai.type";
 
-/** Resolve which key would fund a prompt (personal → team → system). */
+/** Resolve which key would fund a prompt (preferred, else personal → team → system). */
 export async function resolveApiKeySource(
   userId: string,
   provider: AiProvider,
+  preferred?: AiKeySource | null,
 ): Promise<AiKeySource> {
-  const profile = await getProfile(userId);
-
-  if (provider === AI_PROVIDER.CURSOR) {
-    if (profile.settings?.cursorApiKey) return "personal";
-    if (profile.team?.cursorApiKey) return "team";
-    return "system";
-  }
-
-  if (profile.settings?.geminiApiKey) return "personal";
-  if (profile.team?.geminiApiKey) return "team";
-  return "system";
+  const resolved = await resolveApiKey(userId, provider, preferred);
+  if (resolved.ok) return resolved.source;
+  return preferred ?? "system";
 }

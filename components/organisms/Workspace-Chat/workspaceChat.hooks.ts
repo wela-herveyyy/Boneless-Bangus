@@ -11,7 +11,7 @@ import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/act
 import { getCurrentUserRoleAction } from "@/lib/domain/actions/profile.actions";
 import { getSkillsAction } from "@/lib/domain/actions/skills.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
-import { AI_PROVIDER, type AiProvider } from "@/lib/entities/ai.type";
+import { AI_PROVIDER, type AiKeySource, type AiProvider } from "@/lib/entities/ai.type";
 import {
   CURSOR_MCP_STORAGE_KEY,
   CURSOR_SKILLS_STORAGE_KEY,
@@ -211,11 +211,45 @@ function writeThreadCache(id: string, entry: ThreadCacheEntry) {
   });
 }
 
+export type WorkspaceChatApiKeys = {
+  personalCursor: boolean;
+  personalGemini: boolean;
+  teamCursor: boolean;
+  teamGemini: boolean;
+};
+
+function preferredKeySource(
+  provider: AiProvider,
+  apiKeys?: WorkspaceChatApiKeys,
+): AiKeySource {
+  if (provider === AI_PROVIDER.CURSOR) {
+    if (apiKeys?.personalCursor) return "personal";
+    if (apiKeys?.teamCursor) return "team";
+    return "system";
+  }
+  if (apiKeys?.personalGemini) return "personal";
+  if (apiKeys?.teamGemini) return "team";
+  return "system";
+}
+
+export function isKeySourceAvailable(
+  source: AiKeySource,
+  provider: AiProvider,
+  apiKeys?: WorkspaceChatApiKeys,
+): boolean {
+  if (source === "system") return true;
+  if (provider === AI_PROVIDER.CURSOR) {
+    return source === "personal" ? Boolean(apiKeys?.personalCursor) : Boolean(apiKeys?.teamCursor);
+  }
+  return source === "personal" ? Boolean(apiKeys?.personalGemini) : Boolean(apiKeys?.teamGemini);
+}
+
 export function useWorkspaceChat(
   user?: { name?: string; email?: string },
   options?: {
     activeChatId?: string | null;
     onConversationSaved?: (dbConversationId: string) => void;
+    apiKeys?: WorkspaceChatApiKeys;
   },
 ) {
   const [message, setMessage] = useState("");
@@ -224,6 +258,9 @@ export function useWorkspaceChat(
   const [sending, setSending] = useState(false);
   const [provider, setProviderState] = useState<AiProvider>(AI_PROVIDER.GOOGLE_AI);
   const [googleModel, setGoogleModelState] = useState<GoogleAiModel>(GOOGLE_AI_DEFAULT_MODEL);
+  const [keySource, setKeySourceState] = useState<AiKeySource>(() =>
+    preferredKeySource(AI_PROVIDER.GOOGLE_AI, options?.apiKeys),
+  );
   const [providerConversationId, setProviderConversationId] = useState<string | undefined>();
   const [dbConversationId, setDbConversationId] = useState<string | undefined>();
   const [thinkingText, setThinkingText] = useState("");
@@ -446,6 +483,19 @@ export function useWorkspaceChat(
     setProviderConversationId(undefined);
   }, []);
 
+  const setKeySource = useCallback(
+    (next: AiKeySource) => {
+      if (!isKeySourceAvailable(next, provider, options?.apiKeys)) return;
+      setKeySourceState(next);
+    },
+    [options?.apiKeys, provider],
+  );
+
+  useEffect(() => {
+    if (isKeySourceAvailable(keySource, provider, options?.apiKeys)) return;
+    setKeySourceState(preferredKeySource(provider, options?.apiKeys));
+  }, [keySource, options?.apiKeys, provider]);
+
   const sendGoogleStream = useCallback(
     async (text: string) => {
       const assistantId = `a-${Date.now()}`;
@@ -493,6 +543,7 @@ export function useWorkspaceChat(
               config,
             })),
             files: filePayloads,
+            keySource,
           }),
         });
 
@@ -628,7 +679,17 @@ export function useWorkspaceChat(
         throw err;
       }
     },
-    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options],
+    [
+      attachments,
+      googleModel,
+      keySource,
+      mcpServers,
+      providerConversationId,
+      dbConversationId,
+      user?.name,
+      user?.email,
+      options,
+    ],
   );
 
   const send = useCallback(
@@ -695,6 +756,7 @@ export function useWorkspaceChat(
             skills,
             dbConversationId,
             files: filePayloads,
+            keySource,
           });
 
           if (result.ok) {
@@ -729,6 +791,7 @@ export function useWorkspaceChat(
       user?.name,
       user?.email,
       provider,
+      keySource,
       mcpServers,
       skills,
       dbConversationId,
@@ -843,6 +906,8 @@ export function useWorkspaceChat(
     setGoogleModel,
     routeId: routeIdFromSelection(provider, googleModel),
     setRoute,
+    keySource,
+    setKeySource,
     dbConversationId,
     hasMoreHistory,
     loadingOlder,
