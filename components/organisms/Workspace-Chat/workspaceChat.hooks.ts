@@ -631,7 +631,8 @@ export function useWorkspaceChat(
       setSending(true);
       setError(null);
       setMessage("");
-      
+      setAttachments([]); // Clear chips immediately so they don't linger during the async AI call
+
       // Keep the UI displaying the original text to the user if they scroll back
       let displayMessage = activeCommand 
         ? `${activeCommand.id} ${text}`.trim()
@@ -700,7 +701,6 @@ export function useWorkspaceChat(
             setError(result.error);
           }
         }
-        setAttachments([]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Request failed.");
       }
@@ -710,6 +710,8 @@ export function useWorkspaceChat(
     [
       message,
       sending,
+      attachments,
+      activeCommand,
       user?.name,
       user?.email,
       provider,
