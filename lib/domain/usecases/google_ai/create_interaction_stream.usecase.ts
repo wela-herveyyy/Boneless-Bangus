@@ -1,4 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
+// @ts-ignore
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import type {
   CreateInteractionInput,
   GoogleAiStreamEvent,
@@ -70,6 +72,10 @@ async function* injectWorkspaceContext(
   
   let funcCallName: string | undefined;
   let args: Record<string, any> = {};
+
+  if (!message) {
+    return message;
+  }
 
   try {
     const response = await ai.models.generateContent({
@@ -165,8 +171,9 @@ export async function* createInteractionStream(
   input: CreateInteractionInput,
 ): AsyncGenerator<GoogleAiStreamEvent> {
   let message = input.message.trim();
-  if (!message) {
-    yield { type: "error", error: "Message is required." };
+  const hasFiles = Array.isArray(input.files) && input.files.length > 0;
+  if (!message && !hasFiles) {
+    yield { type: "error", error: "Message or file is required." };
     return;
   }
 
@@ -273,6 +280,59 @@ export async function* createInteractionStream(
     try {
       const ai = new GoogleGenAI({ apiKey });
       let currentInput: unknown = message;
+      
+      if (input.files && input.files.length > 0) {
+        const parts: any[] = [];
+        if (message) {
+          parts.push({ type: "text", text: message });
+        }
+        
+        const mappedFiles = await Promise.all(
+          input.files.map(async (f) => {
+            const mime = f.mimeType.toLowerCase();
+            const data = f.base64Data.includes(",") ? f.base64Data.split(",")[1] : f.base64Data;
+            
+            if (mime.startsWith("image/")) return { type: "image", mime_type: mime, data };
+            if (mime.startsWith("video/")) return { type: "video", mime_type: mime, data };
+            if (mime.startsWith("audio/")) return { type: "audio", mime_type: mime, data };
+            
+            if (mime === "application/pdf") {
+              try {
+                const pdfBuffer = Buffer.from(data, "base64");
+                const parsed = await pdfParse(pdfBuffer);
+                return { 
+                  type: "text", 
+                  text: `The user has uploaded a PDF file named "${f.name}". Here is the extracted text content of this file:\n\n<file_content filename="${f.name}">\n${parsed.text}\n</file_content>\n\nPlease use the above extracted text to answer the user's query.` 
+                };
+              } catch (e) {
+                console.warn(`Failed to parse PDF ${f.name}:`, e);
+              }
+            }
+            
+            // Try to decode unknown or text files as text to prevent API errors
+            try {
+              const textStr = Buffer.from(data, "base64").toString("utf-8");
+              if (!textStr.includes("\u0000")) {
+                return { 
+                  type: "text", 
+                  text: `The user has uploaded a text file named "${f.name}". Here is the content of this file:\n\n<file_content filename="${f.name}">\n${textStr}\n</file_content>` 
+                };
+              }
+            } catch (e) {
+              // ignore
+            }
+            
+            // Fallback
+            return { type: "document", mime_type: mime || "application/octet-stream", data };
+          })
+        );
+        parts.push(...mappedFiles);
+        currentInput = [{
+          role: "user",
+          content: parts,
+        }];
+      }
+      
       let toolTurn = 0;
 
       while (toolTurn < MAX_TOOL_TURNS && !completed) {

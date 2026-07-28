@@ -55,11 +55,13 @@ export async function POST(request: Request) {
       name?: string;
       email?: string;
       mcpServers?: unknown[];
+      files?: { name: string; mimeType: string; base64Data: string }[];
     };
 
     const message = body.message?.trim() ?? "";
-    if (!message) {
-      return Response.json({ ok: false, error: "Message is required." }, { status: 400 });
+    const hasFiles = Array.isArray(body.files) && body.files.length > 0;
+    if (!message && !hasFiles) {
+      return Response.json({ ok: false, error: "Message or file is required." }, { status: 400 });
     }
 
     const workspaceStatus = await getGoogleWorkspaceAuthStatusService(userSession.user.id).catch(
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
             mcpServers: body.mcpServers,
             userId: userSession.user.id,
             dbConversationId: body.dbConversationId,
+            files: body.files,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -137,7 +140,7 @@ export async function POST(request: Request) {
               const saved = await insertAiMessage({
                 userId: userSession.user.id,
                 conversationId: body.dbConversationId,
-                content: message,
+                content: message || (hasFiles ? `[Attached ${body.files?.length} file(s)]` : ""),
                 aiFeedback: cleaned.content,
                 usage,
               });

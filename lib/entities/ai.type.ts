@@ -62,6 +62,8 @@ export type PromptAiInput = {
   model?: GoogleAiModel | string;
   /** DB ai_conversation.id — created on first message when omitted. */
   dbConversationId?: string;
+  /** File attachments (PDFs and text files extracted as text; images skipped on Cursor path). */
+  files?: { name: string; mimeType: string; base64Data: string }[];
 };
 
 export type PromptAiOutput = {
