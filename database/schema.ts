@@ -46,13 +46,26 @@ export const aiMessage = mysqlTable("ai_message", {
     .notNull(),
 });
 
+export const role = mysqlTable("role", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  value: varchar("value", { length: 50 }).notNull().unique(),
+  label: varchar("label", { length: 100 }).notNull(),
+  hint: text("hint"),
+  description: text("description"),
+  createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { fsp: 3 })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 export const user = mysqlTable("user", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
-  role: varchar("role", { length: 50 }).notNull().default("dev"),
+  roleId: varchar("role_id", { length: 36 }).references(() => role.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { fsp: 3 })
     .defaultNow()
