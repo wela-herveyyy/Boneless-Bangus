@@ -628,7 +628,7 @@ export function useWorkspaceChat(
         throw err;
       }
     },
-    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options],
+    [googleModel, providerConversationId, dbConversationId, user?.name, user?.email, options, attachments, mcpServers],
   );
 
   const send = useCallback(
