@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { hashPassword } from "better-auth/crypto";
-import { account, user } from "./database/schema";
+import { account, user, role as roleTable } from "./database/schema";
 
 const ROLES = [
   "owner",
@@ -184,13 +184,34 @@ async function main() {
     const now = new Date();
     const hashed = await hashPassword(password);
 
+    const [existingRole] = await database
+      .select({ id: roleTable.id })
+      .from(roleTable)
+      .where(eq(roleTable.value, role))
+      .limit(1);
+
+    let targetRoleId: string;
+    if (existingRole) {
+      targetRoleId = existingRole.id;
+    } else {
+      targetRoleId = crypto.randomUUID();
+      await database.insert(roleTable).values({
+        id: targetRoleId,
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+        hint: `System auto-created role record for ${role}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
     await database.insert(user).values({
       id: userId,
       name,
       email,
       emailVerified: true,
       image,
-      role,
+      roleId: targetRoleId,
       createdAt: now,
       updatedAt: now,
     });

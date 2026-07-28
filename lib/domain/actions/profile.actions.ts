@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { database } from "@/database";
 import { userSettings, team, userTeam } from "@/database/schema";
-import { auth } from "@/lib/domain/services/auth.service";
+import { auth, getSession } from "@/lib/domain/services/auth.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { updateProfileService } from "@/lib/domain/services/profile.service";
 
@@ -184,25 +184,61 @@ export async function updatePersonalInfoAction(prevState: ActionState, formData:
 export async function syncOnboardingProfileAction(name: string, role: string): Promise<ActionState> {
   const action = "profile:sync_onboarding";
   try {
-    const userSession = await auth();
-    if (!userSession) {
+    // Use getSession directly because newly registered accounts have a null database role, causing auth() to reject them
+    const session = await getSession();
+    if (!session) {
       await logAction({ userId: "anonymous", action, success: false, error: "Unauthorized" });
       return { ok: false, error: "Unauthorized" };
     }
 
     if (name && role) {
-      const { user } = await import("@/database/schema");
-      
+      const { user, role: roleTable } = await import("@/database/schema");
+      const cleanRole = role.trim().toLowerCase();
+
+      let [targetRole] = await database
+        .select({ id: roleTable.id })
+        .from(roleTable)
+        .where(eq(roleTable.value, cleanRole))
+        .limit(1);
+
+      if (!targetRole) {
+        const newRoleId = crypto.randomUUID();
+        const now = new Date();
+        await database.insert(roleTable).values({
+          id: newRoleId,
+          value: cleanRole,
+          label: cleanRole.charAt(0).toUpperCase() + cleanRole.slice(1),
+          hint: `System auto-created role record for ${cleanRole}`,
+          createdAt: now,
+          updatedAt: now,
+        });
+        targetRole = { id: newRoleId };
+      }
+
       await database
         .update(user)
-        .set({ name, role: role as any })
-        .where(eq(user.id, userSession.user.id));
+        .set({ name, roleId: targetRole.id })
+        .where(eq(user.id, session.user.id));
     }
 
-    await logAction({ userId: userSession.user.id, action, success: true, role: userSession.user.role });
+    await logAction({ userId: session.user.id, action, success: true });
     revalidatePath("/workspace");
     return { ok: true };
   } catch (error: any) {
     return { ok: false, error: error.message };
+  }
+}
+
+export async function getCurrentUserRoleAction(): Promise<{ ok: boolean; role?: string }> {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { ok: false };
+    }
+    const { getProfileService } = await import("@/lib/domain/services/profile.service");
+    const profileData = await getProfileService(session.user.id);
+    return { ok: true, role: profileData.role || "" };
+  } catch {
+    return { ok: false };
   }
 }

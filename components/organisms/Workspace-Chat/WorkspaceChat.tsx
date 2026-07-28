@@ -589,9 +589,11 @@ export function WorkspaceChat({
           </p>
           {profile ? (
             <div className="flex flex-wrap gap-3">
-              <span className="rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface">
-                {getRoleLabel(profile.role)}
-              </span>
+              {profile.role ? (
+                <span className="rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface">
+                  {getRoleLabel(profile.role)}
+                </span>
+              ) : null}
               <span className="rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface">
                 {getFocusLabel(profile.focus)}
               </span>

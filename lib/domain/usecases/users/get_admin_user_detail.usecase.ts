@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { database } from "@/database";
-import { user, userSettings, userTeam } from "@/database/schema";
+import { user, userSettings, userTeam, role as roleTable } from "@/database/schema";
 import type { AdminUserDetail, UserResult } from "@/lib/entities/users.type";
 import { EMPTY_USAGE, getUserApiUsage } from "./get_user_api_usage.usecase";
 
@@ -11,10 +11,21 @@ export async function getAdminUserDetail(userId: string): Promise<UserResult<Adm
   }
 
   try {
-    const [row] = await database.select().from(user).where(eq(user.id, id)).limit(1);
+    const [row] = await database
+      .select({
+        user: user,
+        roleValue: roleTable.value,
+      })
+      .from(user)
+      .leftJoin(roleTable, eq(user.roleId, roleTable.id))
+      .where(eq(user.id, id))
+      .limit(1);
+
     if (!row) {
       return { ok: false, error: "User not found." };
     }
+
+    const userData = { ...row.user, role: row.roleValue || "" };
 
     const settings = await database.query.userSettings.findFirst({
       where: eq(userSettings.userId, id),
@@ -31,7 +42,7 @@ export async function getAdminUserDetail(userId: string): Promise<UserResult<Adm
     return {
       ok: true,
       data: {
-        user: row,
+        user: userData,
         team: membership?.team
           ? {
               teamCode: membership.team.code,

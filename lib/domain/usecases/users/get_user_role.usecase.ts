@@ -1,20 +1,21 @@
 import { eq } from "drizzle-orm";
 import { database } from "@/database";
-import { user } from "@/database/schema";
+import { user, role as roleTable } from "@/database/schema";
 import { isUserRole, type UserRole } from "@/lib/entities/users.type";
 
 export async function getUserRole(userId: string): Promise<UserRole | null> {
   try {
     const rows = await database
-      .select({ role: user.role })
+      .select({ roleValue: roleTable.value })
       .from(user)
+      .leftJoin(roleTable, eq(user.roleId, roleTable.id))
       .where(eq(user.id, userId))
       .limit(1);
 
-    const role = rows[0]?.role;
+    const roleValue = rows[0]?.roleValue;
 
-    if (role && isUserRole(role)) {
-      return role;
+    if (roleValue && isUserRole(roleValue)) {
+      return roleValue;
     }
 
     return null;

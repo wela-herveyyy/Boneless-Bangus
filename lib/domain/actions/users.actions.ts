@@ -21,6 +21,7 @@
  * }
  */
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/domain/services/auth.service";
 import {
@@ -204,6 +205,10 @@ export async function updateUserRoleAction(input: {
       role: userSession.user.role,
       metadata: { targetUserId: input.userId, role: input.role },
     });
+    if (result.ok) {
+      revalidatePath("/workspace");
+      revalidatePath("/admin");
+    }
     return result;
   } catch (error) {
     return { ok: false, error: getErrorMessage(error) };

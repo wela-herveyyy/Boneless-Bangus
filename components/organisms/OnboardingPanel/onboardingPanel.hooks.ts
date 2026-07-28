@@ -6,6 +6,7 @@ import {
   saveLocalRecordAction,
 } from "@/lib/domain/actions/storage.actions";
 import { syncOnboardingProfileAction } from "@/lib/domain/actions/profile.actions";
+import { getRolesAction } from "@/lib/domain/actions/roles.actions";
 import { type UserRole, isUserRole } from "@/lib/entities/users.type";
 import { clearGithubCache } from "@/components/organisms/GithubSidebar/githubSidebar.hooks";
 
@@ -21,17 +22,11 @@ export type OnboardingProfile = {
   completedAt: string;
 };
 
-export const ONBOARDING_ROLES: { value: UserRole; label: string; hint: string }[] = [
-  { value: "owner", label: "Owner", hint: "Workspace owner and top-level management" },
-  { value: "admin", label: "Admin", hint: "Workspace administration and settings" },
-  { value: "tech", label: "Tech", hint: "Technical infrastructure and DevOps" },
-  { value: "sales", label: "Sales", hint: "Client relations and revenue" },
-  { value: "dev", label: "Development", hint: "Software development and engineering" },
-  { value: "qa", label: "QA", hint: "Quality assurance and testing" },
-  { value: "po", label: "Product Owner", hint: "Product ownership and backlog" },
-  { value: "pm", label: "Project Manager", hint: "Project management and timelines" },
-  { value: "finance", label: "Finance", hint: "Accounting and financial operations" },
-];
+export type OnboardingRoleOption = {
+  value: string;
+  label: string;
+  hint: string;
+};
 
 export const ONBOARDING_FOCUS: { value: OnboardingFocus; label: string; hint: string }[] = [
   { value: "tasks", label: "Tasks & priorities", hint: "Overdue work and what to tackle next" },
@@ -51,11 +46,9 @@ type UseOnboardingPanelOptions = {
 function parseProfile(value: string): OnboardingProfile | null {
   try {
     const parsed = JSON.parse(value) as OnboardingProfile;
-    // Handle old localstorage data that might have "team" instead of "role", or invalid role
     if (!parsed.name || (!parsed.role && !(parsed as any).team) || !parsed.focus || !parsed.completedAt) {
       return null;
     }
-    // Migrate old "team" to "role" if necessary, though it might fail isUserRole
     if (!parsed.role && (parsed as any).team) {
       parsed.role = (parsed as any).team;
     }
@@ -77,6 +70,8 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [onboardingRoles, setOnboardingRoles] = useState<OnboardingRoleOption[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setError(null);
@@ -101,9 +96,27 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
     setLoading(false);
   }, [userId]);
 
+  const loadRoles = useCallback(async () => {
+    setLoadingRoles(true);
+    const result = await getRolesAction();
+    if (result.ok) {
+      setCachedDynamicRoles(result.data.map((r) => ({ value: r.value, label: r.label })));
+      const filtered = result.data
+        .filter((r) => !["owner", "admin", "team leader", "team-leader"].includes(r.value.toLowerCase()))
+        .map((r) => ({
+          value: r.value,
+          label: r.label,
+          hint: r.hint || r.description || "Role assigned during onboarding",
+        }));
+      setOnboardingRoles(filtered);
+    }
+    setLoadingRoles(false);
+  }, []);
+
   useEffect(() => {
     void loadProfile();
-  }, [loadProfile]);
+    void loadRoles();
+  }, [loadProfile, loadRoles]);
 
   useEffect(() => {
     if (defaultName && !name) {
@@ -131,13 +144,9 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
       value: JSON.stringify(nextProfile),
     });
 
-    // Also sync the name and role to the database directly
     await syncOnboardingProfileAction(name.trim(), role);
-
-    // Clear the GitHub sidebar cache so it pulls the new role when remounted
     clearGithubCache();
 
-    // Dispatch global event so persistent layouts can refresh their cached roles if they are mounted
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("profile-updated"));
     }
@@ -197,6 +206,8 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
     setRole,
     focus,
     setFocus,
+    onboardingRoles,
+    loadingRoles,
     loading,
     saving,
     error,
@@ -210,8 +221,30 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
   };
 }
 
-export function getRoleLabel(role: UserRole) {
-  return ONBOARDING_ROLES.find((item) => item.value === role)?.label ?? role;
+let cachedDynamicRoles: { value: string; label: string }[] = [];
+
+export function setCachedDynamicRoles(roles: { value: string; label: string }[]) {
+  cachedDynamicRoles = roles;
+}
+
+export function useFetchDynamicRoles() {
+  useEffect(() => {
+    if (cachedDynamicRoles.length === 0) {
+      void getRolesAction().then((result) => {
+        if (result.ok) {
+          cachedDynamicRoles = result.data.map((r) => ({ value: r.value, label: r.label }));
+        }
+      });
+    }
+  }, []);
+}
+
+export function getRoleLabel(role: UserRole, dynamicRoles: { value: string; label: string }[] = []) {
+  if (role === "owner") return "Owner";
+  if (role === "admin") return "Admin";
+  const source = dynamicRoles.length > 0 ? dynamicRoles : cachedDynamicRoles;
+  const found = source.find((item) => item.value === role);
+  return found ? found.label : (role.charAt(0).toUpperCase() + role.slice(1));
 }
 
 export function getFocusLabel(focus: OnboardingFocus) {

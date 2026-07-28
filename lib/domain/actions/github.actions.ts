@@ -17,7 +17,7 @@ import type {
   GithubProfileRecord,
   GithubResult,
 } from "@/lib/entities/github.type";
-import type { UserRole } from "@/lib/entities/users.type";
+import { hasPermission, USER_PERMISSION, type UserRole } from "@/lib/entities/users.type";
 
 export async function getGithubAuthStatusAction(): Promise<
   GithubResult<GithubAuthRecord>
@@ -35,20 +35,32 @@ export async function getGithubAuthStatusAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    const cred = await getCredential(userSession.user.id, "github");
     const profile = await getProfile(userSession.user.id);
+    const liveRole = (profile.role || userSession.user.role) as UserRole;
+
+    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+      return {
+        ok: true,
+        data: {
+          isConnected: false,
+          role: liveRole,
+        },
+      };
+    }
+
+    const cred = await getCredential(userSession.user.id, "github");
 
     await logAction({
       userId: userSession.user.id,
       action,
       success: true,
-      role: userSession.user.role,
+      role: liveRole,
     });
     return {
       ok: true,
       data: {
         isConnected: !!cred,
-        role: profile.role as UserRole,
+        role: liveRole,
       },
     };
   } catch (error) {
@@ -72,6 +84,13 @@ export async function saveGithubPatAction(
         error: "Authentication required.",
       });
       return { ok: false, error: "Authentication required." };
+    }
+
+    const profile = await getProfile(userSession.user.id);
+    const liveRole = (profile.role || userSession.user.role) as UserRole;
+
+    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+      return { ok: false, error: "Role not authorized for GitHub MCP access." };
     }
 
     const trimmed = pat.trim();
@@ -140,6 +159,13 @@ export async function getGithubProfileAction(): Promise<
         error: "Authentication required.",
       });
       return { ok: false, error: "Authentication required." };
+    }
+
+    const profile = await getProfile(userSession.user.id);
+    const liveRole = (profile.role || userSession.user.role) as UserRole;
+
+    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+      return { ok: false, error: "Role not authorized for GitHub MCP access." };
     }
 
     const cred = await getCredential(userSession.user.id, "github");
