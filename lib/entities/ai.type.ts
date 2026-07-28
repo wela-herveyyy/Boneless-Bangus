@@ -19,11 +19,34 @@ export type AiUsageMetrics = {
   cost: string;
 };
 
+/** Which API key funded a prompt turn. */
+export type AiKeySource = "personal" | "team" | "system";
+
+export function labelApiKeySource(source: AiKeySource | null | undefined): string {
+  switch (source) {
+    case "personal":
+      return "Personal key";
+    case "team":
+      return "Team key";
+    case "system":
+      return "System key";
+    default:
+      return "Unknown key";
+  }
+}
+
 export type AiConversationListItem = {
   id: string;
   title: string;
   updatedAt: string;
   createdAt: string;
+  promptCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cost: string;
+  /** Distinct key sources used across turns in this conversation. */
+  keySources: AiKeySource[];
 };
 
 /** One DB row = one turn: user prompt + agent reply. */
@@ -38,6 +61,7 @@ export type AiMessageItem = {
   inputTokens: number;
   outputTokens: number;
   cost: string;
+  keySource: AiKeySource | null;
   createdAt: string;
 };
 

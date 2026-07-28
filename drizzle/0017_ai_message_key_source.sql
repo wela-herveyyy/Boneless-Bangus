@@ -1,0 +1,1 @@
+ALTER TABLE `ai_message` ADD `key_source` varchar(20);

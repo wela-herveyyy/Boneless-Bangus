@@ -105,8 +105,15 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
     organizations: true,
   });
 
-  // Hide if still loading, if auth failed/missing, or if user role lacks GITHUB_MCP_ACCESS permission
-  if (loading || !authRecord || !hasPermission(authRecord.role, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+  // Only hide when we know the role lacks access — not while loading / on transient fetch fail
+  if (
+    !loading &&
+    authRecord &&
+    !hasPermission(authRecord.role, USER_PERMISSION.GITHUB_MCP_ACCESS)
+  ) {
+    return null;
+  }
+  if (loading && !authRecord) {
     return null;
   }
 

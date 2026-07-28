@@ -1,33 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  createTeamAction,
-  listTeamsAction,
-  updateTeamApiKeysAction,
-} from "@/lib/domain/actions/team.actions";
-import {
-  getAdminUserConversationMessagesAction,
-  getAdminUserConversationsAction,
-  getAdminUserDetailAction,
-  getUsersAction,
-  updateUserRoleAction,
-} from "@/lib/domain/actions/users.actions";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createTeamAction, listTeamsAction } from "@/lib/domain/actions/team.actions";
+import { getUsersAction, updateUserRoleAction } from "@/lib/domain/actions/users.actions";
 import {
   createRoleAction,
   deleteRoleAction,
   getRolesAction,
   updateRoleAction,
 } from "@/lib/domain/actions/roles.actions";
-import type { AiConversationListItem, AiMessageItem } from "@/lib/entities/ai.type";
 import type { TeamListItem } from "@/lib/entities/team.type";
 import type { RoleSelect } from "@/lib/entities/roles.type";
-import {
-  USER_ROLE_OPTIONS,
-  type AdminUserDetail,
-  type UserRole,
-  type UserSelect,
-} from "@/lib/entities/users.type";
+import { USER_ROLE_OPTIONS, type UserRole, type UserSelect } from "@/lib/entities/users.type";
 
 export type AdminTab = "users" | "teams" | "roles";
 
@@ -40,8 +25,15 @@ export type VerificationAction = {
   onConfirm: () => void | Promise<void>;
 } | null;
 
+function parseAdminTab(value: string | null): AdminTab {
+  if (value === "teams" || value === "roles" || value === "users") return value;
+  return "users";
+}
+
 export function useAdminPage(initialUsers: UserSelect[]) {
-  const [tab, setTab] = useState<AdminTab>("users");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<AdminTab>(() => parseAdminTab(searchParams.get("tab")));
   const [users, setUsers] = useState(initialUsers);
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [roles, setRoles] = useState<RoleSelect[]>([]);
@@ -53,16 +45,14 @@ export function useAdminPage(initialUsers: UserSelect[]) {
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
 
   // Team states
+  const [createTeamOpen, setCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
   const [teamManagerId, setTeamManagerId] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
-  const [editingTeamKeysId, setEditingTeamKeysId] = useState<string | null>(null);
-  const [teamCursorKey, setTeamCursorKey] = useState("");
-  const [teamGeminiKey, setTeamGeminiKey] = useState("");
-  const [savingTeamKeys, setSavingTeamKeys] = useState(false);
 
   // Role CRUD states
+  const [createRoleOpen, setCreateRoleOpen] = useState(false);
   const [roleValue, setRoleValue] = useState("");
   const [roleLabel, setRoleLabel] = useState("");
   const [roleHint, setRoleHint] = useState("");
@@ -96,15 +86,6 @@ export function useAdminPage(initialUsers: UserSelect[]) {
   const closeVerification = useCallback(() => {
     setVerificationAction(null);
   }, []);
-
-  // User detail states
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<AdminUserDetail | null>(null);
-  const [conversations, setConversations] = useState<AiConversationListItem[]>([]);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<AiMessageItem[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -151,6 +132,18 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     void refreshRoles();
   }, [refreshTeams, refreshRoles]);
 
+  useEffect(() => {
+    setTab(parseAdminTab(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const navigateTab = useCallback(
+    (next: AdminTab) => {
+      setTab(next);
+      router.replace(`/admin?tab=${next}`);
+    },
+    [router],
+  );
+
   const changeRole = useCallback(
     (userId: string, role: UserRole) => {
       executeWithVerification(
@@ -171,14 +164,11 @@ export function useAdminPage(initialUsers: UserSelect[]) {
             return;
           }
           setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-          if (detail?.user.id === userId) {
-            setDetail({ ...detail, user: { ...detail.user, role } });
-          }
           setNotice(`Updated role to ${role}.`);
         },
       );
     },
-    [detail, executeWithVerification],
+    [executeWithVerification],
   );
 
   const createTeam = useCallback(async () => {
@@ -198,45 +188,18 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setTeamName("");
     setTeamDescription("");
     setTeamManagerId("");
+    setCreateTeamOpen(false);
     setNotice(`Team created. Join code: ${result.data.code}`);
     await refreshTeams();
-  }, [teamName, teamDescription, teamManagerId, refreshTeams]);
+    router.push(`/team/${result.data.id}`);
+  }, [teamName, teamDescription, teamManagerId, refreshTeams, router]);
 
-  const startEditTeamKeys = useCallback((teamId: string) => {
-    setEditingTeamKeysId(teamId);
-    setTeamCursorKey("");
-    setTeamGeminiKey("");
+  const closeCreateTeam = useCallback(() => {
+    setCreateTeamOpen(false);
+    setTeamName("");
+    setTeamDescription("");
+    setTeamManagerId("");
   }, []);
-
-  const cancelEditTeamKeys = useCallback(() => {
-    setEditingTeamKeysId(null);
-    setTeamCursorKey("");
-    setTeamGeminiKey("");
-  }, []);
-
-  const saveTeamKeys = useCallback(async () => {
-    if (!editingTeamKeysId) return;
-    if (!teamCursorKey.trim() && !teamGeminiKey.trim()) {
-      setError("Enter at least one API key to update.");
-      return;
-    }
-    setSavingTeamKeys(true);
-    setError(null);
-    setNotice(null);
-    const formData = new FormData();
-    formData.set("teamId", editingTeamKeysId);
-    if (teamCursorKey.trim()) formData.set("cursorApiKey", teamCursorKey.trim());
-    if (teamGeminiKey.trim()) formData.set("geminiApiKey", teamGeminiKey.trim());
-    const result = await updateTeamApiKeysAction(null, formData);
-    setSavingTeamKeys(false);
-    if (!result?.ok) {
-      setError(result?.error ?? "Failed to update team keys.");
-      return;
-    }
-    setNotice("Team API keys updated.");
-    cancelEditTeamKeys();
-    await refreshTeams();
-  }, [editingTeamKeysId, teamCursorKey, teamGeminiKey, cancelEditTeamKeys, refreshTeams]);
 
   // Role CRUD handlers
   const createRole = useCallback(async () => {
@@ -270,13 +233,23 @@ export function useAdminPage(initialUsers: UserSelect[]) {
         setRoleLabel("");
         setRoleHint("");
         setRoleDescription("");
+        setCreateRoleOpen(false);
         setNotice(`Role "${result.data.label}" created successfully.`);
         await refreshRoles();
       },
     );
   }, [roleValue, roleLabel, roleHint, roleDescription, refreshRoles, executeWithVerification]);
 
+  const closeCreateRole = useCallback(() => {
+    setCreateRoleOpen(false);
+    setRoleValue("");
+    setRoleLabel("");
+    setRoleHint("");
+    setRoleDescription("");
+  }, []);
+
   const startEditRole = useCallback((role: RoleSelect) => {
+    setCreateRoleOpen(false);
     setEditingRoleId(role.id);
     setEditRoleValue(role.value);
     setEditRoleLabel(role.label);
@@ -354,62 +327,10 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     );
   }, [refreshRoles, executeWithVerification]);
 
-  const openUser = useCallback(async (userId: string) => {
-    setSelectedUserId(userId);
-    setSelectedConversationId(null);
-    setMessages([]);
-    setLoadingDetail(true);
-    setError(null);
-    const [detailRes, convosRes] = await Promise.all([
-      getAdminUserDetailAction(userId),
-      getAdminUserConversationsAction(userId),
-    ]);
-    setLoadingDetail(false);
-    if (!detailRes.ok) {
-      setError(detailRes.error);
-      setDetail(null);
-      setConversations([]);
-      return;
-    }
-    setDetail(detailRes.data);
-    if (convosRes.ok) setConversations(convosRes.data);
-    else {
-      setConversations([]);
-      setError(convosRes.error);
-    }
-  }, []);
-
-  const openConversation = useCallback(
-    async (conversationId: string) => {
-      if (!selectedUserId) return;
-      setSelectedConversationId(conversationId);
-      setLoadingMessages(true);
-      setError(null);
-      const result = await getAdminUserConversationMessagesAction(selectedUserId, conversationId, {
-        limit: 50,
-      });
-      setLoadingMessages(false);
-      if (!result.ok) {
-        setError(result.error);
-        setMessages([]);
-        return;
-      }
-      setMessages(result.data.items);
-    },
-    [selectedUserId],
-  );
-
-  const closeUser = useCallback(() => {
-    setSelectedUserId(null);
-    setDetail(null);
-    setConversations([]);
-    setSelectedConversationId(null);
-    setMessages([]);
-  }, []);
-
   return {
     tab,
     setTab,
+    navigateTab,
     users,
     filteredUsers,
     teams,
@@ -423,6 +344,9 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setQuery,
     savingRoleId,
     roleOptions: dynamicRoleOptions,
+    createTeamOpen,
+    setCreateTeamOpen,
+    closeCreateTeam,
     teamName,
     setTeamName,
     teamDescription,
@@ -430,16 +354,10 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     teamManagerId,
     setTeamManagerId,
     creatingTeam,
-    editingTeamKeysId,
-    teamCursorKey,
-    setTeamCursorKey,
-    teamGeminiKey,
-    setTeamGeminiKey,
-    savingTeamKeys,
-    startEditTeamKeys,
-    cancelEditTeamKeys,
-    saveTeamKeys,
     // Role CRUD exports
+    createRoleOpen,
+    setCreateRoleOpen,
+    closeCreateRole,
     roleValue,
     setRoleValue,
     roleLabel,
@@ -465,21 +383,11 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     cancelEditRole,
     saveRole,
     removeRole,
-    selectedUserId,
-    detail,
-    conversations,
-    selectedConversationId,
-    messages,
-    loadingDetail,
-    loadingMessages,
     refreshUsers,
     refreshTeams,
     refreshRoles,
     changeRole,
     createTeam,
-    openUser,
-    openConversation,
-    closeUser,
     verificationAction,
     closeVerification,
   };

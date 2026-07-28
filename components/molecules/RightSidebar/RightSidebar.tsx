@@ -31,7 +31,7 @@ export function RightSidebarTrigger({
   topOffset = "50%",
   className = "",
 }: RightSidebarTriggerProps) {
-  const { isOpen, isSwitching, isAnyRightSidebarOpen, togglePinned, openFromHover, scheduleClose } = sidebar;
+  const { isOpen, isSwitching, isAnyRightSidebarOpen, togglePinned } = sidebar;
 
   return (
     <button
@@ -39,8 +39,6 @@ export function RightSidebarTrigger({
       aria-label={isOpen ? labelOpen : labelClosed}
       aria-expanded={isOpen}
       onClick={togglePinned}
-      onMouseEnter={openFromHover}
-      onMouseLeave={scheduleClose}
       className={[
         "right-sidebar-trigger relative pointer-events-auto flex items-center justify-center shrink-0",
         "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
@@ -72,7 +70,7 @@ export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBa
   return (
     <div
       className={[
-        "fixed inset-0 z-[110] bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
+        "fixed inset-0 z-110 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         className,
       ]
@@ -100,12 +98,10 @@ export function RightSidebarPanel({
   children,
   className = "",
 }: RightSidebarPanelProps) {
-  const { isOpen, isSwitching, openFromHover, scheduleClose } = sidebar;
+  const { isOpen, isSwitching } = sidebar;
 
   return (
     <aside
-      onMouseEnter={openFromHover}
-      onMouseLeave={scheduleClose}
       inert={!isOpen ? true : undefined}
       className={[
         "right-sidebar-panel pointer-events-auto fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
@@ -113,7 +109,7 @@ export function RightSidebarPanel({
         isSwitching
           ? "transition-none duration-0"
           : "transition-[transform,translate] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        isOpen ? "z-[118] translate-x-0" : "z-[115] translate-x-full",
+        isOpen ? "z-118 translate-x-0" : "z-115 translate-x-full",
         className,
       ]
         .filter(Boolean)

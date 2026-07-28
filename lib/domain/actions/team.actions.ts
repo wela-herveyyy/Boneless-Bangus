@@ -5,11 +5,18 @@ import { auth } from "@/lib/domain/services/auth.service";
 import {
   createTeam,
   getManagedTeamId,
+  getTeamDetail,
   listTeams,
   updateTeamApiKeys,
 } from "@/lib/domain/services/team.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-import type { CreateTeamInput, TeamListItem, TeamResult, TeamSelect } from "@/lib/entities/team.type";
+import type {
+  CreateTeamInput,
+  TeamDetail,
+  TeamListItem,
+  TeamResult,
+  TeamSelect,
+} from "@/lib/entities/team.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 function getErrorMessage(error: unknown): string {
@@ -42,6 +49,34 @@ export async function listTeamsAction(): Promise<TeamResult<TeamListItem[]>> {
       success: result.ok,
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
+    });
+    return result;
+  } catch (error) {
+    return { ok: false, error: getErrorMessage(error) };
+  }
+}
+
+export async function getTeamDetailAction(teamId: string): Promise<TeamResult<TeamDetail>> {
+  const action = "teams:detail";
+  const permission = USER_PERMISSION.TEAMS_MANAGE;
+
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+    if (!hasPermission(userSession.user.role, permission)) {
+      return { ok: false, error: "You are not authorized for this action." };
+    }
+
+    const result = await getTeamDetail(teamId);
+    await logAction({
+      userId: userSession.user.id,
+      action,
+      success: result.ok,
+      error: result.ok ? undefined : result.error,
+      role: userSession.user.role,
+      metadata: { teamId },
     });
     return result;
   } catch (error) {
@@ -145,6 +180,7 @@ export async function updateTeamApiKeysAction(
 
     revalidatePath("/workspace");
     revalidatePath("/admin");
+    revalidatePath(`/team/${teamId}`);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: getErrorMessage(error) };

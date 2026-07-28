@@ -30,12 +30,14 @@ const SIDEBARS: ComponentType<{ topOffset?: string }>[] = [
   SettingsSidebar,
 ];
 
+const RIGHT_SIDEBAR_PATHS = ["/workspace", "/admin", "/user", "/team"];
+
 export function RightSidebars() {
   const pathname = usePathname();
-  if (!pathname?.startsWith("/workspace")) return null;
+  if (!RIGHT_SIDEBAR_PATHS.some((path) => pathname?.startsWith(path))) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-full flex flex-col justify-center gap-3.5 pointer-events-none z-[120]">
+    <div className="fixed top-0 right-0 h-full flex flex-col justify-center gap-3.5 pointer-events-none z-120">
       {SIDEBARS.map((Sidebar, i) => (
         <Sidebar key={i} />
       ))}

@@ -14,6 +14,60 @@ const ERP_SID_KEY = "bbai_erp_sid";
 const ERP_USER_KEY = "bbai_erp_user";
 const ERP_EMAIL_KEY = "bbai_erp_email";
 
+function readStoredSession(): ErpSession | null {
+  if (typeof window === "undefined") return null;
+  const sid = localStorage.getItem(ERP_SID_KEY)?.trim();
+  if (!sid) return null;
+  return {
+    sid,
+    fullName: localStorage.getItem(ERP_USER_KEY)?.trim() || "User",
+    email: localStorage.getItem(ERP_EMAIL_KEY)?.trim() || "",
+  };
+}
+
+function writeStoredSession(session: ErpSession) {
+  localStorage.setItem(ERP_SID_KEY, session.sid);
+  localStorage.setItem(ERP_USER_KEY, session.fullName);
+  localStorage.setItem(ERP_EMAIL_KEY, session.email);
+}
+
+function clearStoredSession() {
+  localStorage.removeItem(ERP_SID_KEY);
+  localStorage.removeItem(ERP_USER_KEY);
+  localStorage.removeItem(ERP_EMAIL_KEY);
+}
+
+type SidCheck =
+  | { status: "valid"; email: string }
+  | { status: "expired" }
+  | { status: "unknown" }; // BBAI not ready / network — keep stored sid
+
+async function validateErpSid(sid: string): Promise<SidCheck> {
+  try {
+    const res = await fetch("/api/erp/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sid }),
+    });
+    const json = (await res.json()) as {
+      ok: boolean;
+      error?: string;
+      data?: { email: string };
+    };
+    if (json.ok && json.data?.email) {
+      return { status: "valid", email: json.data.email };
+    }
+    // Only wipe when ERP explicitly says Guest / bad sid
+    if (json.error === "Session expired.") {
+      return { status: "expired" };
+    }
+    // BBAI auth not ready, no permission yet, ERP blip, 5xx — keep SID
+    return { status: "unknown" };
+  } catch {
+    return { status: "unknown" };
+  }
+}
+
 async function erpQuery<T = Record<string, unknown>>(
   sid: string,
   doctype: string,
@@ -39,7 +93,9 @@ function weeksSpanned(rows: { start_date?: string; creation?: string }[]): numbe
 }
 
 export function useErpLogin() {
+  // Server + first client paint must match — restore SID only in useEffect
   const [erpSession, setErpSession] = useState<ErpSession | null>(null);
+  const [sessionRestoring, setSessionRestoring] = useState(false);
   const [otpState, setOtpState] = useState<ErpOtpState | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -75,7 +131,7 @@ export function useErpLogin() {
             "type", "module", "current_assignee", "dev_assignee_name",
             "sprint_points", "exp_end_date",
           ],
-          filters: [["current_assignee", "=", email]],
+          filters: email ? [["current_assignee", "=", email]] : [],
           limit: 50,
           orderBy: "creation desc",
         }),
@@ -98,21 +154,66 @@ export function useErpLogin() {
     }
   }, []);
 
+  // Auto-connect from localStorage SID after mount (avoids SSR hydration mismatch)
   useEffect(() => {
-    const sid = localStorage.getItem(ERP_SID_KEY);
-    const user = localStorage.getItem(ERP_USER_KEY);
-    const email = localStorage.getItem(ERP_EMAIL_KEY);
-    if (sid && user && email) {
-      setErpSession({ sid, fullName: user, email });
-      void fetchDashboard(sid, email);
-    }
+    let cancelled = false;
+
+    void (async () => {
+      const stored = readStoredSession();
+      if (!stored) {
+        if (!cancelled) setSessionRestoring(false);
+        return;
+      }
+
+      if (!cancelled) {
+        setSessionRestoring(true);
+        setErpSession(stored);
+      }
+
+      let check = await validateErpSid(stored.sid);
+      // Retry once if BBAI auth wasn't ready
+      if (check.status === "unknown") {
+        await new Promise((r) => setTimeout(r, 400));
+        if (cancelled) return;
+        check = await validateErpSid(stored.sid);
+      }
+      if (cancelled) return;
+
+      if (check.status === "expired") {
+        // Real Guest / dead sid from ERP — only then force re-login
+        clearStoredSession();
+        setErpSession(null);
+        setSessionRestoring(false);
+        return;
+      }
+
+      if (check.status === "valid") {
+        const session: ErpSession = {
+          sid: stored.sid,
+          fullName: stored.fullName || check.email,
+          email: stored.email || check.email,
+        };
+        writeStoredSession(session);
+        setErpSession(session);
+        setSessionRestoring(false);
+        void fetchDashboard(session.sid, session.email);
+        return;
+      }
+
+      // unknown (ERP blip / BBAI not ready): keep stored session, still load dashboard
+      setErpSession(stored);
+      setSessionRestoring(false);
+      void fetchDashboard(stored.sid, stored.email);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchDashboard]);
 
   const saveSession = useCallback(
     (session: ErpSession) => {
-      localStorage.setItem(ERP_SID_KEY, session.sid);
-      localStorage.setItem(ERP_USER_KEY, session.fullName);
-      localStorage.setItem(ERP_EMAIL_KEY, session.email);
+      writeStoredSession(session);
       setErpSession(session);
       void fetchDashboard(session.sid, session.email);
     },
@@ -194,9 +295,7 @@ export function useErpLogin() {
   }, []);
 
   const logoutErp = useCallback(() => {
-    localStorage.removeItem(ERP_SID_KEY);
-    localStorage.removeItem(ERP_USER_KEY);
-    localStorage.removeItem(ERP_EMAIL_KEY);
+    clearStoredSession();
     setErpSession(null);
     setOtpState(null);
     setLoginError(null);
@@ -212,6 +311,7 @@ export function useErpLogin() {
 
   return {
     erpSession,
+    sessionRestoring,
     otpState,
     loginErp,
     verifyOtp,

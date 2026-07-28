@@ -779,30 +779,44 @@ export function useWorkspaceChat(
     setShowCommandMenu(false);
   }, [commandSearch]);
 
-  const handleCommandKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Backspace" && message === "" && activeCommand) {
-      setActiveCommand(null);
-      return;
-    }
-
-    if (!showCommandMenu || filteredCommands.length === 0) return;
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setSelectedCommandIndex((prev) => (prev + 1) % filteredCommands.length);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setSelectedCommandIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      const selected = filteredCommands[selectedCommandIndex];
-      if (selected) {
-        handleCommandSelect(selected);
+  const handleCommandKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      // Only remove skill chip when the text field is actually empty (use live value, not stale state)
+      if (
+        event.key === "Backspace" &&
+        activeCommand &&
+        event.currentTarget.value === ""
+      ) {
+        setActiveCommand(null);
+        return;
       }
-    } else if (event.key === "Escape") {
-      setShowCommandMenu(false);
-    }
-  }, [showCommandMenu, filteredCommands, selectedCommandIndex, handleCommandSelect]);
+
+      if (!showCommandMenu || filteredCommands.length === 0) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedCommandIndex((prev) => (prev + 1) % filteredCommands.length);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedCommandIndex(
+          (prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length,
+        );
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const selected = filteredCommands[selectedCommandIndex];
+        if (selected) handleCommandSelect(selected);
+      } else if (event.key === "Escape") {
+        setShowCommandMenu(false);
+      }
+    },
+    [
+      activeCommand,
+      showCommandMenu,
+      filteredCommands,
+      selectedCommandIndex,
+      handleCommandSelect,
+    ],
+  );
 
   return {
     message,

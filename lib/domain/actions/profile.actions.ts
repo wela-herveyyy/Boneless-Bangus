@@ -195,6 +195,17 @@ export async function syncOnboardingProfileAction(name: string, role: string): P
       const { user, role: roleTable } = await import("@/database/schema");
       const cleanRole = role.trim().toLowerCase();
 
+      // Owner/admin are not onboarding-selectable — reject so they can't self-assign
+      if (cleanRole === "owner" || cleanRole === "admin") {
+        await logAction({
+          userId: session.user.id,
+          action,
+          success: false,
+          error: "Owner and admin roles cannot be set via onboarding",
+        });
+        return { ok: false, error: "That role cannot be selected during onboarding." };
+      }
+
       let [targetRole] = await database
         .select({ id: roleTable.id })
         .from(roleTable)

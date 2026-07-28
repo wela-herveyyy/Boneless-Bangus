@@ -101,8 +101,10 @@ export function useOnboardingPanel({ defaultName = "", userId }: UseOnboardingPa
     const result = await getRolesAction();
     if (result.ok) {
       setCachedDynamicRoles(result.data.map((r) => ({ value: r.value, label: r.label })));
+      // Owner/admin (and team-leader aliases) are assigned by admins only
+      const blocked = new Set(["owner", "admin", "team leader", "team-leader"]);
       const filtered = result.data
-        .filter((r) => !["owner", "admin", "team leader", "team-leader"].includes(r.value.toLowerCase()))
+        .filter((r) => !blocked.has(r.value.toLowerCase()))
         .map((r) => ({
           value: r.value,
           label: r.label,

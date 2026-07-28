@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { LuArrowLeft, LuCoins, LuMessageSquare, LuSparkles } from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
-import type { AdminUserDetail } from "@/lib/entities/users.type";
+import { AdminShell } from "@/components/molecules/AdminShell/AdminShell";
+import { labelApiKeySource, type AiKeySource } from "@/lib/entities/ai.type";
+import type { AdminUserDetail, UserRole } from "@/lib/entities/users.type";
 import { useUserProfilePage } from "./userProfilePage.hooks";
 
 type UserProfilePageProps = {
@@ -11,6 +13,8 @@ type UserProfilePageProps = {
   initialDetail: AdminUserDetail;
   viewerIsAdmin: boolean;
   isSelf: boolean;
+  currentUserName?: string | null;
+  currentUserRole?: UserRole | string | null;
 };
 
 function roleLabel(role: string) {
@@ -20,6 +24,12 @@ function roleLabel(role: string) {
 
 function formatTokens(n: number) {
   return new Intl.NumberFormat("en-US").format(n);
+}
+
+function keySourcesLabel(sources: AiKeySource[]): string {
+  if (sources.length === 0) return "Unknown key";
+  if (sources.length === 1) return labelApiKeySource(sources[0]);
+  return "Mixed keys";
 }
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -46,21 +56,22 @@ export function UserProfilePage({
   initialDetail,
   viewerIsAdmin,
   isSelf,
+  currentUserName = "Admin",
+  currentUserRole = "admin",
 }: UserProfilePageProps) {
   const profile = useUserProfilePage(userId, initialDetail);
   const { detail } = profile;
   const { usage } = detail;
 
-  return (
-    <div className="min-h-screen bg-surface px-5 py-8 sm:px-8 lg:px-10">
-      <div className="mx-auto max-w-5xl">
+  const content = (
+      <div className={viewerIsAdmin ? "mx-auto max-w-5xl" : "mx-auto max-w-5xl px-5 py-8 sm:px-8 lg:px-10"}>
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <Link
-            href={viewerIsAdmin ? "/admin" : "/workspace"}
+            href={viewerIsAdmin ? "/admin?tab=users" : "/workspace"}
             className="inline-flex items-center gap-2 text-sm text-on-surface-muted transition-colors hover:text-primary"
           >
             <LuArrowLeft className="size-4" />
-            {viewerIsAdmin ? "Back to admin" : "Back to workspace"}
+            {viewerIsAdmin ? "Back to users" : "Back to workspace"}
           </Link>
           {isSelf ? (
             <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
@@ -71,13 +82,14 @@ export function UserProfilePage({
 
         <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">User profile</p>
+            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-on-surface sm:text-4xl">
               {detail.user.name}
             </h1>
             <p className="mt-1 text-sm text-on-surface-muted">{detail.user.email}</p>
           </div>
           {viewerIsAdmin ? (
-            <Link href="/admin">
+            <Link href="/admin?tab=users">
               <Button type="button" variant="secondary">
                 Close
               </Button>
@@ -121,14 +133,23 @@ export function UserProfilePage({
           <h2 className="mb-3 text-sm font-semibold text-on-surface">Profile info</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <InfoCard label="Role" value={roleLabel(detail.user.role)} />
-            <InfoCard
-              label="Team"
-              value={
-                detail.team
-                  ? `${detail.team.teamName} · ${detail.team.teamCode}`
-                  : "No team"
-              }
-            />
+            <div className="rounded-2xl bg-surface-container-lowest p-4">
+              <p className="text-[11px] uppercase tracking-wide text-on-surface-muted">Team</p>
+              {detail.team && viewerIsAdmin ? (
+                <Link
+                  href={`/team/${detail.team.teamId}`}
+                  className="mt-1 block text-sm font-medium text-primary hover:underline"
+                >
+                  {detail.team.teamName} · {detail.team.teamCode}
+                </Link>
+              ) : (
+                <p className="mt-1 text-sm font-medium text-on-surface">
+                  {detail.team
+                    ? `${detail.team.teamName} · ${detail.team.teamCode}`
+                    : "No team"}
+                </p>
+              )}
+            </div>
             <InfoCard
               label="Cursor key"
               value={detail.hasPersonalCursorKey ? "Set" : "Not set"}
@@ -209,8 +230,20 @@ export function UserProfilePage({
                       ].join(" ")}
                     >
                       <span className="block truncate text-sm font-medium">{c.title}</span>
-                      <span className="text-[11px] text-on-surface-muted">
-                        {new Date(c.updatedAt).toLocaleString()}
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-on-surface-muted">
+                        <span>{new Date(c.updatedAt).toLocaleString()}</span>
+                        <span aria-hidden>·</span>
+                        <span>{formatTokens(c.totalTokens)} tokens</span>
+                        <span aria-hidden>·</span>
+                        <span>${c.cost}</span>
+                        <span aria-hidden>·</span>
+                        <span>
+                          {c.promptCount} prompt{c.promptCount === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-[10px] text-on-surface-muted/80">
+                        in {formatTokens(c.inputTokens)} · out {formatTokens(c.outputTokens)} ·{" "}
+                        {keySourcesLabel(c.keySources)}
                       </span>
                     </button>
                   </li>
@@ -249,7 +282,8 @@ export function UserProfilePage({
                             {m.aiFeedback}
                           </p>
                           <p className="mt-2 text-[10px] text-on-surface-muted">
-                            {formatTokens(m.inputTokens + m.outputTokens)} tokens · ${m.cost}
+                            {formatTokens(m.inputTokens + m.outputTokens)} tokens · ${m.cost} ·{" "}
+                            {labelApiKeySource(m.keySource)}
                           </p>
                         </div>
                       ) : null}
@@ -261,6 +295,19 @@ export function UserProfilePage({
           )}
         </section>
       </div>
-    </div>
   );
+
+  if (viewerIsAdmin) {
+    return (
+      <AdminShell
+        active="user"
+        currentUserName={currentUserName?.trim() || "Admin"}
+        currentUserRole={currentUserRole}
+      >
+        {content}
+      </AdminShell>
+    );
+  }
+
+  return <div className="min-h-screen bg-surface">{content}</div>;
 }

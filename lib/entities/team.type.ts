@@ -34,6 +34,54 @@ export type UpdateTeamApiKeysInput = {
   geminiApiKey?: string;
 };
 
+export type TeamMemberItem = {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  isManager: boolean;
+  joinedAt: string;
+};
+
+export type TeamUsageBucket = {
+  promptCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  totalCost: string;
+};
+
+export type TeamApiUsage = {
+  conversationCount: number;
+  promptCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  totalCost: string;
+  byKeySource: {
+    personal: TeamUsageBucket;
+    team: TeamUsageBucket;
+    system: TeamUsageBucket;
+    unknown: TeamUsageBucket;
+  };
+};
+
+export type TeamDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  code: string;
+  managerId: string;
+  managerName: string;
+  managerEmail: string;
+  hasCursorApiKey: boolean;
+  hasGeminiApiKey: boolean;
+  createdAt: string;
+  members: TeamMemberItem[];
+  usage: TeamApiUsage;
+};
+
 export function canManageTeams(role?: UserRole | string): boolean {
-  return role === "owner" || role === "admin";
+  const key = String(role ?? "").trim().toLowerCase();
+  return key === "owner" || key === "admin";
 }

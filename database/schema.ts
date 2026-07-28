@@ -39,6 +39,8 @@ export const aiMessage = mysqlTable("ai_message", {
   inputTokens: int("input_tokens").notNull().default(0),
   outputTokens: int("output_tokens").notNull().default(0),
   cost: decimal("cost", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  /** Which API key funded this turn: personal | team | system */
+  keySource: varchar("key_source", { length: 20 }),
   createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { fsp: 3 })
     .defaultNow()

@@ -8,8 +8,10 @@ import {
   cleanupAiPrompt,
   usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
+import { resolveApiKeySource } from "@/lib/domain/usecases/ai/resolve_api_key_source.usecase";
 import { WORKSPACE_GEMINI_SYSTEM_HINT } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
+import { AI_PROVIDER } from "@/lib/entities/ai.type";
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
@@ -136,6 +138,10 @@ export async function POST(request: Request) {
                 outputTokens: apiOutputTokens,
               });
               const cleaned = cleanupAiPrompt(accumulated, usage);
+              const keySource = await resolveApiKeySource(
+                userSession.user.id,
+                AI_PROVIDER.GOOGLE_AI,
+              );
 
               const saved = await insertAiMessage({
                 userId: userSession.user.id,
@@ -143,6 +149,7 @@ export async function POST(request: Request) {
                 content: message || (hasFiles ? `[Attached ${body.files?.length} file(s)]` : ""),
                 aiFeedback: cleaned.content,
                 usage,
+                keySource,
               });
 
               if (!saved.ok) {

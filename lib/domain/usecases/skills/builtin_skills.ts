@@ -77,6 +77,75 @@ Offer optional follow-ups: cancel/delete a test leave, or help with submit permi
 - If ERPNext or Gmail tools are missing, stop and tell the user what to connect (ERPNext login + Workspace email) and to use **Cursor** provider.
 `;
 
+const ERP_WRAPUP_INSTRUCTIONS = `# ERPNext + Gmail End of Day Wrap-Up
+
+Use this skill when the user wants to **wrap up their day**: combine **ERPNext** work status with **Gmail/Calendar** triage (same intent as \`/google-workspace-wrapup\`, plus ERP).
+
+## Requirements
+
+- Provider must be **Cursor** (ERPNext MCP + Workspace custom tools together).
+- ERPNext MCP connected (user logged into ERPNext in BBAI).
+- Google Workspace connected with **email** and **calendar** enabled.
+- Prefer: ERPNext \`get_user_profile\`, \`get_documents\`, \`run_report\` + Workspace \`list_recent_emails\`, \`list_upcoming_calendar_events\`.
+
+## Collect before acting
+
+Ask only if unclear:
+
+1. **Date** — default **today** in the user's timezone (from profile or context).
+2. Whether they want a **test/dry run** (no emails sent; label output \`[DRY RUN]\`).
+
+Resolve **Employee** from \`get_user_profile\` (\`employeeId\`, \`erpnextUser\`). Do not query another employee unless asked.
+
+## Step 1 — ERPNext day status
+
+Call \`get_user_profile\` (sync: true) first.
+
+Then query what the user's permissions allow (skip gracefully on permission/field errors):
+
+| Area | DocType(s) | What to summarize |
+|------|------------|-------------------|
+| Time | \`Timesheet\` | Today's sheet: status, total hours, draft vs submitted |
+| Attendance | \`Attendance\`, \`Employee Checkin\` | Check-in/out or attendance status for the date |
+| HR | \`Leave Application\` | Open/Draft leaves; pending approvals if visible |
+| Work queue | \`ToDo\` | Open items allocated to \`erpnextUser\`; highlight **due today** and **overdue** |
+| Projects | \`Task\`, \`Livro Task\`, \`Sprint Backlogs\` | Only if list queries succeed; otherwise rely on ToDo references |
+
+Flag gaps clearly (e.g. no timesheet for today, no attendance logged).
+
+## Step 2 — Gmail + Calendar (Workspace)
+
+1. **Email** — \`list_recent_emails\`: focus on messages from **today** (or since start of workday). Group unresolved **action items**, direct questions, and approvals/reviews.
+2. **Calendar** — \`list_upcoming_calendar_events\`: list the **first three meetings tomorrow morning** (chronological) for prep, matching the Google wrap-up command behavior.
+
+Do **not** send email unless the user explicitly asks to notify someone.
+
+## Step 3 — Report back
+
+Structured Markdown summary:
+
+### ERP (date)
+- Employee id + name
+- Timesheet / attendance (or "none found")
+- Open HR items (leave drafts, etc.)
+- ToDos due today + top overdue (with reference doc if present)
+
+### Inbox & tomorrow
+- Unresolved email action items (bulleted)
+- Tomorrow AM meetings (time, title)
+
+### Suggested close-out (optional, 3–5 bullets)
+Concrete next actions for tomorrow morning (e.g. log timesheet, submit leave, fix CI, prep for meeting).
+
+Offer follow-ups: create/submit timesheet, file leave (use Leave skill), draft replies, or deep-dive one backlog item.
+
+## Guardrails
+
+- Read-only by default — no create/submit/cancel in ERP unless the user asks.
+- Never invent ERP records or email content; say when data is missing or forbidden by permissions.
+- If only one integration is connected, run what you can and state what to connect for the full wrap-up.
+`;
+
 export const BUILTIN_SKILLS: BuiltinSkillDefinition[] = [
   {
     name: "ERPNext Leave + Gmail Approver",
@@ -85,6 +154,14 @@ export const BUILTIN_SKILLS: BuiltinSkillDefinition[] = [
     categoryName: "HR & Workflows",
     content: LEAVE_PLUS_EMAIL_INSTRUCTIONS,
     instructions: LEAVE_PLUS_EMAIL_INSTRUCTIONS,
+  },
+  {
+    name: "ERPNext + Gmail End of Day Wrap-Up",
+    description:
+      "Wrap up your day: ERPNext timesheet, attendance, todos, and HR plus Gmail action items and tomorrow's morning meetings. Cursor with ERPNext MCP and Workspace email/calendar.",
+    categoryName: "HR & Workflows",
+    content: ERP_WRAPUP_INSTRUCTIONS,
+    instructions: ERP_WRAPUP_INSTRUCTIONS,
   },
 ];
 

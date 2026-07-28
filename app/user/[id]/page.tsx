@@ -56,6 +56,8 @@ async function UserProfileContent({ params }: PageProps) {
       initialDetail={detailResult.data}
       viewerIsAdmin={viewerIsAdmin}
       isSelf={isSelf}
+      currentUserName={userSession.user.name?.trim() || userSession.user.email || "Admin"}
+      currentUserRole={userSession.user.role}
     />
   );
 }

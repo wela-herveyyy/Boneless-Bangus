@@ -1,9 +1,14 @@
 import { and, desc, eq, lt } from "drizzle-orm";
 import { database } from "@/database";
 import { aiConversation, aiMessage } from "@/database/schema";
-import type { AiMessageItem, AiMessagePage, AiResult } from "@/lib/entities/ai.type";
+import type { AiKeySource, AiMessageItem, AiMessagePage, AiResult } from "@/lib/entities/ai.type";
 
 const DEFAULT_PAGE = 20;
+
+function asKeySource(value: string | null): AiKeySource | null {
+  if (value === "personal" || value === "team" || value === "system") return value;
+  return null;
+}
 
 function mapRow(row: typeof aiMessage.$inferSelect): AiMessageItem {
   return {
@@ -15,6 +20,7 @@ function mapRow(row: typeof aiMessage.$inferSelect): AiMessageItem {
     inputTokens: row.inputTokens,
     outputTokens: row.outputTokens,
     cost: String(row.cost),
+    keySource: asKeySource(row.keySource),
     createdAt: row.createdAt.toISOString(),
   };
 }

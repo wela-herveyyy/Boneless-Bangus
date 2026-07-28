@@ -1,7 +1,7 @@
 import { eq, max } from "drizzle-orm";
 import { database } from "@/database";
 import { aiConversation, aiMessage } from "@/database/schema";
-import type { AiResult, AiUsageMetrics } from "@/lib/entities/ai.type";
+import type { AiKeySource, AiResult, AiUsageMetrics } from "@/lib/entities/ai.type";
 
 export type InsertAiMessageInput = {
   userId: string;
@@ -12,6 +12,8 @@ export type InsertAiMessageInput = {
   /** Agent/model reply. */
   aiFeedback: string;
   usage?: AiUsageMetrics;
+  /** Which API key funded this turn. */
+  keySource?: AiKeySource;
 };
 
 export type InsertAiMessageOutput = {
@@ -82,6 +84,7 @@ export async function insertAiMessage(
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       cost: usage.cost,
+      keySource: input.keySource ?? null,
     });
 
     return {

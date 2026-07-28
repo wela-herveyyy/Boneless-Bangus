@@ -8,6 +8,7 @@ import {
   listConversations,
 } from "@/lib/domain/services/ai_conversation.service";
 import { cleanupAiPrompt } from "@/lib/domain/usecases/ai/prompt.usecase";
+import { resolveApiKeySource } from "@/lib/domain/usecases/ai/resolve_api_key_source.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import {
   AI_PROVIDER,
@@ -152,12 +153,14 @@ export async function promptAiAction(
 
     const cleaned = cleanupAiPrompt(result.data.text, result.data.usage);
     const hasFiles = Array.isArray(input.files) && input.files.length > 0;
+    const keySource = await resolveApiKeySource(userSession.user.id, input.provider);
     const saved = await insertAiMessage({
       userId: userSession.user.id,
       conversationId: input.dbConversationId,
       content: input.message || (hasFiles ? `[Attached ${input.files!.length} file(s)]` : ""),
       aiFeedback: cleaned.content,
       usage: cleaned.usage,
+      keySource,
     });
 
     if (!saved.ok) {

@@ -45,6 +45,7 @@ export async function getAdminUserDetail(userId: string): Promise<UserResult<Adm
         user: userData,
         team: membership?.team
           ? {
+              teamId: membership.team.id,
               teamCode: membership.team.code,
               teamName: membership.team.name,
             }

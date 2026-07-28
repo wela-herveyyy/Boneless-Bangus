@@ -57,7 +57,8 @@ export function useRightSidebar(
     ...globalOpenSidebars,
   }));
 
-  const isOpen = hoverOpen || pinnedOpen;
+  // ponytail: click-only — hoverOpen kept for API compat, unused for open state
+  const isOpen = pinnedOpen;
   const isOpenRef = useRef(isOpen);
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -67,7 +68,6 @@ export function useRightSidebar(
     ([sourceId, open]) => sourceId !== id && Boolean(open)
   );
   const isAnyRightSidebarOpen = isOpen || isOtherRightSidebarOpen;
-  const closeDelayMs = options?.closeDelayMs ?? 180;
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimeoutRef.current !== null) {
@@ -120,42 +120,8 @@ export function useRightSidebar(
     }
   }, [id, pinnedOpen, isOtherRightSidebarOpen]);
 
-  const openFromHover = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
-      return;
-    }
-    clearCloseTimer();
-    if (!isOpen) {
-      const switching = isOtherRightSidebarOpen;
-      if (switching) {
-        setIsSwitching(true);
-      }
-      window.dispatchEvent(
-        new CustomEvent("bbai:close-right-sidebar", {
-          detail: { sourceId: id, isSwitching: switching },
-        })
-      );
-      globalOpenSidebars[id] = true;
-      window.dispatchEvent(
-        new CustomEvent("bbai:right-sidebar-state", {
-          detail: { source: id, isOpen: true },
-        })
-      );
-    }
-    setHoverOpen(true);
-  }, [clearCloseTimer, id, isOpen, isOtherRightSidebarOpen]);
-
-  const scheduleClose = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
-      return;
-    }
-    clearCloseTimer();
-    closeTimeoutRef.current = window.setTimeout(() => {
-      if (!pinnedOpen) {
-        setHoverOpen(false);
-      }
-    }, closeDelayMs);
-  }, [clearCloseTimer, pinnedOpen, closeDelayMs]);
+  const openFromHover = useCallback(() => {}, []);
+  const scheduleClose = useCallback(() => {}, []);
 
   // Synchronize close and state changes across other right sidebars via CustomEvent
   useEffect(() => {

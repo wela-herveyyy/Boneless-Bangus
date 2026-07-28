@@ -47,7 +47,8 @@ const CHAT_PERMS: UserPermission[] = [
   USER_PERMISSION.AI_CONVERSATIONS,
 ];
 
-const TECH_PERMS: UserPermission[] = [
+// ponytail: GitHub only for owner/admin/dev/qa/po
+const GITHUB_PERMS: UserPermission[] = [
   ...CHAT_PERMS,
   USER_PERMISSION.GITHUB_MCP_ACCESS,
 ];
@@ -68,12 +69,12 @@ const ADMIN_PERMS: UserPermission[] = [
 export const ROLE_PERMISSIONS: Record<UserRole, UserPermission[]> = {
   [USER_ROLE.OWNER]: ADMIN_PERMS,
   [USER_ROLE.ADMIN]: ADMIN_PERMS,
-  [USER_ROLE.TECH]: TECH_PERMS,
+  [USER_ROLE.TECH]: CHAT_PERMS,
   [USER_ROLE.SALES]: CHAT_PERMS,
-  [USER_ROLE.DEV]: TECH_PERMS,
-  [USER_ROLE.QA]: TECH_PERMS,
-  [USER_ROLE.PO]: TECH_PERMS,
-  [USER_ROLE.PM]: TECH_PERMS,
+  [USER_ROLE.DEV]: GITHUB_PERMS,
+  [USER_ROLE.QA]: GITHUB_PERMS,
+  [USER_ROLE.PO]: GITHUB_PERMS,
+  [USER_ROLE.PM]: CHAT_PERMS,
   [USER_ROLE.FINANCE]: CHAT_PERMS,
 };
 
@@ -106,6 +107,7 @@ export type UserApiUsage = {
 export type AdminUserDetail = {
   user: UserSelect;
   team: {
+    teamId: string;
     teamCode: string;
     teamName: string;
   } | null;
@@ -115,7 +117,8 @@ export type AdminUserDetail = {
 };
 
 export function hasPermission(role: UserRole, permission: UserPermission): boolean {
-  const perms = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS] || CHAT_PERMS;
+  const key = String(role ?? "").trim().toLowerCase();
+  const perms = ROLE_PERMISSIONS[key] || CHAT_PERMS;
   return perms.includes(permission);
 }
 

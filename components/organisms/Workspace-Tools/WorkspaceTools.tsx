@@ -381,7 +381,9 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
         />
 
         <RightSidebarContent>
-          {erp.erpSession ? (
+          {erp.sessionRestoring ? (
+            <p className="text-xs text-on-surface-muted">Reconnecting ERPNext…</p>
+          ) : erp.erpSession ? (
             <ErpDashboardView
               dashboard={erp.dashboard}
               onRefresh={erp.refreshDashboard}

@@ -82,10 +82,9 @@ export function useSkillsMarketplaceSidebar(): UseSkillsMarketplaceSidebarReturn
   }, [loadData]);
 
   const filteredSkills = skills.filter((skill) => {
-    // 1. Tab Filter: Marketplace only shows global skills
-    if (!skill.isGlobal) return false;
+    // Global marketplace skills + your own private skills (skill-maker / DB)
+    if (!skill.isGlobal && !skill.isAuthor) return false;
 
-    // 2. Search & Category Filter
     const matchesSearch =
       skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       skill.description.toLowerCase().includes(searchQuery.toLowerCase());

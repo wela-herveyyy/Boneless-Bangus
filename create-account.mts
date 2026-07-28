@@ -1,18 +1,16 @@
 /**
- * Create a Better Auth email/password account with a role.
+ * Create or update a Better Auth email/password account + role.
  *
- * Interactive (stdio):
  *   bun create-account.mts
- *
- * Flags (optional overrides):
  *   bun create-account.mts --email you@livro.systems --name "Ada" --password 'secret' --role admin
  *
- * Roles: owner | admin | tech | sales | dev | qa | po | pm | finance
+ * If the email already exists: updates password, role, and name (when provided).
+ * // ponytail: upsert replaces a separate reset-password script for ops
  */
 import "dotenv/config";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { hashPassword } from "better-auth/crypto";
@@ -42,7 +40,7 @@ type Args = {
 
 function printUsage() {
   console.log(`
-Create account
+Create / update account
 
 Interactive:
   bun create-account.mts
@@ -50,14 +48,9 @@ Interactive:
 With flags:
   bun create-account.mts --email <email> --name <name> --password <password> --role <role> [--image <url>]
 
-Required fields:
-  email       Login email (unique)
-  name        Display name
-  password    Password (min 8 characters)
-  role        One of: ${ROLES.join(", ")}
+If email exists: password + role are updated (name/image if provided).
 
-Optional:
-  image       Avatar URL
+Roles: ${ROLES.join(", ")}
 `);
 }
 
@@ -67,6 +60,7 @@ function parseArgs(argv: string[]): Args {
     const key = argv[i];
     const value = argv[i + 1];
     if (!key.startsWith("--")) continue;
+    if (key === "--help" || key === "-h") continue;
     if (!value || value.startsWith("--")) {
       throw new Error(`Missing value for ${key}`);
     }
@@ -80,8 +74,6 @@ function parseArgs(argv: string[]): Args {
     ) {
       out[field] = value;
       i++;
-    } else if (key === "--help" || key === "-h") {
-      // handled in main
     } else {
       throw new Error(`Unknown flag: ${key}`);
     }
@@ -93,18 +85,23 @@ function isRole(value: string): value is Role {
   return (ROLES as readonly string[]).includes(value);
 }
 
-async function ask(rl: ReturnType<typeof createInterface>, label: string): Promise<string> {
-  const value = await rl.question(`${label}: `);
-  return value.trim();
+async function ask(rl: ReturnType<typeof createInterface>, label: string) {
+  return (await rl.question(`${label}: `)).trim();
 }
 
-async function promptMissing(args: Args): Promise<Required<Pick<Args, "email" | "name" | "password" | "role">> & { image: string | null }> {
+async function promptMissing(
+  args: Args,
+): Promise<
+  Required<Pick<Args, "email" | "name" | "password" | "role">> & {
+    image: string | null;
+  }
+> {
   const rl = createInterface({ input, output });
   try {
-    console.log("Create account (stdio)\n");
+    console.log("Create / update account\n");
 
     let email = args.email?.trim().toLowerCase() ?? "";
-    while (!email || !email.includes("@")) {
+    while (!email.includes("@")) {
       email = (await ask(rl, "Email")).toLowerCase();
       if (!email.includes("@")) console.log("  Enter a valid email.");
     }
@@ -115,16 +112,15 @@ async function promptMissing(args: Args): Promise<Required<Pick<Args, "email" | 
       if (!name) console.log("  Name is required.");
     }
 
-    // Plain readline on purpose — Windows terminals double-echo with setRawMode mute.
     let password = args.password ?? "";
     if (password && password.length < 8) {
-      console.log("  Provided --password is too short; enter a new one.");
+      console.log("  --password too short; enter a new one.");
       password = "";
     }
     while (password.length < 8) {
       password = await ask(rl, "Password (min 8 chars)");
       if (password.length < 8) {
-        console.log(`  Too short (${password.length}/8). Try again.`);
+        console.log(`  Too short (${password.length}/8).`);
         password = "";
       }
     }
@@ -133,19 +129,43 @@ async function promptMissing(args: Args): Promise<Required<Pick<Args, "email" | 
     while (!isRole(role)) {
       console.log(`  Roles: ${ROLES.join(", ")}`);
       role = (await ask(rl, "Role")).toLowerCase();
-      if (!isRole(role)) console.log(`  Invalid role.`);
+      if (!isRole(role)) console.log("  Invalid role.");
     }
 
     let image: string | null = args.image?.trim() || null;
     if (args.image === undefined) {
-      const imageAnswer = await ask(rl, "Image URL (optional, Enter to skip)");
-      image = imageAnswer || null;
+      image = (await ask(rl, "Image URL (optional, Enter to skip)")) || null;
     }
 
     return { email, name, password, role, image };
   } finally {
     rl.close();
   }
+}
+
+async function ensureRoleId(
+  database: ReturnType<typeof drizzle>,
+  role: Role,
+  now: Date,
+): Promise<string> {
+  const [existingRole] = await database
+    .select({ id: roleTable.id })
+    .from(roleTable)
+    .where(eq(roleTable.value, role))
+    .limit(1);
+
+  if (existingRole) return existingRole.id;
+
+  const id = crypto.randomUUID();
+  await database.insert(roleTable).values({
+    id,
+    value: role,
+    label: role.charAt(0).toUpperCase() + role.slice(1),
+    hint: `System auto-created role record for ${role}`,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return id;
 }
 
 async function main() {
@@ -155,8 +175,9 @@ async function main() {
     process.exit(0);
   }
 
-  const flagged = parseArgs(argv);
-  const { email, name, password, role, image } = await promptMissing(flagged);
+  const { email, name, password, role, image } = await promptMissing(
+    parseArgs(argv),
+  );
 
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is not set. Put it in .env");
@@ -169,6 +190,10 @@ async function main() {
   const database = drizzle(pool);
 
   try {
+    const now = new Date();
+    const hashed = await hashPassword(password);
+    const targetRoleId = await ensureRoleId(database, role, now);
+
     const [existing] = await database
       .select({ id: user.id })
       .from(user)
@@ -176,35 +201,50 @@ async function main() {
       .limit(1);
 
     if (existing) {
-      throw new Error(`User with email ${email} already exists (${existing.id}).`);
+      await database
+        .update(user)
+        .set({
+          name,
+          roleId: targetRoleId,
+          ...(image ? { image } : {}),
+          updatedAt: now,
+        })
+        .where(eq(user.id, existing.id));
+
+      const [cred] = await database
+        .select({ id: account.id })
+        .from(account)
+        .where(
+          and(eq(account.userId, existing.id), eq(account.providerId, "credential")),
+        )
+        .limit(1);
+
+      if (cred) {
+        await database
+          .update(account)
+          .set({ password: hashed, updatedAt: now })
+          .where(eq(account.id, cred.id));
+      } else {
+        await database.insert(account).values({
+          id: crypto.randomUUID(),
+          accountId: existing.id,
+          providerId: "credential",
+          userId: existing.id,
+          password: hashed,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      console.log("\nAccount updated.");
+      console.log(`  id:    ${existing.id}`);
+      console.log(`  email: ${email}`);
+      console.log(`  name:  ${name}`);
+      console.log(`  role:  ${role}`);
+      return;
     }
 
     const userId = crypto.randomUUID();
-    const accountId = crypto.randomUUID();
-    const now = new Date();
-    const hashed = await hashPassword(password);
-
-    const [existingRole] = await database
-      .select({ id: roleTable.id })
-      .from(roleTable)
-      .where(eq(roleTable.value, role))
-      .limit(1);
-
-    let targetRoleId: string;
-    if (existingRole) {
-      targetRoleId = existingRole.id;
-    } else {
-      targetRoleId = crypto.randomUUID();
-      await database.insert(roleTable).values({
-        id: targetRoleId,
-        value: role,
-        label: role.charAt(0).toUpperCase() + role.slice(1),
-        hint: `System auto-created role record for ${role}`,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
     await database.insert(user).values({
       id: userId,
       name,
@@ -217,7 +257,7 @@ async function main() {
     });
 
     await database.insert(account).values({
-      id: accountId,
+      id: crypto.randomUUID(),
       accountId: userId,
       providerId: "credential",
       userId,

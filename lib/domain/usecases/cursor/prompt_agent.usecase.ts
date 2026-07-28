@@ -13,6 +13,7 @@ import {
   mergePromptSkills,
 } from "../skills/get_prompt_skills.usecase";
 import { buildGithubCustomTools } from "./build_github_custom_tools.usecase";
+import { buildSkillsCustomTools } from "./build_skills_custom_tools.usecase";
 import { buildWorkspaceCustomTools } from "./build_workspace_custom_tools.usecase";
 
 export async function promptAgent(
@@ -60,9 +61,11 @@ export async function promptAgent(
 
   const workspaceTools = userId ? await buildWorkspaceCustomTools(userId) : undefined;
   const githubTools = userId ? await buildGithubCustomTools(userId) : undefined;
+  const skillsTools = userId ? await buildSkillsCustomTools(userId) : undefined;
   const customTools = {
     ...(workspaceTools ?? {}),
     ...(githubTools ?? {}),
+    ...(skillsTools ?? {}),
   };
   const hasCustomTools = Object.keys(customTools).length > 0;
 
@@ -71,6 +74,9 @@ export async function promptAgent(
     : "";
   const githubHint = githubTools
     ? "GitHub tools are available via the user's saved PAT (custom tools). For a multi-repo overview across personal, collaborator, and organization repos, call github_list_my_repositories. Prefer that over guessing from the local workspace or a single open repo.\n\n"
+    : "";
+  const skillsHint = skillsTools
+    ? "Skill storage tools: call skills_create_skill to persist a new skill in the DATABASE (never edit source files like builtin_skills.ts). Use skills_list_skills to see existing DB skills.\n\n"
     : "";
 
   // Extract text content from attached files and append to the prompt.
@@ -119,7 +125,7 @@ export async function promptAgent(
 
   try {
     const run = await Agent.prompt(
-      `${who}${skillBlock}${workspaceHint}${githubHint}${message}${fileContext}`,
+      `${who}${skillBlock}${workspaceHint}${githubHint}${skillsHint}${message}${fileContext}`,
       {
         apiKey,
         model: { id: input.modelId ?? "composer-2.5" },

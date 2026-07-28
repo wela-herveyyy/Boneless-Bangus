@@ -17,7 +17,8 @@ export type ErpNextCommands =
   | "get-customer"
   | "create-invoice"
   | "check-stock"
-  | "request-leave";
+  | "request-leave"
+  | "wrapup";
 
 
 export interface ToolSkillMap {

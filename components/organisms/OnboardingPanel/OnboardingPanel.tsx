@@ -185,7 +185,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
                 </h1>
                 <p className="mt-2 text-sm text-on-surface-muted">What is your role?</p>
               </div>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto bbai-scroll pr-1">
+              <div className="space-y-3 max-h-75 overflow-y-auto bbai-scroll pr-1">
                 {loadingRoles ? (
                   <p className="py-4 text-sm text-on-surface-muted">Loading roles from database…</p>
                 ) : onboardingRoles.length === 0 ? (
