@@ -1,6 +1,9 @@
 import { user } from "@/database/schema";
 
-export type UserSelect = typeof user.$inferSelect;
+export type UserTableSelect = typeof user.$inferSelect;
+export type UserSelect = UserTableSelect & {
+  role: string;
+};
 export type UserInsert = typeof user.$inferInsert;
 
 export const USER_ROLE = {
@@ -15,12 +18,10 @@ export const USER_ROLE = {
   FINANCE: "finance",
 } as const;
 
-export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
-
-const USER_ROLE_VALUES = new Set<string>(Object.values(USER_ROLE));
+export type UserRole = string;
 
 export function isUserRole(value: string): value is UserRole {
-  return USER_ROLE_VALUES.has(value);
+  return Boolean(value && value.trim().length > 0);
 }
 
 export const USER_PERMISSION = {
@@ -33,6 +34,7 @@ export const USER_PERMISSION = {
   GOOGLE_AI_INTERACT: "google_ai:interact",
   ERPNEXT_ACCESS: "erpnext:access",
   AI_CONVERSATIONS: "ai:conversations",
+  GITHUB_MCP_ACCESS: "github_mcp:access",
 } as const;
 
 export type UserPermission = (typeof USER_PERMISSION)[keyof typeof USER_PERMISSION];
@@ -45,6 +47,11 @@ const CHAT_PERMS: UserPermission[] = [
   USER_PERMISSION.AI_CONVERSATIONS,
 ];
 
+const TECH_PERMS: UserPermission[] = [
+  ...CHAT_PERMS,
+  USER_PERMISSION.GITHUB_MCP_ACCESS,
+];
+
 const ADMIN_PERMS: UserPermission[] = [
   USER_PERMISSION.USERS_READ,
   USER_PERMISSION.USERS_DELETE,
@@ -55,17 +62,18 @@ const ADMIN_PERMS: UserPermission[] = [
   USER_PERMISSION.GOOGLE_AI_INTERACT,
   USER_PERMISSION.ERPNEXT_ACCESS,
   USER_PERMISSION.AI_CONVERSATIONS,
+  USER_PERMISSION.GITHUB_MCP_ACCESS,
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, UserPermission[]> = {
   [USER_ROLE.OWNER]: ADMIN_PERMS,
   [USER_ROLE.ADMIN]: ADMIN_PERMS,
-  [USER_ROLE.TECH]: CHAT_PERMS,
+  [USER_ROLE.TECH]: TECH_PERMS,
   [USER_ROLE.SALES]: CHAT_PERMS,
-  [USER_ROLE.DEV]: CHAT_PERMS,
-  [USER_ROLE.QA]: CHAT_PERMS,
-  [USER_ROLE.PO]: CHAT_PERMS,
-  [USER_ROLE.PM]: CHAT_PERMS,
+  [USER_ROLE.DEV]: TECH_PERMS,
+  [USER_ROLE.QA]: TECH_PERMS,
+  [USER_ROLE.PO]: TECH_PERMS,
+  [USER_ROLE.PM]: TECH_PERMS,
   [USER_ROLE.FINANCE]: CHAT_PERMS,
 };
 
@@ -107,7 +115,8 @@ export type AdminUserDetail = {
 };
 
 export function hasPermission(role: UserRole, permission: UserPermission): boolean {
-  return ROLE_PERMISSIONS[role].includes(permission);
+  const perms = ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS] || CHAT_PERMS;
+  return perms.includes(permission);
 }
 
 export type UserResult<T = void> =

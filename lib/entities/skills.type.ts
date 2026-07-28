@@ -28,7 +28,8 @@ export const ROLE_SKILL_PERMISSIONS: Record<UserRole, SkillPermission[]> = {
 };
 
 export function hasSkillPermission(role: UserRole, permission: SkillPermission): boolean {
-  return ROLE_SKILL_PERMISSIONS[role].includes(permission);
+  const perms = ROLE_SKILL_PERMISSIONS[role as keyof typeof ROLE_SKILL_PERMISSIONS] || [SKILL_PERMISSION.SKILLS_READ];
+  return perms.includes(permission);
 }
 
 
