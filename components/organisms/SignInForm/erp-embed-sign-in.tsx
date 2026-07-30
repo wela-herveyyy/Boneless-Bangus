@@ -83,6 +83,10 @@ export function ErpEmbedSignIn({
           fullName?: string;
           email?: string;
           baseUrl?: string;
+          autoSchoolMcp?: boolean;
+          schoolCode?: string | null;
+          isTeacher?: boolean;
+          isLivro?: boolean;
           needsOnboarding?: boolean;
           redirectTo?: string;
           sessionCookie?: SessionCookiePayload;
@@ -92,16 +96,27 @@ export function ErpEmbedSignIn({
 
         if (res.ok && json?.ok && json.sid && json.sessionCookie) {
           applySessionCookie(json.sessionCookie);
-          persistEmbedSidClient({
-            sid: json.sid,
-            fullName: json.fullName || "User",
-            email: json.email || "",
-            baseUrl: json.baseUrl || parent,
-          });
+          // Livro parent → bbai_erp_* ; school parent → bbai_school_erp_* (MCP SID)
+          const isLivro = Boolean(json.isLivro);
+          persistEmbedSidClient(
+            {
+              sid: json.sid,
+              fullName: json.fullName || "User",
+              email: json.email || "",
+              baseUrl: json.baseUrl || parent,
+            },
+            { forceSchool: !isLivro, schoolCode: json.schoolCode },
+          );
           // Stay inside the ERPNext chat iframe — never break out to a new tab
           const dest = json.redirectTo || (json.needsOnboarding ? "/" : "/workspace");
           const url = new URL(dest, window.location.origin);
           url.searchParams.set("embed", "1");
+          // Keep parent in URL — iframe sessionStorage can be flaky cross-port
+          url.searchParams.set("parent", json.baseUrl || parent);
+          if (!isLivro) {
+            url.searchParams.set("school_mcp", "auto");
+            if (json.schoolCode) url.searchParams.set("school_code", json.schoolCode);
+          }
           window.location.replace(url.pathname + url.search);
           return;
         }

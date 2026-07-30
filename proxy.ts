@@ -33,12 +33,33 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.searchParams.get("erp_url");
   const hasEmbedSid = Boolean(sid?.trim() && parent?.trim());
 
-  // Already signed in — go to workspace, but NEVER drop embed sid/parent
+  // Already signed in — leave auth pages. Keep embed sid/parent for silent login.
+  // Send to `/` (not /workspace): no-role users need onboarding; home routes
+  // role users to workspace. Avoids sign-in ↔ workspace reload loops.
   if (session && matchesPath(pathname, authPaths)) {
     if (hasEmbedSid) {
       return NextResponse.next();
     }
-    return NextResponse.redirect(new URL("/workspace", request.url));
+    const dest = new URL("/", request.url);
+    const embed = request.nextUrl.searchParams.get("embed");
+    if (embed) dest.searchParams.set("embed", embed);
+    if (parent) dest.searchParams.set("parent", parent);
+    const schoolMcp = request.nextUrl.searchParams.get("school_mcp");
+    if (schoolMcp) dest.searchParams.set("school_mcp", schoolMcp);
+    // Recover embed flags nested in callbackURL (common after cookie miss)
+    const callbackURL = request.nextUrl.searchParams.get("callbackURL");
+    if (callbackURL?.startsWith("/")) {
+      try {
+        const cb = new URL(callbackURL, request.url);
+        for (const key of ["embed", "parent", "school_mcp"] as const) {
+          const value = cb.searchParams.get(key);
+          if (value && !dest.searchParams.get(key)) dest.searchParams.set(key, value);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return NextResponse.redirect(dest);
   }
 
   if (!session && !matchesPath(pathname, publicPaths)) {

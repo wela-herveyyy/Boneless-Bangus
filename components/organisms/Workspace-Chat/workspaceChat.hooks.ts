@@ -49,9 +49,9 @@ function readInternalErpMcpServers(): Record<string, ErpMcpServerConfig> {
     : null;
   const school = hasPermission(accessPermissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS)
     ? buildSchoolErpMcpConfig(
-        localStorage.getItem("bbai_school_erp_sid"),
-        normalizeErpBaseUrl(localStorage.getItem("bbai_school_erp_base_url") ?? ""),
-      )
+      localStorage.getItem("bbai_school_erp_sid"),
+      normalizeErpBaseUrl(localStorage.getItem("bbai_school_erp_base_url") ?? ""),
+    )
     : null;
   return {
     ...(livro ? { [ERP_MCP_SERVER_KEY]: livro } : {}),
@@ -75,27 +75,27 @@ export const AI_ROUTE_OPTIONS: {
   provider: AiProvider;
   googleModel?: GoogleAiModel;
 }[] = [
-  {
-    id: "cursor",
-    label: "Cursor",
-    hint: "Agent SDK",
-    provider: AI_PROVIDER.CURSOR,
-  },
-  {
-    id: "gemma_4",
-    label: "Gemma 4",
-    hint: "Google",
-    provider: AI_PROVIDER.GOOGLE_AI,
-    googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
-  },
-  {
-    id: "antigravity",
-    label: "Antigravity",
-    hint: "Google agent",
-    provider: AI_PROVIDER.GOOGLE_AI,
-    googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
-  },
-];
+    {
+      id: "cursor",
+      label: "Cursor",
+      hint: "Agent SDK",
+      provider: AI_PROVIDER.CURSOR,
+    },
+    {
+      id: "gemma_4",
+      label: "Gemma 4",
+      hint: "Google",
+      provider: AI_PROVIDER.GOOGLE_AI,
+      googleModel: GOOGLE_AI_MODEL.GEMMA_4_31B,
+    },
+    {
+      id: "antigravity",
+      label: "Antigravity",
+      hint: "Google agent",
+      provider: AI_PROVIDER.GOOGLE_AI,
+      googleModel: GOOGLE_AI_MODEL.ANTIGRAVITY,
+    },
+  ];
 
 export function routeIdFromSelection(
   provider: AiProvider,
@@ -363,14 +363,14 @@ export function useWorkspaceChat(
 
       let serversFromRecords: Record<string, CursorMcpServerConfig> | undefined;
       let allSkills: CursorSkill[] = [];
-      
+
       if (localRecordsResult.ok) {
         const mcp = localRecordsResult.data.find((item) => item.key === CURSOR_MCP_STORAGE_KEY);
         const sk = localRecordsResult.data.find((item) => item.key === CURSOR_SKILLS_STORAGE_KEY);
         if (mcp) serversFromRecords = parseMcpServers(mcp.value);
         if (sk) {
-           const parsedLocal = parseSkills(sk.value);
-           if (parsedLocal) allSkills = [...parsedLocal];
+          const parsedLocal = parseSkills(sk.value);
+          if (parsedLocal) allSkills = [...parsedLocal];
         }
       }
 
@@ -702,10 +702,10 @@ export function useWorkspaceChat(
               prev.map((turn) =>
                 turn.id === assistantId
                   ? {
-                      ...turn,
-                      id: event.messageId ?? turn.id,
-                      text: event.text ?? turn.text,
-                    }
+                    ...turn,
+                    id: event.messageId ?? turn.id,
+                    text: event.text ?? turn.text,
+                  }
                   : turn,
               ),
             );
@@ -779,8 +779,8 @@ export function useWorkspaceChat(
       if (!text && !activeCommand && attachments.length === 0) return;
       if (sending) return;
 
-      const finalPrompt = activeCommand 
-        ? `${activeCommand.promptText}\n\n${text}`.trim() 
+      const finalPrompt = activeCommand
+        ? `${activeCommand.promptText}\n\n${text}`.trim()
         : text;
 
       setSending(true);
@@ -789,17 +789,17 @@ export function useWorkspaceChat(
       setAttachments([]); // Clear chips immediately so they don't linger during the async AI call
 
       // Keep the UI displaying the original text to the user if they scroll back
-      let displayMessage = activeCommand 
+      let displayMessage = activeCommand
         ? `${activeCommand.id} ${text}`.trim()
         : text;
-        
+
       if (attachments.length > 0) {
         const fileNames = attachments.map((a) => a.name).join(", ");
-        displayMessage = displayMessage 
-          ? `${displayMessage}\n\n[Attachments: ${fileNames}]` 
+        displayMessage = displayMessage
+          ? `${displayMessage}\n\n[Attachments: ${fileNames}]`
           : `[Attachments: ${fileNames}]`;
       }
-        
+
       setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", text: displayMessage }]);
       setActiveCommand(null);
 
@@ -903,14 +903,14 @@ export function useWorkspaceChat(
 
   const filteredCommands = useMemo(() => {
     if (!showCommandMenu) return [];
-    return getAvailableCommands(activeSlugs, skills).filter((cmd) => 
+    return getAvailableCommands(activeSlugs, skills).filter((cmd) =>
       cmd.id.toLowerCase().includes(commandSearch.toLowerCase())
     );
   }, [showCommandMenu, activeSlugs, commandSearch, skills]);
 
   const handleMessageChange = useCallback((value: string) => {
     setMessage(value);
-    
+
     // Check for slash command trigger at the beginning or after a space
     const match = value.match(/(?:^|\s)(\/\S*)$/);
     if (match) {

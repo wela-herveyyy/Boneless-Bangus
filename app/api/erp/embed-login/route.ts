@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getErpUserProfile } from "@/lib/domain/usecases/erpnext/get_erp_user_profile.usecase";
+import { getSchoolTeacherContext } from "@/lib/domain/usecases/erpnext/get_school_teacher_context.usecase";
 import { getUserRole } from "@/lib/domain/usecases/users/get_user_role.usecase";
 import { ERP_BASE_URL, normalizeErpBaseUrl } from "@/lib/entities/erpnext.type";
 import { isLivroParent } from "@/lib/utils/erp-embed";
@@ -111,13 +112,35 @@ export async function POST(request: Request) {
     const cookieValue = await signSessionCookie(session.token, ctx.secret);
     const maxAge = ctx.sessionConfig.expiresIn;
 
+    const livro = isLivroParent(parent);
+    let autoSchoolMcp = false;
+    let schoolCode: string | null = null;
+    let isTeacher = false;
+    let erpRoles: string[] = [];
+
+    // School desk embed (any non-Livro parent + sid): School MCP is that site.
+    // Also load Teacher / school_code for richer client flags.
+    if (!livro) {
+      autoSchoolMcp = true;
+      const schoolCtx = await getSchoolTeacherContext(parent, sid, profile.data.userName);
+      if (schoolCtx.ok) {
+        schoolCode = schoolCtx.data.schoolCode;
+        isTeacher = schoolCtx.data.isTeacher;
+        erpRoles = schoolCtx.data.erpRoles;
+      }
+    }
+
     const response = NextResponse.json({
       ok: true,
       sid,
       fullName: user.name,
       email,
       baseUrl: parent,
-      isLivro: isLivroParent(parent),
+      isLivro: livro,
+      autoSchoolMcp,
+      schoolCode,
+      isTeacher,
+      erpRoles,
       // New school users still need onboarding — but only after session cookie sticks
       needsOnboarding: !role,
       redirectTo: !role ? "/" : "/workspace",

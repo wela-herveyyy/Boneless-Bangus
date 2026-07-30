@@ -5,6 +5,9 @@ import {
 
 export const ERP_EMBED_PARENT_KEY = "bbai_erp_embed_parent";
 export const ERP_EMBED_MODE_KEY = "bbai_erp_embed_mode";
+/** School MCP auto-wired from embed sid+parent (non-Livro desk). */
+export const ERP_SCHOOL_MCP_AUTO_KEY = "bbai_school_mcp_auto";
+export const ERP_SCHOOL_CODE_KEY = "bbai_school_code";
 
 export type ErpEmbedParams = {
   sid: string | null;
@@ -21,6 +24,26 @@ export function parseErpEmbedParams(
   return {
     sid,
     parent: parentRaw ? normalizeErpBaseUrl(parentRaw) : null,
+  };
+}
+
+/**
+ * Prefer `window.location` — `useSearchParams()` is often empty inside ERPNext iframes.
+ */
+export function readEmbedParamsFromWindow(): ErpEmbedParams & {
+  embed: string | null;
+  schoolMcp: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { sid: null, parent: null, embed: null, schoolMcp: null };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const { sid, parent } = parseErpEmbedParams(params);
+  return {
+    sid,
+    parent,
+    embed: params.get("embed"),
+    schoolMcp: params.get("school_mcp"),
   };
 }
 
@@ -50,30 +73,98 @@ export function isLivroParent(parent: string | null | undefined): boolean {
 export function persistEmbedParent(parent: string | null) {
   if (typeof window === "undefined") return;
   if (parent) {
+    // localStorage survives iframe quirks better than sessionStorage alone
+    localStorage.setItem(ERP_EMBED_PARENT_KEY, parent);
     sessionStorage.setItem(ERP_EMBED_PARENT_KEY, parent);
     sessionStorage.setItem(ERP_EMBED_MODE_KEY, "1");
+    localStorage.setItem(ERP_EMBED_MODE_KEY, "1");
   }
 }
 
 export function readEmbedParent(): string | null {
   if (typeof window === "undefined") return null;
-  const stored = sessionStorage.getItem(ERP_EMBED_PARENT_KEY);
+  const stored =
+    sessionStorage.getItem(ERP_EMBED_PARENT_KEY) ||
+    localStorage.getItem(ERP_EMBED_PARENT_KEY);
   return stored ? normalizeErpBaseUrl(stored) : null;
 }
 
 export function isErpEmbedMode(): boolean {
   if (typeof window === "undefined") return false;
-  return sessionStorage.getItem(ERP_EMBED_MODE_KEY) === "1" || Boolean(readEmbedParent());
+  return (
+    sessionStorage.getItem(ERP_EMBED_MODE_KEY) === "1" ||
+    localStorage.getItem(ERP_EMBED_MODE_KEY) === "1" ||
+    Boolean(readEmbedParent())
+  );
 }
 
 /**
- * Hide School ERP login rail when embedded from a non-Livro parent URL
- * (any school / other site). Standalone BBAI still shows it.
+ * Resolve the ERP parent we are embedded in (URL → storage → school SID base URL).
+ * Key rule: if this is set and is NOT Livro, School login UI must be hidden.
+ */
+export function resolveSchoolEmbedParent(): string | null {
+  if (typeof window === "undefined") return null;
+  const fromWindow = readEmbedParamsFromWindow().parent;
+  if (fromWindow) return fromWindow;
+  const fromStore = readEmbedParent();
+  if (fromStore) return fromStore;
+  const schoolBase = normalizeErpBaseUrl(
+    localStorage.getItem("bbai_school_erp_base_url") ?? "",
+  );
+  return schoolBase;
+}
+
+/**
+ * Hide School ERP rail when parent is a school desk (anything except Livro).
+ * Does NOT use useSearchParams — reads window.location + storage.
  */
 export function shouldHideSchoolErpSidebar(parent?: string | null): boolean {
-  const resolved = parent ?? readEmbedParent();
-  if (!resolved) return false;
+  if (typeof window === "undefined") return false;
+  if (isSchoolMcpAutoConnected()) return true;
+
+  const resolved = parent ?? resolveSchoolEmbedParent();
+  if (!resolved) {
+    // embed=1 without parent still means FAB embed — prefer hide school login
+    const { embed, schoolMcp } = readEmbedParamsFromWindow();
+    return schoolMcp === "auto" || embed === "1";
+  }
   return !isLivroParent(resolved);
+}
+
+/** @deprecated use shouldHideSchoolErpSidebar — kept for call sites */
+export function shouldAutoSchoolMcpFromEmbed(opts: {
+  sid?: string | null;
+  parent?: string | null;
+  schoolMcp?: string | null;
+  embed?: string | null;
+}): boolean {
+  if (opts.schoolMcp === "auto") return true;
+  if (typeof window !== "undefined" && isSchoolMcpAutoConnected()) return true;
+  const parent = opts.parent
+    ? normalizeErpBaseUrl(opts.parent)
+    : resolveSchoolEmbedParent();
+  if (parent && !isLivroParent(parent)) return true;
+  if (opts.embed === "1" && parent && !isLivroParent(parent)) return true;
+  if (opts.sid?.trim() && parent && !isLivroParent(parent)) return true;
+  return shouldHideSchoolErpSidebar(parent);
+}
+
+export function persistSchoolMcpAuto(schoolCode: string | null) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(ERP_SCHOOL_MCP_AUTO_KEY, "1");
+  localStorage.setItem(ERP_SCHOOL_MCP_AUTO_KEY, "1");
+  if (schoolCode) {
+    sessionStorage.setItem(ERP_SCHOOL_CODE_KEY, schoolCode);
+    localStorage.setItem(ERP_SCHOOL_CODE_KEY, schoolCode);
+  }
+}
+
+export function isSchoolMcpAutoConnected(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    sessionStorage.getItem(ERP_SCHOOL_MCP_AUTO_KEY) === "1" ||
+    localStorage.getItem(ERP_SCHOOL_MCP_AUTO_KEY) === "1"
+  );
 }
 
 export function persistLivroSidClient(session: {
@@ -103,17 +194,26 @@ function persistSchoolSidClient(session: {
 }
 
 /** Persist MCP sid for Livro or school parent after embed / password login. */
-export function persistEmbedSidClient(session: {
-  sid: string;
-  fullName: string;
-  email: string;
-  baseUrl: string;
-}) {
+export function persistEmbedSidClient(
+  session: {
+    sid: string;
+    fullName: string;
+    email: string;
+    baseUrl: string;
+  },
+  options?: { forceSchool?: boolean; schoolCode?: string | null },
+) {
   if (typeof window === "undefined") return;
   persistEmbedParent(session.baseUrl);
-  if (isLivroParent(session.baseUrl)) {
-    persistLivroSidClient(session);
+
+  const forceSchool =
+    options?.forceSchool || !isLivroParent(session.baseUrl);
+
+  if (forceSchool) {
+    persistSchoolSidClient(session);
+    persistSchoolMcpAuto(options?.schoolCode ?? null);
     return;
   }
-  persistSchoolSidClient(session);
+
+  persistLivroSidClient(session);
 }

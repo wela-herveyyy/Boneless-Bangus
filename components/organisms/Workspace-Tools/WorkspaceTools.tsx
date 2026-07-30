@@ -42,6 +42,14 @@ import {
   type ErpOtpState,
   type SprintBacklogItem,
 } from "@/lib/entities/erpnext.type";
+import {
+  isLivroParent,
+  persistEmbedParent,
+  persistEmbedSidClient,
+  persistSchoolMcpAuto,
+  readEmbedParamsFromWindow,
+  resolveSchoolEmbedParent,
+} from "@/lib/utils/erp-embed";
 
 /* ── Login form ─────────────────────────────────────────── */
 
@@ -584,8 +592,13 @@ function ErpToolsPanel({
   showUrlField,
   emailPlaceholder,
   submitLabel,
-  /** Livro is authenticated at /sign-in — no second password form here. */
-  usesAppLivroLogin = false,
+  /**
+   * SID already set at `/sign-in` (Livro password or school desk `?sid=&parent=`).
+   * No second password form — same pattern for Livro MCP and School MCP.
+   */
+  usesAppSessionLogin = false,
+  missingSessionTitle,
+  missingSessionBody,
   topOffset,
 }: {
   config: ErpToolConfig;
@@ -597,7 +610,9 @@ function ErpToolsPanel({
   showUrlField?: boolean;
   emailPlaceholder?: string;
   submitLabel?: string;
-  usesAppLivroLogin?: boolean;
+  usesAppSessionLogin?: boolean;
+  missingSessionTitle?: string;
+  missingSessionBody?: string;
   topOffset?: string;
 }) {
   const erp = useErpLogin(config);
@@ -655,7 +670,7 @@ function ErpToolsPanel({
                 onRefresh={erp.refreshDashboard}
               />
             )
-          ) : erp.otpState && !usesAppLivroLogin ? (
+          ) : erp.otpState && !usesAppSessionLogin ? (
             <div className="space-y-3">
               <p className="text-xs leading-relaxed text-on-surface-muted">
                 Complete verification to continue.
@@ -668,19 +683,21 @@ function ErpToolsPanel({
                 error={erp.loginError}
               />
             </div>
-          ) : usesAppLivroLogin ? (
+          ) : usesAppSessionLogin ? (
             <div className="space-y-3 rounded-2xl bg-surface-container-low px-4 py-5">
-              <p className="text-sm font-medium text-on-surface">Livro session missing</p>
+              <p className="text-sm font-medium text-on-surface">
+                {missingSessionTitle ?? "Session missing"}
+              </p>
               <p className="text-xs leading-relaxed text-on-surface-muted">
-                You already sign in with Livro on the app login page. Sign out and sign in again
-                to refresh timesheets, tasks, sprint backlogs, and Livro MCP.
+                {missingSessionBody ??
+                  "Sign in again from the app login page so MCP can use your ERP session."}
               </p>
               <a
                 href="/sign-in"
                 className="inline-flex items-center gap-2 text-sm font-medium text-primary underline"
               >
                 <LuLogIn className="size-4" aria-hidden />
-                Go to Livro sign-in
+                Go to sign-in
               </a>
             </div>
           ) : (
@@ -713,15 +730,63 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
       title="Tools"
       brandLabel="ERPNext"
       loginHint="Livro session is created when you sign in to BBAI."
-      usesAppLivroLogin
+      usesAppSessionLogin
+      missingSessionTitle="Livro session missing"
+      missingSessionBody="You already sign in with Livro on the app login page. Sign out and sign in again to refresh Livro MCP."
       topOffset={topOffset}
     />
   );
 }
 
-/** School ERP sites — dynamic `X-ERPNext-URL` per school. */
+/**
+ * School ERP — SID only from `/sign-in?sid=&parent=` (non-Livro), same as Livro.
+ * Never show a second password form in this sidebar.
+ */
 export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useSchoolErpSidebar();
+
+  useEffect(() => {
+    const { sid, parent } = readEmbedParamsFromWindow();
+    const resolved = resolveSchoolEmbedParent();
+    const schoolParent =
+      (parent && !isLivroParent(parent) ? parent : null) ||
+      (resolved && !isLivroParent(resolved) ? resolved : null);
+
+    // Prefer URL sid; else reuse desk sid that was wrongly stored under Livro keys
+    const embedSid =
+      sid?.trim() ||
+      localStorage.getItem("bbai_school_erp_sid")?.trim() ||
+      (schoolParent ? localStorage.getItem("bbai_erp_sid")?.trim() : null) ||
+      null;
+
+    if (embedSid && schoolParent) {
+      // Drop placeholder URL from an old manual login attempt
+      const prevBase = localStorage.getItem("bbai_school_erp_base_url") ?? "";
+      if (prevBase.includes("school.example.com")) {
+        localStorage.removeItem("bbai_school_erp_base_url");
+      }
+      persistEmbedSidClient(
+        {
+          sid: embedSid,
+          fullName:
+            localStorage.getItem("bbai_school_erp_user") ||
+            localStorage.getItem("bbai_erp_user") ||
+            "User",
+          email:
+            localStorage.getItem("bbai_school_erp_email") ||
+            localStorage.getItem("bbai_erp_email") ||
+            "",
+          baseUrl: schoolParent,
+        },
+        { forceSchool: true },
+      );
+    } else if (schoolParent) {
+      persistEmbedParent(schoolParent);
+      persistSchoolMcpAuto(null);
+    }
+    window.dispatchEvent(new Event("bbai-school-erp-session"));
+  }, []);
+
   return (
     <ErpToolsPanel
       config={SCHOOL_ERP_TOOL}
@@ -729,10 +794,10 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
       icon={<LuSchool className="size-6" aria-hidden />}
       title="School"
       brandLabel="School ERP"
-      loginHint="Sign in to a school ERP site. The selected URL is sent as X-ERPNext-URL for MCP tools."
-      showUrlField
-      emailPlaceholder="Administrator or you@school.edu"
-      submitLabel="Login to school ERP"
+      loginHint="School session is created when you open BBAI from the school desk."
+      usesAppSessionLogin
+      missingSessionTitle="School session missing"
+      missingSessionBody="Open BBAI from your school desk (FAB) with /sign-in?sid=&parent= — School MCP uses that SID automatically, same as Livro. No separate school password login."
       topOffset={topOffset}
     />
   );

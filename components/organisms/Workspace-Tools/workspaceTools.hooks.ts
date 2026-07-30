@@ -418,10 +418,13 @@ export function useErpLogin(config: ErpToolConfig) {
   useEffect(() => {
     let cancelled = false;
 
-    void (async () => {
+    const restore = async () => {
       const stored = readStoredSession(config);
       if (!stored) {
-        if (!cancelled) setSessionRestoring(false);
+        if (!cancelled) {
+          setErpSession(null);
+          setSessionRestoring(false);
+        }
         return;
       }
 
@@ -459,13 +462,23 @@ export function useErpLogin(config: ErpToolConfig) {
         return;
       }
 
+      // Unknown / proxy glitch — still use stored SID for MCP (embed desk session)
       setErpSession(stored);
       setSessionRestoring(false);
       void fetchDashboard(stored.sid, stored.email, stored.baseUrl);
-    })();
+    };
+
+    void restore();
+
+    // Embed /sign-in may write SID after this hook mounts
+    const onSession = () => {
+      void restore();
+    };
+    window.addEventListener(config.storage.eventName, onSession);
 
     return () => {
       cancelled = true;
+      window.removeEventListener(config.storage.eventName, onSession);
     };
   }, [config, fetchDashboard]);
 

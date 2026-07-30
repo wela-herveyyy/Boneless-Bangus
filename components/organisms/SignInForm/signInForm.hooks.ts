@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ERP_BASE_URL, normalizeErpBaseUrl } from "@/lib/entities/erpnext.type";
-import { persistEmbedSidClient } from "@/lib/utils/erp-embed";
+import { isLivroParent, persistEmbedSidClient } from "@/lib/utils/erp-embed";
 
 type UseErpPasswordSignInOptions = {
   callbackURL: string;
@@ -89,15 +89,28 @@ export function useErpPasswordSignIn({
       if ("sid" in json && json.sid) {
         const baseUrl =
           normalizeErpBaseUrl(json.baseUrl || parent || ERP_BASE_URL) || parent;
-        persistEmbedSidClient({
-          sid: json.sid,
-          fullName: json.fullName,
-          email: json.email,
-          baseUrl,
-        });
-        router.replace(
-          json.needsOnboarding ? "/" : json.callbackURL || callbackURL || "/workspace",
+        const school = !isLivroParent(baseUrl);
+        persistEmbedSidClient(
+          {
+            sid: json.sid,
+            fullName: json.fullName,
+            email: json.email,
+            baseUrl,
+          },
+          { forceSchool: school },
         );
+        // Prefer onboarding / workspace with embed flags — nested callbackURL to
+        // `/?embed=1&parent=…` without a sticky cookie was causing reload loops.
+        const dest = new URL(
+          json.needsOnboarding ? "/" : "/workspace",
+          window.location.origin,
+        );
+        if (baseUrl) {
+          dest.searchParams.set("embed", "1");
+          dest.searchParams.set("parent", baseUrl);
+          if (school) dest.searchParams.set("school_mcp", "auto");
+        }
+        router.replace(dest.pathname + dest.search);
         router.refresh();
         return;
       }

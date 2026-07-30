@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useState, type ComponentType } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplaceSidebar";
 import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
 import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
 import { GithubSidebar } from "@/components/organisms/GithubSidebar/GithubSidebar";
-import {
-  SchoolErpToolsSidebar,
-  WorkspaceToolsSidebar,
-} from "@/components/organisms/Workspace-Tools/WorkspaceTools";
+import { WorkspaceToolsSidebar } from "@/components/organisms/Workspace-Tools/WorkspaceTools";
 import { getMyAccessAction } from "@/lib/domain/actions/profile.actions";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import {
-  parseErpEmbedParams,
+  isLivroParent,
   persistEmbedParent,
-  shouldHideSchoolErpSidebar,
+  persistEmbedSidClient,
+  persistSchoolMcpAuto,
+  readEmbedParamsFromWindow,
 } from "@/lib/utils/erp-embed";
 
 /** Theme is localStorage-only — available without sign-in. */
@@ -26,27 +25,46 @@ const PUBLIC_SIDEBARS: ComponentType<{ topOffset?: string }>[] = [ThemeSidebar];
 const AUTH_SIDEBAR_PATHS = ["/workspace", "/admin", "/user", "/team"];
 const PUBLIC_THEME_PATHS = ["/landing", "/docs", "/sign-in", "/sign-up", "/dcmu"];
 
+/** Keep school SID wired when landing on workspace with embed query params (MCP still works without the UI). */
+function syncSchoolSidFromUrl() {
+  if (typeof window === "undefined") return;
+  const { sid, parent, schoolMcp } = readEmbedParamsFromWindow();
+  if (parent) persistEmbedParent(parent);
+  if (schoolMcp === "auto") persistSchoolMcpAuto(null);
+  if (sid && parent && !isLivroParent(parent)) {
+    persistEmbedSidClient(
+      {
+        sid,
+        fullName: localStorage.getItem("bbai_school_erp_user") || "User",
+        email: localStorage.getItem("bbai_school_erp_email") || "",
+        baseUrl: parent,
+      },
+      { forceSchool: true },
+    );
+  }
+}
+
 export function RightSidebars() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [hideSchoolEmbed, setHideSchoolEmbed] = useState(false);
   const [permissions, setPermissions] = useState<string[] | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const { parent } = parseErpEmbedParams(searchParams);
-    if (parent) persistEmbedParent(parent);
-    setHideSchoolEmbed(shouldHideSchoolErpSidebar(parent));
-  }, [searchParams]);
+    syncSchoolSidFromUrl();
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      syncSchoolSidFromUrl();
       const result = await getMyAccessAction();
       if (cancelled) return;
       if (result.ok) {
         setPermissions(result.permissions ?? []);
+        setRole(result.role ?? null);
       } else {
         setPermissions([]);
+        setRole(null);
       }
     })();
     return () => {
@@ -61,25 +79,27 @@ export function RightSidebars() {
 
   if (!showAuthRail && !showPublicTheme) return null;
 
+  const isTeacher = role === "teacher";
+
+  // Teachers: Google Workspace only (no Livro / theme / skills / settings rail)
   const sidebars: ComponentType<{ topOffset?: string }>[] = showAuthRail
-    ? [
-        ...(hasPermission(permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS)
-          ? [GoogleWorkspaceSidebar]
-          : []),
-        ...(hasPermission(permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)
-          ? [GithubSidebar]
-          : []),
-        ...(hasPermission(permissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS) &&
-        !hideSchoolEmbed
-          ? [SchoolErpToolsSidebar]
-          : []),
-        ...(hasPermission(permissions, USER_PERMISSION.ERPNEXT_LIVRO_ACCESS)
-          ? [WorkspaceToolsSidebar]
-          : []),
-        ThemeSidebar,
-        SkillsMarketplaceSidebar,
-        SettingsSidebar,
-      ]
+    ? isTeacher
+      ? [GoogleWorkspaceSidebar]
+      : [
+          ...(hasPermission(permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS)
+            ? [GoogleWorkspaceSidebar]
+            : []),
+          ...(hasPermission(permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)
+            ? [GithubSidebar]
+            : []),
+          // School ERP sidebar hidden — SID still syncs for MCP via syncSchoolSidFromUrl
+          ...(hasPermission(permissions, USER_PERMISSION.ERPNEXT_LIVRO_ACCESS)
+            ? [WorkspaceToolsSidebar]
+            : []),
+          ThemeSidebar,
+          SkillsMarketplaceSidebar,
+          SettingsSidebar,
+        ]
     : PUBLIC_SIDEBARS;
 
   return (
