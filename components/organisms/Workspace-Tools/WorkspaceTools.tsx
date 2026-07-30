@@ -765,6 +765,7 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
       if (prevBase.includes("school.example.com")) {
         localStorage.removeItem("bbai_school_erp_base_url");
       }
+      // persistEmbedSidClient notifies only when SID/storage actually changes
       persistEmbedSidClient(
         {
           sid: embedSid,
@@ -784,7 +785,6 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
       persistEmbedParent(schoolParent);
       persistSchoolMcpAuto(null);
     }
-    window.dispatchEvent(new Event("bbai-school-erp-session"));
   }, []);
 
   return (

@@ -167,17 +167,42 @@ export function isSchoolMcpAutoConnected(): boolean {
   );
 }
 
+function persistSidKeys(
+  keys: { sid: string; user: string; email: string; baseUrl: string },
+  session: { sid: string; fullName: string; email: string; baseUrl: string },
+  eventName: string,
+) {
+  const changed =
+    localStorage.getItem(keys.sid) !== session.sid ||
+    localStorage.getItem(keys.user) !== session.fullName ||
+    localStorage.getItem(keys.email) !== session.email ||
+    localStorage.getItem(keys.baseUrl) !== session.baseUrl;
+
+  localStorage.setItem(keys.sid, session.sid);
+  localStorage.setItem(keys.user, session.fullName);
+  localStorage.setItem(keys.email, session.email);
+  localStorage.setItem(keys.baseUrl, session.baseUrl);
+
+  // Only notify listeners when something changed — avoids restore ↔ event loops
+  if (changed) window.dispatchEvent(new Event(eventName));
+}
+
 export function persistLivroSidClient(session: {
   sid: string;
   fullName: string;
   email: string;
   baseUrl: string;
 }) {
-  localStorage.setItem("bbai_erp_sid", session.sid);
-  localStorage.setItem("bbai_erp_user", session.fullName);
-  localStorage.setItem("bbai_erp_email", session.email);
-  localStorage.setItem("bbai_erp_base_url", session.baseUrl);
-  window.dispatchEvent(new Event("bbai-erp-session"));
+  persistSidKeys(
+    {
+      sid: "bbai_erp_sid",
+      user: "bbai_erp_user",
+      email: "bbai_erp_email",
+      baseUrl: "bbai_erp_base_url",
+    },
+    session,
+    "bbai-erp-session",
+  );
 }
 
 function persistSchoolSidClient(session: {
@@ -186,11 +211,16 @@ function persistSchoolSidClient(session: {
   email: string;
   baseUrl: string;
 }) {
-  localStorage.setItem("bbai_school_erp_sid", session.sid);
-  localStorage.setItem("bbai_school_erp_user", session.fullName);
-  localStorage.setItem("bbai_school_erp_email", session.email);
-  localStorage.setItem("bbai_school_erp_base_url", session.baseUrl);
-  window.dispatchEvent(new Event("bbai-school-erp-session"));
+  persistSidKeys(
+    {
+      sid: "bbai_school_erp_sid",
+      user: "bbai_school_erp_user",
+      email: "bbai_school_erp_email",
+      baseUrl: "bbai_school_erp_base_url",
+    },
+    session,
+    "bbai-school-erp-session",
+  );
 }
 
 /** Persist MCP sid for Livro or school parent after embed / password login. */

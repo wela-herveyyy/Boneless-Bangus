@@ -84,20 +84,41 @@ function notifySessionChanged(config: ErpToolConfig) {
   window.dispatchEvent(new Event(config.storage.eventName));
 }
 
-function writeStoredSession(config: ErpToolConfig, session: ErpSession) {
+/** Persist session; only fires event when values actually change (avoids restore loops). */
+function writeStoredSession(
+  config: ErpToolConfig,
+  session: ErpSession,
+  options?: { notify?: boolean },
+) {
+  const notify = options?.notify !== false;
+  const prev = {
+    sid: localStorage.getItem(config.storage.sidKey) ?? "",
+    fullName: localStorage.getItem(config.storage.userKey) ?? "",
+    email: localStorage.getItem(config.storage.emailKey) ?? "",
+    baseUrl: localStorage.getItem(config.storage.baseUrlKey) ?? "",
+  };
+  const changed =
+    prev.sid !== session.sid ||
+    prev.fullName !== session.fullName ||
+    prev.email !== session.email ||
+    prev.baseUrl !== session.baseUrl;
+
   localStorage.setItem(config.storage.sidKey, session.sid);
   localStorage.setItem(config.storage.userKey, session.fullName);
   localStorage.setItem(config.storage.emailKey, session.email);
   localStorage.setItem(config.storage.baseUrlKey, session.baseUrl);
-  notifySessionChanged(config);
+
+  if (notify && changed) notifySessionChanged(config);
+  return changed;
 }
 
 function clearStoredSession(config: ErpToolConfig) {
+  const hadSid = Boolean(localStorage.getItem(config.storage.sidKey));
   localStorage.removeItem(config.storage.sidKey);
   localStorage.removeItem(config.storage.userKey);
   localStorage.removeItem(config.storage.emailKey);
   localStorage.removeItem(config.storage.baseUrlKey);
-  notifySessionChanged(config);
+  if (hadSid) notifySessionChanged(config);
 }
 
 type SidCheck =
@@ -417,55 +438,73 @@ export function useErpLogin(config: ErpToolConfig) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let lastFetchedSid: string | null = null;
 
     const restore = async () => {
-      const stored = readStoredSession(config);
-      if (!stored) {
+      if (inFlight) return;
+      inFlight = true;
+
+      try {
+        const stored = readStoredSession(config);
+        if (!stored) {
+          if (!cancelled) {
+            setErpSession(null);
+            setSessionRestoring(false);
+          }
+          lastFetchedSid = null;
+          return;
+        }
+
         if (!cancelled) {
+          setSessionRestoring(true);
+          setErpSession(stored);
+        }
+
+        let check = await validateErpSid(stored.sid, stored.baseUrl);
+        if (check.status === "unknown") {
+          await new Promise((r) => setTimeout(r, 400));
+          if (cancelled) return;
+          check = await validateErpSid(stored.sid, stored.baseUrl);
+        }
+        if (cancelled) return;
+
+        if (check.status === "expired") {
+          clearStoredSession(config);
           setErpSession(null);
           setSessionRestoring(false);
+          lastFetchedSid = null;
+          return;
         }
-        return;
-      }
 
-      if (!cancelled) {
-        setSessionRestoring(true);
+        if (check.status === "valid") {
+          const session: ErpSession = {
+            sid: stored.sid,
+            fullName: stored.fullName || check.email,
+            email: stored.email || check.email,
+            baseUrl: stored.baseUrl,
+          };
+          // Silent write — notifying here re-enters restore forever
+          writeStoredSession(config, session, { notify: false });
+          setErpSession(session);
+          setSessionRestoring(false);
+          if (lastFetchedSid !== session.sid) {
+            lastFetchedSid = session.sid;
+            void fetchDashboard(session.sid, session.email, session.baseUrl);
+          }
+          return;
+        }
+
+        // Unknown / proxy glitch — still use stored SID for MCP (embed desk session)
         setErpSession(stored);
-      }
-
-      let check = await validateErpSid(stored.sid, stored.baseUrl);
-      if (check.status === "unknown") {
-        await new Promise((r) => setTimeout(r, 400));
-        if (cancelled) return;
-        check = await validateErpSid(stored.sid, stored.baseUrl);
-      }
-      if (cancelled) return;
-
-      if (check.status === "expired") {
-        clearStoredSession(config);
-        setErpSession(null);
         setSessionRestoring(false);
-        return;
+        if (lastFetchedSid !== stored.sid) {
+          lastFetchedSid = stored.sid;
+          void fetchDashboard(stored.sid, stored.email, stored.baseUrl);
+        }
+      } finally {
+        inFlight = false;
       }
-
-      if (check.status === "valid") {
-        const session: ErpSession = {
-          sid: stored.sid,
-          fullName: stored.fullName || check.email,
-          email: stored.email || check.email,
-          baseUrl: stored.baseUrl,
-        };
-        writeStoredSession(config, session);
-        setErpSession(session);
-        setSessionRestoring(false);
-        void fetchDashboard(session.sid, session.email, session.baseUrl);
-        return;
-      }
-
-      // Unknown / proxy glitch — still use stored SID for MCP (embed desk session)
-      setErpSession(stored);
-      setSessionRestoring(false);
-      void fetchDashboard(stored.sid, stored.email, stored.baseUrl);
     };
 
     void restore();
