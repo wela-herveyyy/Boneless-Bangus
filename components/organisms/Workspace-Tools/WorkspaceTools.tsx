@@ -739,8 +739,8 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
 }
 
 /**
- * School ERP — SID only from `/sign-in?sid=&parent=` (non-Livro), same as Livro.
- * Never show a second password form in this sidebar.
+ * School ERP for internal workforce — login with school site URL + credentials.
+ * School desk teachers (role=teacher) do not get this rail; their SID is wired via embed.
  */
 export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useSchoolErpSidebar();
@@ -760,12 +760,10 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
       null;
 
     if (embedSid && schoolParent) {
-      // Drop placeholder URL from an old manual login attempt
       const prevBase = localStorage.getItem("bbai_school_erp_base_url") ?? "";
       if (prevBase.includes("school.example.com")) {
         localStorage.removeItem("bbai_school_erp_base_url");
       }
-      // persistEmbedSidClient notifies only when SID/storage actually changes
       persistEmbedSidClient(
         {
           sid: embedSid,
@@ -794,10 +792,10 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
       icon={<LuSchool className="size-6" aria-hidden />}
       title="School"
       brandLabel="School ERP"
-      loginHint="School session is created when you open BBAI from the school desk."
-      usesAppSessionLogin
-      missingSessionTitle="School session missing"
-      missingSessionBody="Open BBAI from your school desk (FAB) with /sign-in?sid=&parent= — School MCP uses that SID automatically, same as Livro. No separate school password login."
+      loginHint="Connect to a school ERPNext site with staff credentials. MCP tools use that school session."
+      showUrlField
+      emailPlaceholder="school.user@example.com"
+      submitLabel="Connect school"
       topOffset={topOffset}
     />
   );

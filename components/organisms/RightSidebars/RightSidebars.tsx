@@ -7,7 +7,10 @@ import { SkillsMarketplaceSidebar } from "@/components/organisms/SkillsMarketpla
 import { SettingsSidebar } from "@/components/organisms/SettingsSidebar/SettingsSidebar";
 import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
 import { GithubSidebar } from "@/components/organisms/GithubSidebar/GithubSidebar";
-import { WorkspaceToolsSidebar } from "@/components/organisms/Workspace-Tools/WorkspaceTools";
+import {
+  SchoolErpToolsSidebar,
+  WorkspaceToolsSidebar,
+} from "@/components/organisms/Workspace-Tools/WorkspaceTools";
 import { getMyAccessAction } from "@/lib/domain/actions/profile.actions";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import {
@@ -81,7 +84,8 @@ export function RightSidebars() {
 
   const isTeacher = role === "teacher";
 
-  // Teachers: Google Workspace only (no Livro / theme / skills / settings rail)
+  // Teachers (school clients): Google only.
+  // Internal workforce: full rail including School ERP login for school sites.
   const sidebars: ComponentType<{ topOffset?: string }>[] = showAuthRail
     ? isTeacher
       ? [GoogleWorkspaceSidebar]
@@ -92,7 +96,9 @@ export function RightSidebars() {
           ...(hasPermission(permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)
             ? [GithubSidebar]
             : []),
-          // School ERP sidebar hidden — SID still syncs for MCP via syncSchoolSidFromUrl
+          ...(hasPermission(permissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS)
+            ? [SchoolErpToolsSidebar]
+            : []),
           ...(hasPermission(permissions, USER_PERMISSION.ERPNEXT_LIVRO_ACCESS)
             ? [WorkspaceToolsSidebar]
             : []),
