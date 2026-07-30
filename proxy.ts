@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromHeaders } from "@/lib/domain/services/auth.service";
 
-const authPaths = ["/sign-in", "/sign-up"];
+const authPaths = ["/sign-in", "/sign-up", "/dcmu"];
 const publicPaths = [
   "/sign-in",
   "/sign-up",
+  "/dcmu",
   "/landing",
   "/docs",
   "/api/workspace/oauth",
