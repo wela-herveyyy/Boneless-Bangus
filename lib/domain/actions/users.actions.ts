@@ -7,7 +7,7 @@
  *   const userSession = await auth();                         // Authentication
  *   if (!userSession || userSession.expired) { log + error }
  *
- *   if (!hasPermission(userSession.user.role, PERMISSION)) {  // Authorization
+ *   if (!hasPermission(userSession.user.permissions, PERMISSION)) {  // Authorization
  *     log + error
  *   }
  *
@@ -59,11 +59,11 @@ function getErrorMessage(error: unknown): string {
 /** Owner/admin audit, or the user viewing their own profile. */
 function canViewUserProfile(
   sessionUserId: string,
-  sessionRole: UserRole,
+  permissions: readonly string[],
   targetUserId: string,
 ): boolean {
   if (sessionUserId === targetUserId) return true;
-  return hasPermission(sessionRole, USER_PERMISSION.USERS_AUDIT);
+  return hasPermission(permissions, USER_PERMISSION.USERS_AUDIT);
 }
 
 /** Reference example — list all users (read permission). */
@@ -85,7 +85,7 @@ export async function getUsersAction(): Promise<UserResult<UserSelect[]>> {
     }
 
     // 2. Authorization
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,
@@ -131,7 +131,7 @@ export async function getDevUsersAction(): Promise<UserResult<UserSelect[]>> {
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,
@@ -171,7 +171,7 @@ export async function updateUserRoleAction(input: {
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
     if (!isUserRole(input.role)) {
@@ -226,7 +226,7 @@ export async function getAdminUserDetailAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!canViewUserProfile(userSession.user.id, userSession.user.role, targetId)) {
+    if (!canViewUserProfile(userSession.user.id, userSession.user.permissions, targetId)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -256,7 +256,7 @@ export async function getAdminUserConversationsAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!canViewUserProfile(userSession.user.id, userSession.user.role, targetId)) {
+    if (!canViewUserProfile(userSession.user.id, userSession.user.permissions, targetId)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -288,7 +288,7 @@ export async function getAdminUserConversationMessagesAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!canViewUserProfile(userSession.user.id, userSession.user.role, targetId)) {
+    if (!canViewUserProfile(userSession.user.id, userSession.user.permissions, targetId)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -331,7 +331,7 @@ export async function deleteUserAction(formData: FormData) {
       redirect(`${redirectTo}?error=${encodeURIComponent("Authentication required.")}`);
     }
 
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,

@@ -23,10 +23,10 @@ import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 async function canManageTeamRoster(
   userId: string,
-  role: string,
+  permissions: readonly string[],
   teamId: string,
 ): Promise<TeamResult<boolean>> {
-  if (hasPermission(role, USER_PERMISSION.TEAMS_MANAGE)) {
+  if (hasPermission(permissions, USER_PERMISSION.TEAMS_MANAGE)) {
     return { ok: true, data: true };
   }
   const managed = await getManagedTeamId(userId);
@@ -54,7 +54,7 @@ export async function listTeamsAction(): Promise<TeamResult<TeamListItem[]>> {
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -83,7 +83,7 @@ export async function getTeamDetailAction(teamId: string): Promise<TeamResult<Te
 
     const access = await canManageTeamRoster(
       userSession.user.id,
-      userSession.user.role,
+      userSession.user.permissions,
       teamId,
     );
     if (!access.ok) {
@@ -124,7 +124,7 @@ export async function createTeamAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -165,7 +165,7 @@ export async function updateTeamApiKeysAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    const isAdmin = hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE);
+    const isAdmin = hasPermission(userSession.user.permissions, USER_PERMISSION.TEAMS_MANAGE);
     let teamId = readField(formData, "teamId");
 
     if (!teamId) {
@@ -231,7 +231,7 @@ export async function removeTeamMemberAction(
 
     const access = await canManageTeamRoster(
       userSession.user.id,
-      userSession.user.role,
+      userSession.user.permissions,
       teamId,
     );
     if (!access.ok) {
@@ -281,7 +281,7 @@ export async function changeTeamLeaderAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,

@@ -11,13 +11,12 @@ import {
   saveCredential,
 } from "@/lib/domain/services/mcp_credential.service";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
-import { getProfile } from "@/lib/domain/usecases/profile/get_profile.usecase";
 import type {
   GithubAuthRecord,
   GithubProfileRecord,
   GithubResult,
 } from "@/lib/entities/github.type";
-import { hasPermission, USER_PERMISSION, type UserRole } from "@/lib/entities/users.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export async function getGithubAuthStatusAction(): Promise<
   GithubResult<GithubAuthRecord>
@@ -35,15 +34,15 @@ export async function getGithubAuthStatusAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    const profile = await getProfile(userSession.user.id);
-    const liveRole = (profile.role || userSession.user.role) as UserRole;
+    const { role, permissions } = userSession.user;
 
-    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+    if (!hasPermission(permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
       return {
         ok: true,
         data: {
           isConnected: false,
-          role: liveRole,
+          role,
+          permissions,
         },
       };
     }
@@ -54,13 +53,14 @@ export async function getGithubAuthStatusAction(): Promise<
       userId: userSession.user.id,
       action,
       success: true,
-      role: liveRole,
+      role,
     });
     return {
       ok: true,
       data: {
         isConnected: !!cred,
-        role: liveRole,
+        role,
+        permissions,
       },
     };
   } catch (error) {
@@ -86,10 +86,7 @@ export async function saveGithubPatAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    const profile = await getProfile(userSession.user.id);
-    const liveRole = (profile.role || userSession.user.role) as UserRole;
-
-    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+    if (!hasPermission(userSession.user.permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
       return { ok: false, error: "Role not authorized for GitHub MCP access." };
     }
 
@@ -98,7 +95,6 @@ export async function saveGithubPatAction(
       return { ok: false, error: "Personal Access Token is required." };
     }
 
-    // Validate token before saving (lightweight /user check)
     await verifyGithubTokenService(trimmed);
 
     await saveCredential(userSession.user.id, "github", "GitHub PAT", trimmed);
@@ -128,6 +124,10 @@ export async function disconnectGithubAuthAction(): Promise<GithubResult<void>> 
         error: "Authentication required.",
       });
       return { ok: false, error: "Authentication required." };
+    }
+
+    if (!hasPermission(userSession.user.permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+      return { ok: false, error: "Role not authorized for GitHub MCP access." };
     }
 
     await deleteCredential(userSession.user.id, "github");
@@ -161,10 +161,7 @@ export async function getGithubProfileAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    const profile = await getProfile(userSession.user.id);
-    const liveRole = (profile.role || userSession.user.role) as UserRole;
-
-    if (!hasPermission(liveRole, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+    if (!hasPermission(userSession.user.permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
       return { ok: false, error: "Role not authorized for GitHub MCP access." };
     }
 

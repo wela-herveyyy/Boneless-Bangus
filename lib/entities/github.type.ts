@@ -36,6 +36,7 @@ export type GithubProfileRecord = {
 export type GithubAuthRecord = {
   isConnected: boolean;
   role: string;
+  permissions: string[];
 };
 
 export type GithubResult<T = void> =

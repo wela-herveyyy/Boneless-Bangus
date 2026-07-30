@@ -1,6 +1,7 @@
 import { auth } from "@/lib/domain/services/auth.service";
-import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { hasPermission } from "@/lib/entities/users.type";
 import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
+import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
 
 type ProxyBody = {
   sid: string;
@@ -21,9 +22,6 @@ export async function POST(request: Request) {
     if (!userSession || userSession.expired) {
       return Response.json({ ok: false, error: "Authentication required." }, { status: 401 });
     }
-    if (!hasPermission(userSession.user.role, USER_PERMISSION.ERPNEXT_ACCESS)) {
-      return Response.json({ ok: false, error: "Not authorized." }, { status: 403 });
-    }
 
     const body = (await request.json()) as ProxyBody;
 
@@ -34,6 +32,10 @@ export async function POST(request: Request) {
     const erpUrl = resolveErpBaseUrl(body.baseUrl);
     if (!erpUrl) {
       return Response.json({ ok: false, error: "Invalid ERP URL." }, { status: 400 });
+    }
+
+    if (!hasPermission(userSession.user.permissions, erpPermissionForBaseUrl(erpUrl))) {
+      return Response.json({ ok: false, error: "Not authorized." }, { status: 403 });
     }
 
     const headers = {

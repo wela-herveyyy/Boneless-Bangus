@@ -13,7 +13,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "create-account": "bun create-account.mts",
-    "seed:skills": "bun scripts/seed-builtin-skills.mts"
+    "seed:skills": "bun scripts/seed-builtin-skills.mts",
+    "seed:role-permissions": "bun scripts/apply-role-permissions.mts"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.23",

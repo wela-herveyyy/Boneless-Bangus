@@ -37,7 +37,7 @@ async function TeamProfileContent({ params }: PageProps) {
     redirect(`/sign-in?callbackURL=${encodeURIComponent(`/team/${id}`)}`);
   }
 
-  const isAdmin = hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE);
+  const isAdmin = hasPermission(userSession.user.permissions, USER_PERMISSION.TEAMS_MANAGE);
   if (!isAdmin) {
     const managed = await getManagedTeamId(userSession.user.id);
     if (!managed.ok || managed.data !== id) {

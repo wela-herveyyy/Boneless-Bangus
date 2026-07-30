@@ -54,6 +54,8 @@ export const role = mysqlTable("role", {
   label: varchar("label", { length: 100 }).notNull(),
   hint: text("hint"),
   description: text("description"),
+  /** Assignable USER_PERMISSION keys — Admin-managed, not hardcoded per role. */
+  permissions: json("permissions").$type<string[]>().default([]),
   createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { fsp: 3 })
     .defaultNow()

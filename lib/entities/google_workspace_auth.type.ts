@@ -1,5 +1,5 @@
 import { googleWorkspaceAuth } from "@/database/schema";
-import type { UserRole } from "./users.type";
+import { hasPermission, USER_PERMISSION } from "./users.type";
 
 export type GoogleWorkspaceAuthSelect = typeof googleWorkspaceAuth.$inferSelect;
 export type GoogleWorkspaceAuthInsert = typeof googleWorkspaceAuth.$inferInsert;
@@ -15,28 +15,11 @@ export type GoogleWorkspaceAuthRecord = {
 
 export type WorkspaceCapability = "calendar" | "email" | "meet";
 
-export const GOOGLE_WORKSPACE_PERMISSION = {
-  WORKSPACE_MANAGE: "workspace:manage",
-} as const;
-
-export type GoogleWorkspacePermission = (typeof GOOGLE_WORKSPACE_PERMISSION)[keyof typeof GOOGLE_WORKSPACE_PERMISSION];
-
-export const WORKSPACE_ROLE_PERMISSIONS: Record<UserRole, GoogleWorkspacePermission[]> = {
-  owner: ["workspace:manage"],
-  admin: ["workspace:manage"],
-  tech: ["workspace:manage"],
-  sales: ["workspace:manage"],
-  dev: ["workspace:manage"],
-  qa: ["workspace:manage"],
-  po: ["workspace:manage"],
-  pm: ["workspace:manage"],
-  finance: ["workspace:manage"],
-};
-
-export function canManageGoogleWorkspaceAuth(role?: UserRole | string): boolean {
-  if (!role) return false;
-  const perms = WORKSPACE_ROLE_PERMISSIONS[role as UserRole];
-  return perms ? perms.includes("workspace:manage") : true;
+/** Prefer `hasPermission(permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS)`. */
+export function canManageGoogleWorkspaceAuth(
+  permissions?: readonly string[] | null,
+): boolean {
+  return hasPermission(permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS);
 }
 
 export type ToggleGoogleWorkspaceCapabilityInput = {

@@ -18,7 +18,7 @@ export default async function Page() {
   }
 
   const profileData = await getProfileService(userSession.user.id);
-  const showAdminLink = hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE);
+  const showAdminLink = hasPermission(userSession.user.permissions, USER_PERMISSION.TEAMS_MANAGE);
 
   return (
     <WorkspacePage

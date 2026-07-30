@@ -7,7 +7,7 @@ import type {
   SignInInput,
   SignUpInput,
 } from "@/lib/entities/auth.type";
-import { getUserRole } from "../usecases/users/get_user_role.usecase";
+import { getUserAccess } from "../usecases/users/get_user_access.usecase";
 import { getSession as getSessionUseCase, getSessionFromHeaders as getSessionFromHeadersUseCase } from "../usecases/auth/get_session.usecase";
 import { signIn as signInUseCase } from "../usecases/auth/sign_in.usecase";
 import { signOut as signOutUseCase } from "../usecases/auth/sign_out.usecase";
@@ -23,7 +23,7 @@ export async function getSessionFromHeaders(
   return getSessionFromHeadersUseCase(requestHeaders);
 }
 
-/** Authentication for domain actions — returns session + role, or null if missing/expired. */
+/** Authentication for domain actions — returns session + role + permissions, or null if missing/expired. */
 export async function auth(): Promise<ActionSession | null> {
   const session = await getSession();
 
@@ -31,14 +31,18 @@ export async function auth(): Promise<ActionSession | null> {
     return null;
   }
 
-  const role = await getUserRole(session.user.id);
+  const access = await getUserAccess(session.user.id);
 
-  if (!role) {
+  if (!access) {
     return null;
   }
 
   return {
-    user: { ...session.user, role },
+    user: {
+      ...session.user,
+      role: access.role,
+      permissions: access.permissions,
+    },
     expired: false,
   };
 }
@@ -51,14 +55,18 @@ export async function authFromHeaders(requestHeaders: Headers): Promise<ActionSe
     return null;
   }
 
-  const role = await getUserRole(session.user.id);
+  const access = await getUserAccess(session.user.id);
 
-  if (!role) {
+  if (!access) {
     return null;
   }
 
   return {
-    user: { ...session.user, role },
+    user: {
+      ...session.user,
+      role: access.role,
+      permissions: access.permissions,
+    },
     expired: false,
   };
 }

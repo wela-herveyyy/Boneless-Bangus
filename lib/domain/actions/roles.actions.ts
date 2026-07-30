@@ -38,7 +38,7 @@ export async function createRoleAction(input: CreateRoleInput): Promise<RoleResu
     }
 
     // 2. Authorization (Only Owner and Admin accounts can create roles)
-    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.role, USER_PERMISSION.USERS_MANAGE)) {
+    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.permissions, USER_PERMISSION.USERS_MANAGE)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
       return { ok: false, error: "Only Owner or Admin accounts can create role records." };
     }
@@ -68,7 +68,7 @@ export async function updateRoleAction(input: UpdateRoleInput): Promise<RoleResu
     }
 
     // 2. Authorization (Only Owner and Admin accounts can modify roles)
-    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.role, USER_PERMISSION.USERS_MANAGE)) {
+    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.permissions, USER_PERMISSION.USERS_MANAGE)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
       return { ok: false, error: "Only Owner or Admin accounts can update role records." };
     }
@@ -98,7 +98,7 @@ export async function deleteRoleAction(input: DeleteRoleInput): Promise<RoleResu
     }
 
     // 2. Authorization (Only Owner and Admin accounts can delete roles)
-    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.role, USER_PERMISSION.USERS_MANAGE)) {
+    if (userSession.user.role !== USER_ROLE.OWNER && userSession.user.role !== USER_ROLE.ADMIN && !hasPermission(userSession.user.permissions, USER_PERMISSION.USERS_MANAGE)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
       return { ok: false, error: "Only Owner or Admin accounts can delete role records." };
     }

@@ -1,7 +1,8 @@
 import { auth } from "@/lib/domain/services/auth.service";
-import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { hasPermission } from "@/lib/entities/users.type";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
+import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
 
 function extractSid(response: Response): string | null {
   const setCookieHeaders = response.headers.getSetCookie?.() ?? [];
@@ -26,9 +27,6 @@ export async function POST(request: Request) {
     if (!userSession || userSession.expired) {
       return Response.json({ ok: false, error: "Authentication required." }, { status: 401 });
     }
-    if (!hasPermission(userSession.user.role, USER_PERMISSION.ERPNEXT_ACCESS)) {
-      return Response.json({ ok: false, error: "Not authorized." }, { status: 403 });
-    }
 
     const body = (await request.json()) as {
       usr?: string;
@@ -41,6 +39,11 @@ export async function POST(request: Request) {
     const erpUrl = resolveErpBaseUrl(body.baseUrl);
     if (!erpUrl) {
       return Response.json({ ok: false, error: "Invalid ERP URL." }, { status: 400 });
+    }
+
+    const permission = erpPermissionForBaseUrl(erpUrl);
+    if (!hasPermission(userSession.user.permissions, permission)) {
+      return Response.json({ ok: false, error: "Not authorized." }, { status: 403 });
     }
 
     // Step 2: OTP verification

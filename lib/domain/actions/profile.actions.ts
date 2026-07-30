@@ -258,16 +258,50 @@ export async function syncOnboardingProfileAction(name: string, role: string): P
   }
 }
 
-export async function getCurrentUserRoleAction(): Promise<{ ok: boolean; role?: string }> {
+export async function getCurrentUserRoleAction(): Promise<{
+  ok: boolean;
+  role?: string;
+  permissions?: string[];
+}> {
   try {
     const session = await getSession();
     if (!session) {
       return { ok: false };
     }
-    const { getProfileService } = await import("@/lib/domain/services/profile.service");
-    const profileData = await getProfileService(session.user.id);
-    return { ok: true, role: profileData.role || "" };
+    const { getUserAccess } = await import(
+      "@/lib/domain/usecases/users/get_user_access.usecase"
+    );
+    const access = await getUserAccess(session.user.id);
+    if (!access) {
+      return { ok: true, role: "", permissions: [] };
+    }
+    return { ok: true, role: access.role, permissions: access.permissions };
   } catch {
     return { ok: false };
+  }
+}
+
+/** Current role + DB permissions for UI gating (sidebars, chat MCP). */
+export async function getMyAccessAction(): Promise<{
+  ok: boolean;
+  role?: string;
+  permissions?: string[];
+  error?: string;
+}> {
+  try {
+    const userSession = await auth();
+    if (!userSession || userSession.expired) {
+      return { ok: false, error: "Authentication required." };
+    }
+    return {
+      ok: true,
+      role: userSession.user.role,
+      permissions: userSession.user.permissions,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Failed to load access.",
+    };
   }
 }

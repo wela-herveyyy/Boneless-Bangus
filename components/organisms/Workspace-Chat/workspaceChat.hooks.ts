@@ -34,17 +34,25 @@ import {
   SCHOOL_ERP_MCP_SERVER_KEY,
   type ErpMcpServerConfig,
 } from "@/lib/entities/erpnext.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { getAvailableCommands, type CommandDefinition } from "./workspaceChat.commands";
 
 const PROVIDER_STORAGE_KEY = "bbai_ai_provider";
 const GOOGLE_MODEL_STORAGE_KEY = "bbai_google_model";
 
+/** Updated when profile/access loads — gates Livro/School MCP injection. */
+let accessPermissions: string[] = [];
+
 function readInternalErpMcpServers(): Record<string, ErpMcpServerConfig> {
-  const livro = buildErpMcpConfig(localStorage.getItem("bbai_erp_sid"));
-  const school = buildSchoolErpMcpConfig(
-    localStorage.getItem("bbai_school_erp_sid"),
-    normalizeErpBaseUrl(localStorage.getItem("bbai_school_erp_base_url") ?? ""),
-  );
+  const livro = hasPermission(accessPermissions, USER_PERMISSION.ERPNEXT_LIVRO_ACCESS)
+    ? buildErpMcpConfig(localStorage.getItem("bbai_erp_sid"))
+    : null;
+  const school = hasPermission(accessPermissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS)
+    ? buildSchoolErpMcpConfig(
+        localStorage.getItem("bbai_school_erp_sid"),
+        normalizeErpBaseUrl(localStorage.getItem("bbai_school_erp_base_url") ?? ""),
+      )
+    : null;
   return {
     ...(livro ? { [ERP_MCP_SERVER_KEY]: livro } : {}),
     ...(school ? { [SCHOOL_ERP_MCP_SERVER_KEY]: school } : {}),
@@ -168,6 +176,9 @@ export function useWorkspaceProfile(userId?: string, dbRole?: string | null) {
     ]);
 
     const resolvedRole = liveRoleRes.ok && liveRoleRes.role ? liveRoleRes.role : (dbRole || "");
+    if (liveRoleRes.ok) {
+      accessPermissions = liveRoleRes.permissions ?? [];
+    }
     if (resolvedRole) {
       setLiveRole(resolvedRole);
     }

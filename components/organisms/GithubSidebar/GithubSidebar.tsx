@@ -110,7 +110,7 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
   if (
     !loading &&
     authRecord &&
-    !hasPermission(authRecord.role, USER_PERMISSION.GITHUB_MCP_ACCESS)
+    !hasPermission(authRecord.permissions ?? [], USER_PERMISSION.GITHUB_MCP_ACCESS)
   ) {
     return null;
   }

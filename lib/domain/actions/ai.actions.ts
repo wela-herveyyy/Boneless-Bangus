@@ -53,7 +53,7 @@ export async function listConversationsAction(): Promise<
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -83,7 +83,7 @@ export async function listConversationMessagesAction(
     if (!userSession || userSession.expired) {
       return { ok: false, error: "Authentication required." };
     }
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
     }
 
@@ -124,7 +124,7 @@ export async function promptAiAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,

@@ -39,7 +39,7 @@ export async function getGoogleWorkspaceAuthStatusAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       return { ok: false, error: "You are not authorized to access Google Workspace settings." };
     }
 
@@ -59,7 +59,7 @@ export async function disconnectGoogleWorkspaceAuthAction(): Promise<GoogleWorks
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized." });
       return { ok: false, error: "Not authorized to modify Google Workspace connections." };
     }
@@ -85,7 +85,7 @@ export async function toggleGoogleWorkspaceCapabilityAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized." });
       return { ok: false, error: "Not authorized." };
     }
@@ -109,7 +109,7 @@ export async function generateCalendarEventAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized." });
       return { ok: false, error: "Not authorized." };
     }
@@ -135,7 +135,7 @@ export async function generateEmailAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized." });
       return { ok: false, error: "Not authorized." };
     }
@@ -159,7 +159,7 @@ export async function getRecentCalendarEventsAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       return { ok: false, error: "Not authorized." };
     }
 
@@ -180,7 +180,7 @@ export async function getRecentEmailsAction(): Promise<
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       return { ok: false, error: "Not authorized." };
     }
 
@@ -202,7 +202,7 @@ export async function generateMeetAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!canManageGoogleWorkspaceAuth(userSession.user.role)) {
+    if (!canManageGoogleWorkspaceAuth(userSession.user.permissions)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized." });
       return { ok: false, error: "Not authorized." };
     }

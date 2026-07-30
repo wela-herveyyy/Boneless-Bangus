@@ -25,7 +25,7 @@ export async function saveMcpCredentialAction(formData: FormData): Promise<UserR
     }
 
     // 2. Authorization
-    if (!hasPermission(userSession.user.role, USER_PERMISSION.GOOGLE_AI_INTERACT)) {
+    if (!hasPermission(userSession.user.permissions, USER_PERMISSION.GOOGLE_AI_INTERACT)) {
       await logAction({ userId: userSession.user.id, action, success: false, error: "Not authorized.", role: userSession.user.role });
       return { ok: false, error: "You are not authorized for this action." };
     }

@@ -10,7 +10,8 @@ import type {
   ErpnextRequestOutput,
   ErpnextResult,
 } from "@/lib/entities/erpnext.type";
-import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { hasPermission } from "@/lib/entities/users.type";
+import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error.";
@@ -20,7 +21,7 @@ export async function loginErpnextAction(
   input: ErpnextLoginInput,
 ): Promise<ErpnextResult<ErpnextLoginOutput>> {
   const action = "erpnext:login";
-  const permission = USER_PERMISSION.ERPNEXT_ACCESS;
+  const permission = erpPermissionForBaseUrl(input.baseUrl);
 
   try {
     const userSession = await auth();
@@ -34,7 +35,7 @@ export async function loginErpnextAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,
@@ -53,7 +54,7 @@ export async function loginErpnextAction(
       success: result.ok,
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
-      metadata: { baseUrl: input.baseUrl, usr: input.usr },
+      metadata: { baseUrl: input.baseUrl, usr: input.usr, permission },
     });
 
     return result;
@@ -68,7 +69,7 @@ export async function requestErpnextAction(
   input: ErpnextRequestInput,
 ): Promise<ErpnextResult<ErpnextRequestOutput>> {
   const action = "erpnext:request";
-  const permission = USER_PERMISSION.ERPNEXT_ACCESS;
+  const permission = erpPermissionForBaseUrl(input.baseUrl);
 
   try {
     const userSession = await auth();
@@ -82,7 +83,7 @@ export async function requestErpnextAction(
       return { ok: false, error: "Authentication required." };
     }
 
-    if (!hasPermission(userSession.user.role, permission)) {
+    if (!hasPermission(userSession.user.permissions, permission)) {
       await logAction({
         userId: userSession.user.id,
         action,
@@ -101,7 +102,7 @@ export async function requestErpnextAction(
       success: result.ok,
       error: result.ok ? undefined : result.error,
       role: userSession.user.role,
-      metadata: { baseUrl: input.baseUrl, path: input.path, method: input.method },
+      metadata: { permission },
     });
 
     return result;

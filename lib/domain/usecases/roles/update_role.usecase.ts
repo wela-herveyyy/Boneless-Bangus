@@ -3,6 +3,7 @@ import { updateTag } from "next/cache";
 import { database } from "@/database";
 import { role } from "@/database/schema";
 import type { UpdateRoleInput, RoleResult, RoleSelect } from "@/lib/entities/roles.type";
+import { normalizePermissionList } from "@/lib/entities/users.type";
 
 export async function updateRole(input: UpdateRoleInput): Promise<RoleResult<RoleSelect>> {
   if (!input.id.trim()) {
@@ -23,18 +24,21 @@ export async function updateRole(input: UpdateRoleInput): Promise<RoleResult<Rol
       return { ok: false, error: "Role not found." };
     }
 
+    const permissions =
+      input.permissions !== undefined
+        ? normalizePermissionList(input.permissions)
+        : normalizePermissionList(existing.permissions);
+
     const updated = {
       value: input.value.trim().toLowerCase(),
       label: input.label.trim(),
       hint: input.hint?.trim() || null,
       description: input.description?.trim() || null,
+      permissions,
       updatedAt: new Date(),
     };
 
-    await database
-      .update(role)
-      .set(updated)
-      .where(eq(role.id, input.id));
+    await database.update(role).set(updated).where(eq(role.id, input.id));
 
     updateTag("roles");
     updateTag("users");

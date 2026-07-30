@@ -58,7 +58,7 @@ export const MCP_ROLE_PERMISSIONS: Record<UserRole, McpPermission[]> = {
 };
 
 export function hasMcpPermission(role: UserRole, permission: McpPermission): boolean {
-  return MCP_ROLE_PERMISSIONS[role].includes(permission);
+  return (MCP_ROLE_PERMISSIONS[role] ?? []).includes(permission);
 }
 
 // --- UI Compatibility & Presentation Types ---

@@ -31,7 +31,7 @@ export type AuthResult<T = void> =
   | { ok: false; error: string };
 
 export type ActionSession = {
-  user: AuthUser & { role: UserRole };
+  user: AuthUser & { role: UserRole; permissions: string[] };
   expired: boolean;
 };
 

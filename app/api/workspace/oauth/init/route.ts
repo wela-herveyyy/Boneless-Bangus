@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { authFromHeaders } from "@/lib/domain/services/auth.service";
 import crypto from "crypto";
+import { authFromHeaders } from "@/lib/domain/services/auth.service";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export async function GET(req: Request) {
   try {
     const userSession = await authFromHeaders(req.headers);
     if (!userSession || userSession.expired) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+    if (!hasPermission(userSession.user.permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS)) {
+      return NextResponse.json({ error: "Not authorized for Google Workspace." }, { status: 403 });
     }
 
     const clientId = process.env.GOOGLE_WORKSPACE_CLIENT_ID;

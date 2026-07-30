@@ -12,7 +12,20 @@ import {
 } from "@/lib/domain/actions/roles.actions";
 import type { TeamListItem } from "@/lib/entities/team.type";
 import type { RoleSelect } from "@/lib/entities/roles.type";
-import { USER_ROLE_OPTIONS, type UserRole, type UserSelect } from "@/lib/entities/users.type";
+import {
+  USER_PERMISSION,
+  USER_ROLE_OPTIONS,
+  type UserPermission,
+  type UserRole,
+  type UserSelect,
+} from "@/lib/entities/users.type";
+
+const DEFAULT_NEW_ROLE_PERMS: UserPermission[] = [
+  USER_PERMISSION.USERS_READ,
+  USER_PERMISSION.CURSOR_PROMPT,
+  USER_PERMISSION.GOOGLE_AI_INTERACT,
+  USER_PERMISSION.AI_CONVERSATIONS,
+];
 
 export type AdminTab = "users" | "teams" | "roles";
 
@@ -57,6 +70,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
   const [roleLabel, setRoleLabel] = useState("");
   const [roleHint, setRoleHint] = useState("");
   const [roleDescription, setRoleDescription] = useState("");
+  const [rolePermissions, setRolePermissions] = useState<string[]>(DEFAULT_NEW_ROLE_PERMS);
   const [creatingRole, setCreatingRole] = useState(false);
 
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
@@ -64,8 +78,21 @@ export function useAdminPage(initialUsers: UserSelect[]) {
   const [editRoleLabel, setEditRoleLabel] = useState("");
   const [editRoleHint, setEditRoleHint] = useState("");
   const [editRoleDescription, setEditRoleDescription] = useState("");
+  const [editRolePermissions, setEditRolePermissions] = useState<string[]>([]);
   const [updatingRole, setUpdatingRole] = useState(false);
   const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null);
+
+  const toggleRolePermission = useCallback((value: string, checked: boolean) => {
+    setRolePermissions((prev) =>
+      checked ? [...new Set([...prev, value])] : prev.filter((p) => p !== value),
+    );
+  }, []);
+
+  const toggleEditRolePermission = useCallback((value: string, checked: boolean) => {
+    setEditRolePermissions((prev) =>
+      checked ? [...new Set([...prev, value])] : prev.filter((p) => p !== value),
+    );
+  }, []);
 
   // Verification modal state
   const [verificationAction, setVerificationAction] = useState<VerificationAction>(null);
@@ -223,6 +250,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
           label: roleLabel,
           hint: roleHint,
           description: roleDescription,
+          permissions: rolePermissions,
         });
         setCreatingRole(false);
         if (!result.ok) {
@@ -233,12 +261,21 @@ export function useAdminPage(initialUsers: UserSelect[]) {
         setRoleLabel("");
         setRoleHint("");
         setRoleDescription("");
+        setRolePermissions(DEFAULT_NEW_ROLE_PERMS);
         setCreateRoleOpen(false);
         setNotice(`Role "${result.data.label}" created successfully.`);
         await refreshRoles();
       },
     );
-  }, [roleValue, roleLabel, roleHint, roleDescription, refreshRoles, executeWithVerification]);
+  }, [
+    roleValue,
+    roleLabel,
+    roleHint,
+    roleDescription,
+    rolePermissions,
+    refreshRoles,
+    executeWithVerification,
+  ]);
 
   const closeCreateRole = useCallback(() => {
     setCreateRoleOpen(false);
@@ -246,6 +283,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setRoleLabel("");
     setRoleHint("");
     setRoleDescription("");
+    setRolePermissions(DEFAULT_NEW_ROLE_PERMS);
   }, []);
 
   const startEditRole = useCallback((role: RoleSelect) => {
@@ -255,6 +293,9 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setEditRoleLabel(role.label);
     setEditRoleHint(role.hint || "");
     setEditRoleDescription(role.description || "");
+    setEditRolePermissions(
+      Array.isArray(role.permissions) ? role.permissions.map(String) : [],
+    );
   }, []);
 
   const cancelEditRole = useCallback(() => {
@@ -263,6 +304,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setEditRoleLabel("");
     setEditRoleHint("");
     setEditRoleDescription("");
+    setEditRolePermissions([]);
   }, []);
 
   const saveRole = useCallback(async () => {
@@ -288,6 +330,7 @@ export function useAdminPage(initialUsers: UserSelect[]) {
           label: editRoleLabel,
           hint: editRoleHint,
           description: editRoleDescription,
+          permissions: editRolePermissions,
         });
         setUpdatingRole(false);
         if (!result.ok) {
@@ -300,7 +343,18 @@ export function useAdminPage(initialUsers: UserSelect[]) {
         await refreshUsers();
       },
     );
-  }, [editingRoleId, editRoleValue, editRoleLabel, editRoleHint, editRoleDescription, cancelEditRole, refreshRoles, refreshUsers, executeWithVerification]);
+  }, [
+    editingRoleId,
+    editRoleValue,
+    editRoleLabel,
+    editRoleHint,
+    editRoleDescription,
+    editRolePermissions,
+    cancelEditRole,
+    refreshRoles,
+    refreshUsers,
+    executeWithVerification,
+  ]);
 
   const removeRole = useCallback((id: string, label: string) => {
     executeWithVerification(
@@ -366,6 +420,8 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setRoleHint,
     roleDescription,
     setRoleDescription,
+    rolePermissions,
+    toggleRolePermission,
     creatingRole,
     editingRoleId,
     editRoleValue,
@@ -376,6 +432,8 @@ export function useAdminPage(initialUsers: UserSelect[]) {
     setEditRoleHint,
     editRoleDescription,
     setEditRoleDescription,
+    editRolePermissions,
+    toggleEditRolePermission,
     updatingRole,
     deletingRoleId,
     createRole,

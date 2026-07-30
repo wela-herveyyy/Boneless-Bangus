@@ -25,7 +25,7 @@ async function AdminContent() {
     redirect("/sign-in?callbackURL=/admin");
   }
 
-  if (!hasPermission(userSession.user.role, USER_PERMISSION.TEAMS_MANAGE)) {
+  if (!hasPermission(userSession.user.permissions, USER_PERMISSION.TEAMS_MANAGE)) {
     redirect("/workspace?error=" + encodeURIComponent("Admin access required."));
   }
 

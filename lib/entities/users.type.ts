@@ -32,51 +32,100 @@ export const USER_PERMISSION = {
   TEAMS_MANAGE: "teams:manage",
   CURSOR_PROMPT: "cursor:prompt",
   GOOGLE_AI_INTERACT: "google_ai:interact",
+  /** @deprecated use ERPNEXT_LIVRO_ACCESS / ERPNEXT_SCHOOL_ACCESS */
   ERPNEXT_ACCESS: "erpnext:access",
+  ERPNEXT_LIVRO_ACCESS: "erpnext:livro",
+  ERPNEXT_SCHOOL_ACCESS: "erpnext:school",
   AI_CONVERSATIONS: "ai:conversations",
   GITHUB_MCP_ACCESS: "github_mcp:access",
+  GOOGLE_WORKSPACE_ACCESS: "google_workspace:access",
 } as const;
 
 export type UserPermission = (typeof USER_PERMISSION)[keyof typeof USER_PERMISSION];
 
-const CHAT_PERMS: UserPermission[] = [
+const CHAT_BASE: UserPermission[] = [
   USER_PERMISSION.USERS_READ,
   USER_PERMISSION.CURSOR_PROMPT,
   USER_PERMISSION.GOOGLE_AI_INTERACT,
-  USER_PERMISSION.ERPNEXT_ACCESS,
   USER_PERMISSION.AI_CONVERSATIONS,
 ];
 
-// ponytail: GitHub only for owner/admin/dev/qa/po
-const GITHUB_PERMS: UserPermission[] = [
-  ...CHAT_PERMS,
-  USER_PERMISSION.GITHUB_MCP_ACCESS,
-];
-
-const ADMIN_PERMS: UserPermission[] = [
-  USER_PERMISSION.USERS_READ,
+const ADMIN_BASE: UserPermission[] = [
+  ...CHAT_BASE,
   USER_PERMISSION.USERS_DELETE,
   USER_PERMISSION.USERS_MANAGE,
   USER_PERMISSION.USERS_AUDIT,
   USER_PERMISSION.TEAMS_MANAGE,
-  USER_PERMISSION.CURSOR_PROMPT,
-  USER_PERMISSION.GOOGLE_AI_INTERACT,
-  USER_PERMISSION.ERPNEXT_ACCESS,
-  USER_PERMISSION.AI_CONVERSATIONS,
   USER_PERMISSION.GITHUB_MCP_ACCESS,
+  USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+  USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
+  USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
 ];
 
-export const ROLE_PERMISSIONS: Record<UserRole, UserPermission[]> = {
-  [USER_ROLE.OWNER]: ADMIN_PERMS,
-  [USER_ROLE.ADMIN]: ADMIN_PERMS,
-  [USER_ROLE.TECH]: CHAT_PERMS,
-  [USER_ROLE.SALES]: CHAT_PERMS,
-  [USER_ROLE.DEV]: GITHUB_PERMS,
-  [USER_ROLE.QA]: GITHUB_PERMS,
-  [USER_ROLE.PO]: GITHUB_PERMS,
-  [USER_ROLE.PM]: CHAT_PERMS,
-  [USER_ROLE.FINANCE]: CHAT_PERMS,
+/** Seed defaults only — runtime reads `role.permissions` from DB. */
+export const ROLE_PERMISSION_DEFAULTS: Record<string, UserPermission[]> = {
+  [USER_ROLE.OWNER]: ADMIN_BASE,
+  [USER_ROLE.ADMIN]: ADMIN_BASE,
+  [USER_ROLE.TECH]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
+    USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
+  ],
+  [USER_ROLE.SALES]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
+  ],
+  [USER_ROLE.PM]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
+  ],
+  [USER_ROLE.FINANCE]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
+  ],
+  [USER_ROLE.DEV]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GITHUB_MCP_ACCESS,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
+  ],
+  [USER_ROLE.QA]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GITHUB_MCP_ACCESS,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
+  ],
+  [USER_ROLE.PO]: [
+    ...CHAT_BASE,
+    USER_PERMISSION.GITHUB_MCP_ACCESS,
+    USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+    USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
+  ],
 };
+
+/** Permissions Admin can toggle on a role (labels for UI). */
+export const ASSIGNABLE_PERMISSION_OPTIONS: {
+  value: UserPermission;
+  label: string;
+  group: "tools" | "admin" | "chat";
+}[] = [
+  { value: USER_PERMISSION.GITHUB_MCP_ACCESS, label: "GitHub MCP", group: "tools" },
+  { value: USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS, label: "Google Workspace", group: "tools" },
+  { value: USER_PERMISSION.ERPNEXT_LIVRO_ACCESS, label: "Livro ERP MCP", group: "tools" },
+  { value: USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS, label: "School ERP MCP", group: "tools" },
+  { value: USER_PERMISSION.USERS_READ, label: "Users read", group: "admin" },
+  { value: USER_PERMISSION.USERS_MANAGE, label: "Users manage", group: "admin" },
+  { value: USER_PERMISSION.USERS_DELETE, label: "Users delete", group: "admin" },
+  { value: USER_PERMISSION.USERS_AUDIT, label: "Users audit", group: "admin" },
+  { value: USER_PERMISSION.TEAMS_MANAGE, label: "Teams manage", group: "admin" },
+  { value: USER_PERMISSION.CURSOR_PROMPT, label: "Cursor chat", group: "chat" },
+  { value: USER_PERMISSION.GOOGLE_AI_INTERACT, label: "Google AI", group: "chat" },
+  { value: USER_PERMISSION.AI_CONVERSATIONS, label: "AI conversations", group: "chat" },
+];
 
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: USER_ROLE.OWNER, label: "Owner" },
@@ -116,10 +165,29 @@ export type AdminUserDetail = {
   usage: UserApiUsage;
 };
 
-export function hasPermission(role: UserRole, permission: UserPermission): boolean {
-  const key = String(role ?? "").trim().toLowerCase();
-  const perms = ROLE_PERMISSIONS[key] || CHAT_PERMS;
-  return perms.includes(permission);
+/** Check a permission against a role's permission list from the DB. */
+export function hasPermission(
+  permissions: readonly string[] | null | undefined,
+  permission: UserPermission,
+): boolean {
+  if (!permissions?.length) return false;
+  return permissions.includes(permission);
+}
+
+/** Catalog guard for Admin saves. */
+export function isAssignablePermission(value: string): value is UserPermission {
+  return ASSIGNABLE_PERMISSION_OPTIONS.some((o) => o.value === value);
+}
+
+export function normalizePermissionList(raw: unknown): UserPermission[] {
+  if (!Array.isArray(raw)) return [];
+  const out: UserPermission[] = [];
+  for (const item of raw) {
+    if (typeof item === "string" && isAssignablePermission(item)) {
+      out.push(item);
+    }
+  }
+  return [...new Set(out)];
 }
 
 export type UserResult<T = void> =

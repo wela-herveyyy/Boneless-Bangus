@@ -35,7 +35,7 @@ async function UserProfileContent({ params }: PageProps) {
   }
 
   const isSelf = userSession.user.id === id;
-  const viewerIsAdmin = hasPermission(userSession.user.role, USER_PERMISSION.USERS_AUDIT);
+  const viewerIsAdmin = hasPermission(userSession.user.permissions, USER_PERMISSION.USERS_AUDIT);
 
   if (!isSelf && !viewerIsAdmin) {
     redirect("/workspace?error=" + encodeURIComponent("You cannot view this profile."));

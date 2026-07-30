@@ -4,6 +4,7 @@
  */
 import "dotenv/config";
 import mysql from "mysql2/promise";
+import { ROLE_PERMISSION_DEFAULTS } from "../lib/entities/users.type";
 
 const ROLES = [
   "owner",
@@ -33,10 +34,11 @@ async function main() {
         continue;
       }
       const id = crypto.randomUUID();
+      const perms = JSON.stringify(ROLE_PERMISSION_DEFAULTS[value] ?? []);
       await conn.query(
-        `INSERT INTO \`role\` (id, value, label, hint, created_at, updated_at)
-         VALUES (?, ?, ?, ?, NOW(3), NOW(3))`,
-        [id, value, value.charAt(0).toUpperCase() + value.slice(1), null],
+        `INSERT INTO \`role\` (id, value, label, hint, permissions, created_at, updated_at)
+         VALUES (?, ?, ?, ?, CAST(? AS JSON), NOW(3), NOW(3))`,
+        [id, value, value.charAt(0).toUpperCase() + value.slice(1), null, perms],
       );
       ids.set(value, id);
       console.log("seeded role", value);
