@@ -19,20 +19,20 @@ const AUTH_WISDOM: Record<AuthShellVariant, AuthWisdom> = {
       "Just Understands Nearly Everything… Late. Show up anyway — your tasks, bugs, and school setups are waiting.",
     attribution: "— Boneless Bangus AI, on Mondays",
     tips: [
-      "Sign in once. BBAI only sees what your account already can.",
-      "Overdue tasks do not get less overdue while you refresh the page.",
-      "If login fails, check credentials before blaming the bangus.",
+      "Sign in with your ERPNext site (Livro by default, or the parent school URL).",
+      "First login creates your BBAI user — then a short onboarding.",
+      "If login fails, check those ERP credentials before blaming the bangus.",
     ],
   },
   "sign-up": {
     eyebrow: "Words of wisdom",
     quote:
-      "Better Business AI Inside starts with one account. No app store, no drama — just email, password, and permission-bound help.",
+      "No separate registration. ERP login is the front door — BBAI onboards you if you are new.",
     attribution: "— Livro Systems Inc., probably",
     tips: [
-      "Use a work email if your team shares an ERP site.",
-      "Permissions follow you — BBAI never outruns your role.",
-      "Boneless Bangus Always Informed. Registration is step zero.",
+      "Use your ERP email and password for the site you’re signing into.",
+      "Permissions follow your BBAI role after onboarding.",
+      "Boneless Bangus Always Informed — start at Sign in.",
     ],
   },
 };

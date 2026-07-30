@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Inter, Manrope } from "next/font/google";
 import Script from "next/script";
 import { RightSidebars } from "@/components/organisms/RightSidebars/RightSidebars";
+import { ErpEmbedBootstrap } from "@/components/organisms/ErpEmbedBootstrap/ErpEmbedBootstrap";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme-init";
 import "./globals.css";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
         </Script>
         {children}
         <Suspense fallback={null}>
+          <ErpEmbedBootstrap />
           <RightSidebars />
         </Suspense>
       </body>

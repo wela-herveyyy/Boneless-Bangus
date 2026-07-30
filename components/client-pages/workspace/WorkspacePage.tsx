@@ -47,8 +47,10 @@ export function WorkspacePage({
 }: WorkspacePageProps) {
   useFetchDynamicRoles();
   const sidebar = useWorkspaceSidebar();
-  const { profile, loading, liveRole } = useWorkspaceProfile(userId, userRole);
+  const { profile, loading: profileLoading, liveRole } = useWorkspaceProfile(userId, userRole);
   const displayName = getDisplayName(profile, userName);
+  // Hold the shell until history + profile/name resolve (empty history is ok).
+  const ready = !profileLoading && !sidebar.loadingHistory && Boolean(displayName.trim());
 
   const onConversationSaved = useCallback(
     (dbConversationId: string) => {
@@ -66,6 +68,10 @@ export function WorkspacePage({
     };
   }, []);
 
+  if (!ready) {
+    return <WorkspacePageFallback />;
+  }
+
   return (
     <div className="relative h-screen overflow-hidden bg-surface">
       <FuturisticBackdrop />
@@ -80,7 +86,7 @@ export function WorkspacePage({
         userEmail={userEmail}
         displayName={displayName}
         profile={profile}
-        loading={loading}
+        loading={false}
         sidebarOpen={sidebar.isOpen}
         activeChatId={sidebar.activeChatId}
         onConversationSaved={onConversationSaved}

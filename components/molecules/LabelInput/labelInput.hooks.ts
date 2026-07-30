@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes } from "react";
+import type { ChangeEventHandler, InputHTMLAttributes } from "react";
 
 export type LabelInputField = {
   label: string;
@@ -8,6 +8,8 @@ export type LabelInputField = {
   autoComplete?: string;
   required?: boolean;
   minLength?: number;
+  value?: string;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
 };
 
 export function useLabelInputStyles() {

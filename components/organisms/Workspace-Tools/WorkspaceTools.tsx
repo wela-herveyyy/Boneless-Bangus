@@ -386,7 +386,7 @@ function DashboardActions({
 }: {
   loading: boolean;
   onRefresh: () => void;
-  onLogout: () => void;
+  onLogout?: () => void;
 }) {
   return (
     <div className="flex gap-2">
@@ -400,15 +400,17 @@ function DashboardActions({
         <LuRefreshCw className={["size-3.5", loading ? "animate-spin" : ""].join(" ")} aria-hidden />
         Refresh
       </Button>
-      <Button
-        type="button"
-        variant="secondary"
-        className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
-        onClick={onLogout}
-      >
-        <LuLogOut className="size-3.5" aria-hidden />
-        Logout
-      </Button>
+      {onLogout ? (
+        <Button
+          type="button"
+          variant="secondary"
+          className="gap-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
+          onClick={onLogout}
+        >
+          <LuLogOut className="size-3.5" aria-hidden />
+          Logout
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -417,12 +419,10 @@ function ErpDashboardView({
   baseUrl,
   dashboard,
   onRefresh,
-  onLogout,
 }: {
   baseUrl: string;
   dashboard: ErpDashboard;
   onRefresh: () => void;
-  onLogout: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -468,11 +468,7 @@ function ErpDashboardView({
         )}
       </div>
 
-      <DashboardActions
-        loading={dashboard.loading}
-        onRefresh={onRefresh}
-        onLogout={onLogout}
-      />
+      <DashboardActions loading={dashboard.loading} onRefresh={onRefresh} />
     </div>
   );
 }
@@ -588,6 +584,8 @@ function ErpToolsPanel({
   showUrlField,
   emailPlaceholder,
   submitLabel,
+  /** Livro is authenticated at /sign-in — no second password form here. */
+  usesAppLivroLogin = false,
   topOffset,
 }: {
   config: ErpToolConfig;
@@ -599,6 +597,7 @@ function ErpToolsPanel({
   showUrlField?: boolean;
   emailPlaceholder?: string;
   submitLabel?: string;
+  usesAppLivroLogin?: boolean;
   topOffset?: string;
 }) {
   const erp = useErpLogin(config);
@@ -654,10 +653,9 @@ function ErpToolsPanel({
                 baseUrl={erp.erpSession.baseUrl}
                 dashboard={erp.dashboard}
                 onRefresh={erp.refreshDashboard}
-                onLogout={erp.logoutErp}
               />
             )
-          ) : erp.otpState ? (
+          ) : erp.otpState && !usesAppLivroLogin ? (
             <div className="space-y-3">
               <p className="text-xs leading-relaxed text-on-surface-muted">
                 Complete verification to continue.
@@ -669,6 +667,21 @@ function ErpToolsPanel({
                 loading={erp.loginLoading}
                 error={erp.loginError}
               />
+            </div>
+          ) : usesAppLivroLogin ? (
+            <div className="space-y-3 rounded-2xl bg-surface-container-low px-4 py-5">
+              <p className="text-sm font-medium text-on-surface">Livro session missing</p>
+              <p className="text-xs leading-relaxed text-on-surface-muted">
+                You already sign in with Livro on the app login page. Sign out and sign in again
+                to refresh timesheets, tasks, sprint backlogs, and Livro MCP.
+              </p>
+              <a
+                href="/sign-in"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary underline"
+              >
+                <LuLogIn className="size-4" aria-hidden />
+                Go to Livro sign-in
+              </a>
             </div>
           ) : (
             <div className="space-y-3">
@@ -689,7 +702,7 @@ function ErpToolsPanel({
   );
 }
 
-/** Livro internal ERPNext — fixed site (`erp.livro.systems`). */
+/** Livro internal ERPNext — SID comes from app `/sign-in` (no duplicate login). */
 export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}) {
   const sidebar = useToolsSidebar();
   return (
@@ -699,8 +712,8 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
       icon={<SiErpnext className="size-5" aria-hidden />}
       title="Tools"
       brandLabel="ERPNext"
-      loginHint="Login to Livro ERPNext for timesheets, tasks, and sprint backlogs."
-      submitLabel="Login to ERPNext"
+      loginHint="Livro session is created when you sign in to BBAI."
+      usesAppLivroLogin
       topOffset={topOffset}
     />
   );

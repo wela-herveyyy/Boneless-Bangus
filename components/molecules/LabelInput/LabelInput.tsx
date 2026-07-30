@@ -12,6 +12,8 @@ export function LabelInput({
   autoComplete,
   required,
   minLength,
+  value,
+  onChange,
 }: LabelInputProps) {
   const className = useLabelInputStyles();
 
@@ -26,6 +28,8 @@ export function LabelInput({
         autoComplete={autoComplete}
         required={required}
         minLength={minLength}
+        value={value}
+        onChange={onChange}
       />
     </label>
   );

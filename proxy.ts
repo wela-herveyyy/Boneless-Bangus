@@ -9,6 +9,7 @@ const publicPaths = [
   "/docs",
   "/api/workspace/oauth",
   "/api/mcp/google-workspace",
+  "/api/erp/embed-login",
 ];
 
 function matchesPath(pathname: string, paths: string[]) {
@@ -23,14 +24,28 @@ export async function proxy(request: NextRequest) {
   }
 
   const session = await getSessionFromHeaders(request.headers);
+  const sid =
+    request.nextUrl.searchParams.get("sid") || request.nextUrl.searchParams.get("erp_sid");
+  const parent =
+    request.nextUrl.searchParams.get("parent") ||
+    request.nextUrl.searchParams.get("erp") ||
+    request.nextUrl.searchParams.get("erp_url");
+  const hasEmbedSid = Boolean(sid?.trim() && parent?.trim());
 
+  // Already signed in — go to workspace, but NEVER drop embed sid/parent
   if (session && matchesPath(pathname, authPaths)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    if (hasEmbedSid) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/workspace", request.url));
   }
 
   if (!session && !matchesPath(pathname, publicPaths)) {
     const signInUrl = new URL("/sign-in", request.url);
-    signInUrl.searchParams.set("callbackURL", pathname);
+    const callbackPath = `${pathname}${request.nextUrl.search}`;
+    signInUrl.searchParams.set("callbackURL", callbackPath);
+    if (sid) signInUrl.searchParams.set("sid", sid);
+    if (parent) signInUrl.searchParams.set("parent", parent);
     return NextResponse.redirect(signInUrl);
   }
 
