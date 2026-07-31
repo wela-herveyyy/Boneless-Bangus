@@ -1,5 +1,7 @@
 import type { SDKCustomTool, SDKJsonValue } from "@cursor/sdk";
 import { getCredential } from "@/lib/domain/services/mcp_credential.service";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { getUserAccess } from "../users/get_user_access.usecase";
 import { listGithubReposOverview } from "../github/build_repos_overview.usecase";
 import {
   createIssueUseCase,
@@ -39,6 +41,11 @@ function str(value: SDKJsonValue | undefined, fallback = ""): string {
 export async function buildGithubCustomTools(
   userId: string,
 ): Promise<Record<string, SDKCustomTool> | undefined> {
+  const access = await getUserAccess(userId);
+  if (!hasPermission(access?.permissions, USER_PERMISSION.GITHUB_MCP_ACCESS)) {
+    return undefined;
+  }
+
   const cred = await getCredential(userId, "github");
   if (!cred?.plaintext?.trim()) return undefined;
 

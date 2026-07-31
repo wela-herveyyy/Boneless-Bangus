@@ -73,9 +73,13 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Message or file is required." }, { status: 400 });
     }
 
-    const workspaceStatus = await getGoogleWorkspaceAuthStatusService(userSession.user.id).catch(
-      () => null,
+    const canUseWorkspace = hasPermission(
+      userSession.user.permissions,
+      USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     );
+    const workspaceStatus = canUseWorkspace
+      ? await getGoogleWorkspaceAuthStatusService(userSession.user.id).catch(() => null)
+      : null;
     const workspaceConnected = Boolean(workspaceStatus?.isConnected);
     // Pass mcpServers from client so web UI can test MCP pipelines
     const systemInstruction = buildSystemInstruction(body.mcpServers, workspaceConnected);

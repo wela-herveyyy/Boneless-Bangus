@@ -39,9 +39,21 @@ export const USER_PERMISSION = {
   AI_CONVERSATIONS: "ai:conversations",
   GITHUB_MCP_ACCESS: "github_mcp:access",
   GOOGLE_WORKSPACE_ACCESS: "google_workspace:access",
+  /** Composer Tools menu — Frappe / document Output modes */
+  OUTPUT_WEBFORM: "output:webform",
+  OUTPUT_WEBPAGE: "output:webpage",
+  OUTPUT_PRINT_FORMAT: "output:print_format",
+  OUTPUT_DOCUMENT_EDITOR: "output:document_editor",
 } as const;
 
 export type UserPermission = (typeof USER_PERMISSION)[keyof typeof USER_PERMISSION];
+
+const OUTPUT_BASE: UserPermission[] = [
+  USER_PERMISSION.OUTPUT_WEBFORM,
+  USER_PERMISSION.OUTPUT_WEBPAGE,
+  USER_PERMISSION.OUTPUT_PRINT_FORMAT,
+  USER_PERMISSION.OUTPUT_DOCUMENT_EDITOR,
+];
 
 const CHAT_BASE: UserPermission[] = [
   USER_PERMISSION.USERS_READ,
@@ -52,6 +64,7 @@ const CHAT_BASE: UserPermission[] = [
 
 const ADMIN_BASE: UserPermission[] = [
   ...CHAT_BASE,
+  ...OUTPUT_BASE,
   USER_PERMISSION.USERS_DELETE,
   USER_PERMISSION.USERS_MANAGE,
   USER_PERMISSION.USERS_AUDIT,
@@ -68,27 +81,32 @@ export const ROLE_PERMISSION_DEFAULTS: Record<string, UserPermission[]> = {
   [USER_ROLE.ADMIN]: ADMIN_BASE,
   [USER_ROLE.TECH]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
     USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
   ],
   [USER_ROLE.SALES]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
   ],
   [USER_ROLE.PM]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
   ],
   [USER_ROLE.FINANCE]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS,
   ],
   [USER_ROLE.DEV]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GITHUB_MCP_ACCESS,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
@@ -96,6 +114,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<string, UserPermission[]> = {
   ],
   [USER_ROLE.QA]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GITHUB_MCP_ACCESS,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
@@ -103,6 +122,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<string, UserPermission[]> = {
   ],
   [USER_ROLE.PO]: [
     ...CHAT_BASE,
+    ...OUTPUT_BASE,
     USER_PERMISSION.GITHUB_MCP_ACCESS,
     USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
     USER_PERMISSION.ERPNEXT_LIVRO_ACCESS,
@@ -114,7 +134,7 @@ export const ROLE_PERMISSION_DEFAULTS: Record<string, UserPermission[]> = {
 export const ASSIGNABLE_PERMISSION_OPTIONS: {
   value: UserPermission;
   label: string;
-  group: "tools" | "admin" | "chat";
+  group: "tools" | "admin" | "chat" | "output";
 }[] = [
   { value: USER_PERMISSION.GITHUB_MCP_ACCESS, label: "GitHub MCP", group: "tools" },
   { value: USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS, label: "Google Workspace", group: "tools" },
@@ -128,6 +148,10 @@ export const ASSIGNABLE_PERMISSION_OPTIONS: {
   { value: USER_PERMISSION.CURSOR_PROMPT, label: "Cursor chat", group: "chat" },
   { value: USER_PERMISSION.GOOGLE_AI_INTERACT, label: "Google AI", group: "chat" },
   { value: USER_PERMISSION.AI_CONVERSATIONS, label: "AI conversations", group: "chat" },
+  { value: USER_PERMISSION.OUTPUT_WEBFORM, label: "Web Form", group: "output" },
+  { value: USER_PERMISSION.OUTPUT_WEBPAGE, label: "Web page", group: "output" },
+  { value: USER_PERMISSION.OUTPUT_PRINT_FORMAT, label: "Print format", group: "output" },
+  { value: USER_PERMISSION.OUTPUT_DOCUMENT_EDITOR, label: "Document Editor", group: "output" },
 ];
 
 export const USER_ROLE_OPTIONS: { value: UserRole; label: string }[] = [

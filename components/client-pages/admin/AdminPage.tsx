@@ -465,7 +465,7 @@ export function AdminPage({
         isOpen={Boolean(admin.editingRoleId)}
         onClose={admin.cancelEditRole}
         title="Edit role"
-        description="Modify role details and access rights (tools, admin, chat)."
+        description="Modify role details and access rights (tools, admin, chat, output)."
         footer={
           <>
             <Button type="button" variant="secondary" onClick={admin.cancelEditRole}>
@@ -526,7 +526,7 @@ function RolePermissionToggles({
   selected: string[];
   onToggle: (value: string, checked: boolean) => void;
 }) {
-  const groups = ["tools", "admin", "chat"] as const;
+  const groups = ["tools", "admin", "chat", "output"] as const;
   return (
     <div className="space-y-3 rounded-2xl bg-surface-container-low p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-muted">

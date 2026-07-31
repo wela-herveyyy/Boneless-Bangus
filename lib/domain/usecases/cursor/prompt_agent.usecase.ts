@@ -56,9 +56,12 @@ export async function promptAgent(
   const workspaceTools = userId ? await buildWorkspaceCustomTools(userId) : undefined;
   const githubTools = userId ? await buildGithubCustomTools(userId) : undefined;
   const skillsTools = userId ? await buildSkillsCustomTools(userId) : undefined;
-  const schoolErpTools = await buildSchoolErpCustomTools(
-    mcpServers as Record<string, { headers?: Record<string, string> }> | undefined,
-  );
+  const schoolErpTools = userId
+    ? await buildSchoolErpCustomTools(
+        mcpServers as Record<string, { headers?: Record<string, string> }> | undefined,
+        userId,
+      )
+    : undefined;
   const customTools = {
     ...(workspaceTools ?? {}),
     ...(githubTools ?? {}),

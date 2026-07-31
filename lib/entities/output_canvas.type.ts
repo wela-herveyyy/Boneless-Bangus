@@ -53,5 +53,6 @@ export function labelForCanvasTool(mode: FrappeToolMode): string {
   if (mode === FRAPPE_TOOL_MODE.WEBFORM) return "Web form";
   if (mode === FRAPPE_TOOL_MODE.WEBPAGE) return "Web page";
   if (mode === FRAPPE_TOOL_MODE.PRINT_FORMAT) return "Print format";
+  if (mode === FRAPPE_TOOL_MODE.DOCUMENT_EDITOR) return "Document Editor";
   return "Output";
 }

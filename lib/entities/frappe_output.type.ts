@@ -13,6 +13,7 @@ export const FRAPPE_TOOL_MODE = {
   WEBFORM: "webform",
   WEBPAGE: "webpage",
   PRINT_FORMAT: "print_format",
+  DOCUMENT_EDITOR: "document_editor",
 } as const;
 
 export type FrappeToolMode =
@@ -43,6 +44,11 @@ export const FRAPPE_TOOL_OPTIONS: {
     label: "Print format",
     hint: "Generate a Print Format script · new chat if switching",
   },
+  {
+    id: FRAPPE_TOOL_MODE.DOCUMENT_EDITOR,
+    label: "Document Editor",
+    hint: "Rich document · export PDF, TXT, DOCX, CSV, Excel",
+  },
 ];
 
 /** Prefixed onto the user message when a Frappe tool mode is active. */
@@ -65,6 +71,21 @@ export function frappeToolPromptPrefix(mode: FrappeToolMode): string {
       "2) Call school_erp_set_web_page_html with name + full HTML (writes main_section_html + main_section).",
       "3) Call school_erp_open_output with kind=webpage, name, and route — paste the <!-- bbai:output ... --> marker in your reply.",
       "Do not open Output until HTML is saved.",
+      "",
+    ].join("\n");
+  }
+  if (mode === FRAPPE_TOOL_MODE.DOCUMENT_EDITOR) {
+    return [
+      "[BBAI tool: Document Editor]",
+      "Your reply is AUTOMATICALLY written into the Output Document Editor — do NOT ask the user to copy/paste.",
+      "Write the full document body in Markdown: # / ## headings (blank line before/after), paragraphs, lists, and GFM pipe tables when tabular data is needed.",
+      "Example table:",
+      "| Column A | Column B |",
+      "| --- | --- |",
+      "| value | value |",
+      "Start with a # title when appropriate. Keep a short 1-sentence chat preface optional; the main body should be the document itself.",
+      "Export-friendly: PDF, TXT, DOCX, CSV, Excel are available in Output (CSV/Excel prefer real tables).",
+      "Do not use School ERP Web Page / Print Format / Web Form markers unless the user asks to publish to ERP.",
       "",
     ].join("\n");
   }

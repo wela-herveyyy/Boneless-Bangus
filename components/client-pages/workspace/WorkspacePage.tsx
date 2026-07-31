@@ -47,7 +47,12 @@ export function WorkspacePage({
 }: WorkspacePageProps) {
   useFetchDynamicRoles();
   const sidebar = useWorkspaceSidebar();
-  const { profile, loading: profileLoading, liveRole } = useWorkspaceProfile(userId, userRole);
+  const {
+    profile,
+    loading: profileLoading,
+    liveRole,
+    permissions,
+  } = useWorkspaceProfile(userId, userRole);
   const displayName = getDisplayName(profile, userName);
   // Hold the shell until history + profile/name resolve (empty history is ok).
   const ready = !profileLoading && !sidebar.loadingHistory && Boolean(displayName.trim());
@@ -106,6 +111,7 @@ export function WorkspacePage({
           teamCursor: Boolean(userTeam?.cursorApiKey),
           teamGemini: Boolean(userTeam?.geminiApiKey),
         }}
+        accessPermissions={permissions}
       />
       {sidebar.isProfileOpen && (
         <ProfileView

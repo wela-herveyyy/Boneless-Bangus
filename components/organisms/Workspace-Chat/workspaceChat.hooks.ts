@@ -111,6 +111,21 @@ export function routeIdFromSelection(
   return "gemma_4";
 }
 
+export function permissionForAiRoute(route: (typeof AI_ROUTE_OPTIONS)[number]) {
+  return route.provider === AI_PROVIDER.CURSOR
+    ? USER_PERMISSION.CURSOR_PROMPT
+    : USER_PERMISSION.GOOGLE_AI_INTERACT;
+}
+
+/** Routes the role may use in the workspace picker. */
+export function filterAiRoutesByPermissions(
+  permissions: readonly string[] | null | undefined,
+): typeof AI_ROUTE_OPTIONS {
+  return AI_ROUTE_OPTIONS.filter((route) =>
+    hasPermission(permissions, permissionForAiRoute(route)),
+  );
+}
+
 function parseProfile(value: string): OnboardingProfile | null {
   try {
     const parsed = JSON.parse(value) as OnboardingProfile;
@@ -173,6 +188,7 @@ export function useWorkspaceProfile(userId?: string, dbRole?: string | null) {
   const [profile, setProfile] = useState<OnboardingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveRole, setLiveRole] = useState<string | null>(dbRole || null);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   const loadProfile = useCallback(async () => {
     const [liveRoleRes, result] = await Promise.all([
@@ -182,7 +198,9 @@ export function useWorkspaceProfile(userId?: string, dbRole?: string | null) {
 
     const resolvedRole = liveRoleRes.ok && liveRoleRes.role ? liveRoleRes.role : (dbRole || "");
     if (liveRoleRes.ok) {
-      accessPermissions = liveRoleRes.permissions ?? [];
+      const next = liveRoleRes.permissions ?? [];
+      accessPermissions = next;
+      setPermissions(next);
     }
     if (resolvedRole) {
       setLiveRole(resolvedRole);
@@ -207,7 +225,7 @@ export function useWorkspaceProfile(userId?: string, dbRole?: string | null) {
     void loadProfile();
   }, [loadProfile]);
 
-  return { profile, loading, liveRole };
+  return { profile, loading, liveRole, permissions };
 }
 
 export type ChatTurn = {
@@ -288,6 +306,8 @@ export function useWorkspaceChat(
     apiKeys?: WorkspaceChatApiKeys;
     /** Frappe Tools mode — injects generation instructions into the agent prompt. */
     frappeTool?: FrappeToolMode;
+    /** Role permissions — gates AI route picker (Cursor / Google). */
+    accessPermissions?: readonly string[];
   },
 ) {
   const [message, setMessage] = useState("");
@@ -296,6 +316,10 @@ export function useWorkspaceChat(
   const [sending, setSending] = useState(false);
   const [provider, setProviderState] = useState<AiProvider>(AI_PROVIDER.GOOGLE_AI);
   const [googleModel, setGoogleModelState] = useState<GoogleAiModel>(GOOGLE_AI_DEFAULT_MODEL);
+  const allowedRoutes = useMemo(
+    () => filterAiRoutesByPermissions(options?.accessPermissions),
+    [options?.accessPermissions],
+  );
   const [keySource, setKeySourceState] = useState<AiKeySource>(() =>
     preferredKeySource(AI_PROVIDER.GOOGLE_AI, options?.apiKeys),
   );
@@ -559,7 +583,7 @@ export function useWorkspaceChat(
   }, []);
 
   const setRoute = useCallback((id: AiRouteId) => {
-    const route = AI_ROUTE_OPTIONS.find((option) => option.id === id);
+    const route = allowedRoutes.find((option) => option.id === id);
     if (!route) return;
     setProviderState(route.provider);
     window.localStorage.setItem(PROVIDER_STORAGE_KEY, route.provider);
@@ -568,7 +592,22 @@ export function useWorkspaceChat(
       window.localStorage.setItem(GOOGLE_MODEL_STORAGE_KEY, route.googleModel);
     }
     setProviderConversationId(undefined);
-  }, []);
+  }, [allowedRoutes]);
+
+  // Drop saved Cursor/Google selection when the role loses that chat permission.
+  useEffect(() => {
+    if (allowedRoutes.length === 0) return;
+    const currentId = routeIdFromSelection(provider, googleModel);
+    if (allowedRoutes.some((route) => route.id === currentId)) return;
+    const fallback = allowedRoutes[0];
+    setProviderState(fallback.provider);
+    window.localStorage.setItem(PROVIDER_STORAGE_KEY, fallback.provider);
+    if (fallback.googleModel) {
+      setGoogleModelState(fallback.googleModel);
+      window.localStorage.setItem(GOOGLE_MODEL_STORAGE_KEY, fallback.googleModel);
+    }
+    setProviderConversationId(undefined);
+  }, [allowedRoutes, provider, googleModel]);
 
   const setKeySource = useCallback(
     (next: AiKeySource) => {
@@ -1024,6 +1063,7 @@ export function useWorkspaceChat(
     googleModel,
     setGoogleModel,
     routeId: routeIdFromSelection(provider, googleModel),
+    allowedRoutes,
     setRoute,
     keySource,
     setKeySource,

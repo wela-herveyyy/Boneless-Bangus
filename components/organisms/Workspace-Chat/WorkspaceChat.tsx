@@ -15,6 +15,7 @@ import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
+import { DocumentEditor } from "@/components/organisms/DocumentEditor/DocumentEditor";
 import { OutputInteractive } from "@/components/organisms/OutputInteractive/OutputInteractive";
 import {
   clearPendingOutputTarget,
@@ -32,6 +33,10 @@ import {
   type FrappeOutputTarget,
   type FrappeToolMode,
 } from "@/lib/entities/frappe_output.type";
+import {
+  canUseFrappeToolMode,
+  filterFrappeToolOptions,
+} from "@/lib/utils/frappe-tool-rbac";
 import {
   frappeToolModeFromKind,
   type OutputCanvasItem,
@@ -88,22 +93,33 @@ function useMenuDismiss(
 function AiRouteMenu({
   value,
   onChange,
+  options,
   disabled,
 }: {
   value: AiRouteId;
   onChange: (id: AiRouteId) => void;
+  options: typeof AI_ROUTE_OPTIONS;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const selected = AI_ROUTE_OPTIONS.find((option) => option.id === value) ?? AI_ROUTE_OPTIONS[0];
+  const selected =
+    options.find((option) => option.id === value) ?? options[0] ?? AI_ROUTE_OPTIONS[0];
   useMenuDismiss(open, setOpen, rootRef);
+
+  if (options.length === 0) {
+    return (
+      <span className="inline-flex items-center rounded-2xl bg-surface-container-low/80 px-3 py-2 text-xs text-on-surface-muted">
+        No chat providers allowed
+      </span>
+    );
+  }
 
   return (
     <div ref={rootRef} className="relative z-50">
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || options.length <= 1}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="AI model"
@@ -126,22 +142,24 @@ function AiRouteMenu({
             {selected.hint}
           </span>
         </span>
-        <LuChevronDown
-          aria-hidden
-          className={[
-            "size-4 shrink-0 text-on-surface-muted transition-transform duration-200 group-hover:text-on-surface",
-            open ? "rotate-180" : "",
-          ].join(" ")}
-        />
+        {options.length > 1 ? (
+          <LuChevronDown
+            aria-hidden
+            className={[
+              "size-4 shrink-0 text-on-surface-muted transition-transform duration-200 group-hover:text-on-surface",
+              open ? "rotate-180" : "",
+            ].join(" ")}
+          />
+        ) : null}
       </button>
 
-      {open ? (
+      {open && options.length > 1 ? (
         <ul
           role="listbox"
           aria-label="AI model"
           className="absolute bottom-full left-0 z-50 mb-2 min-w-56 overflow-hidden rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border"
         >
-          {AI_ROUTE_OPTIONS.map((option) => {
+          {options.map((option) => {
             const active = option.id === value;
             return (
               <li key={option.id} role="option" aria-selected={active}>
@@ -184,18 +202,23 @@ function AiRouteMenu({
 function ToolsPanelMenu({
   value,
   onChange,
+  options,
   disabled,
 }: {
   value: FrappeToolMode;
   onChange: (id: FrappeToolMode) => void;
+  options: typeof FRAPPE_TOOL_OPTIONS;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected =
-    FRAPPE_TOOL_OPTIONS.find((option) => option.id === value) ?? FRAPPE_TOOL_OPTIONS[0];
+    options.find((option) => option.id === value) ?? options[0] ?? FRAPPE_TOOL_OPTIONS[0];
   const toolActive = value !== FRAPPE_TOOL_MODE.OFF;
+  const hasAssignableTools = options.some((option) => option.id !== FRAPPE_TOOL_MODE.OFF);
   useMenuDismiss(open, setOpen, rootRef);
+
+  if (!hasAssignableTools) return null;
 
   return (
     <div ref={rootRef} className="relative z-50">
@@ -236,7 +259,7 @@ function ToolsPanelMenu({
           aria-label="Frappe tools"
           className="absolute bottom-full left-0 z-50 mb-2 min-w-56 overflow-hidden rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border"
         >
-          {FRAPPE_TOOL_OPTIONS.map((option) => {
+          {options.map((option) => {
             const active = option.id === value;
             return (
               <li key={option.id} role="option" aria-selected={active}>
@@ -373,6 +396,7 @@ type WorkspaceChatProps = {
   pendingCanvas?: OutputCanvasItem | null;
   onPendingCanvasConsumed?: () => void;
   onCanvasSaved?: () => void;
+  accessPermissions?: readonly string[];
 };
 
 export function WorkspaceChat({
@@ -390,8 +414,10 @@ export function WorkspaceChat({
   pendingCanvas = null,
   onPendingCanvasConsumed,
   onCanvasSaved,
+  accessPermissions,
 }: WorkspaceChatProps) {
   const firstName = displayName.split(" ")[0];
+  const allowedFrappeTools = filterFrappeToolOptions(accessPermissions);
   const outputOpen = frappeTool !== FRAPPE_TOOL_MODE.OFF;
   const toolLabel =
     FRAPPE_TOOL_OPTIONS.find((o) => o.id === frappeTool)?.label ?? "Output";
@@ -400,7 +426,7 @@ export function WorkspaceChat({
       name: profile?.name || displayName,
       email: userEmail,
     },
-    { activeChatId, onConversationSaved, apiKeys, frappeTool },
+    { activeChatId, onConversationSaved, apiKeys, frappeTool, accessPermissions },
   );
   const threadRef = useRef<HTMLDivElement>(null);
   const [executingConfirmations, setExecutingConfirmations] = useState(false);
@@ -409,7 +435,17 @@ export function WorkspaceChat({
   const lastUpsertKeyRef = useRef<string>("");
 
   const routeLabel =
-    AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
+    chat.allowedRoutes.find((option) => option.id === chat.routeId)?.label ?? "AI";
+
+  // Drop Tools mode when the role loses that output permission.
+  useEffect(() => {
+    if (canUseFrappeToolMode(accessPermissions, frappeTool)) return;
+    clearPendingOutputTarget();
+    lastTargetRef.current = null;
+    lastUpsertKeyRef.current = "";
+    setCanvasId(null);
+    onFrappeToolChange?.(FRAPPE_TOOL_MODE.OFF);
+  }, [accessPermissions, frappeTool, onFrappeToolChange]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
@@ -444,9 +480,21 @@ export function WorkspaceChat({
     [frappeTool, onCanvasSaved],
   );
 
+  const isDocumentEditor = frappeTool === FRAPPE_TOOL_MODE.DOCUMENT_EDITOR;
+
+  const documentChatSeed = (() => {
+    if (!isDocumentEditor) return { turnId: null as string | null, markdown: "" };
+    const lastAssistant = [...chat.turns].reverse().find((t) => t.role === "assistant" && t.text.trim());
+    if (!lastAssistant) return { turnId: null as string | null, markdown: "" };
+    return {
+      turnId: lastAssistant.id,
+      markdown: stripOutputMarker(lastAssistant.text),
+    };
+  })();
+
   // Stream Frappe outputs from assistant markers into Output + bind 1 canvas / convo
   useEffect(() => {
-    if (!outputOpen) return;
+    if (!outputOpen || isDocumentEditor) return;
     const lastAssistant = [...chat.turns].reverse().find((t) => t.role === "assistant" && t.text);
     if (!lastAssistant?.text) return;
     const target = parseOutputMarker(lastAssistant.text);
@@ -455,15 +503,15 @@ export function WorkspaceChat({
     dispatchOutputTarget(target);
     const conversationId = chat.dbConversationId || activeChatId;
     if (conversationId) void persistCanvas(conversationId, target);
-  }, [chat.turns, outputOpen, chat.dbConversationId, activeChatId, persistCanvas]);
+  }, [chat.turns, outputOpen, isDocumentEditor, chat.dbConversationId, activeChatId, persistCanvas]);
 
   // Conversation just saved — attach pending target to the new canvas id
   useEffect(() => {
     const conversationId = chat.dbConversationId;
     const target = lastTargetRef.current;
-    if (!conversationId || !target || !outputOpen) return;
+    if (!conversationId || !target || !outputOpen || isDocumentEditor) return;
     void persistCanvas(conversationId, target);
-  }, [chat.dbConversationId, outputOpen, persistCanvas]);
+  }, [chat.dbConversationId, outputOpen, isDocumentEditor, persistCanvas]);
 
   // Open canvas from sidebar list (pinpoint)
   useEffect(() => {
@@ -506,6 +554,7 @@ export function WorkspaceChat({
 
   const handleFrappeToolChange = (next: FrappeToolMode) => {
     if (next === frappeTool) return;
+    if (!canUseFrappeToolMode(accessPermissions, next)) return;
     // Changing Tools always starts a fresh conversation (1 canvas per convo).
     if (chat.hasChat || activeChatId) {
       onStartNewChat?.();
@@ -521,6 +570,7 @@ export function WorkspaceChat({
   const canSend =
     !chat.sending &&
     !chat.loadingThread &&
+    chat.allowedRoutes.length > 0 &&
     Boolean(chat.message.trim() || chat.activeCommand || (chat.attachments && chat.attachments.length > 0));
 
   const composerBusy = chat.sending || chat.loadingThread;
@@ -661,6 +711,7 @@ export function WorkspaceChat({
         <div className="flex flex-wrap items-center gap-1.5">
           <AiRouteMenu
             value={chat.routeId}
+            options={chat.allowedRoutes}
             onChange={chat.setRoute}
             disabled={composerBusy}
           />
@@ -673,6 +724,7 @@ export function WorkspaceChat({
           />
           <ToolsPanelMenu
             value={frappeTool}
+            options={allowedFrappeTools}
             onChange={handleFrappeToolChange}
             disabled={composerBusy}
           />
@@ -739,6 +791,11 @@ export function WorkspaceChat({
             {chat.turns.map((turn) => {
               const displayText =
                 turn.role === "assistant" ? stripOutputMarker(turn.text) : turn.text;
+              const showDocEditorHint =
+                isDocumentEditor &&
+                turn.role === "assistant" &&
+                Boolean(displayText) &&
+                turn.id !== chat.streamingAssistantId;
               return (
               <Fragment key={turn.id}>
                 {turn.id === chat.streamingAssistantId && chat.thinkingText ? (
@@ -767,7 +824,11 @@ export function WorkspaceChat({
                         : "bg-surface-container-lowest text-on-surface shadow-bloom",
                     ].join(" ")}
                   >
-                    {displayText ? (
+                    {showDocEditorHint ? (
+                      <span className="text-on-surface-muted">
+                        Written to Document Editor.
+                      </span>
+                    ) : displayText ? (
                       turn.role === "assistant" ? (
                         <ChatMarkdown content={displayText} />
                       ) : (
@@ -809,12 +870,22 @@ export function WorkspaceChat({
         {outputOpen ? (
           <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
             <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
-              <OutputInteractive
-                key={`${frappeTool}-${activeChatId ?? "new"}`}
-                toolLabel={toolLabel}
-                canvasId={canvasId}
-                onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
-              />
+              {isDocumentEditor ? (
+                <DocumentEditor
+                  key={`doc-${activeChatId ?? "new"}`}
+                  conversationId={chat.dbConversationId || activeChatId}
+                  chatTurnId={documentChatSeed.turnId}
+                  chatMarkdown={documentChatSeed.markdown}
+                  onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+                />
+              ) : (
+                <OutputInteractive
+                  key={`${frappeTool}-${activeChatId ?? "new"}`}
+                  toolLabel={toolLabel}
+                  canvasId={canvasId}
+                  onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+                />
+              )}
             </div>
           </aside>
         ) : null}
@@ -1013,12 +1084,22 @@ export function WorkspaceChat({
       {outputOpen ? (
         <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
           <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
-            <OutputInteractive
-              key={`${frappeTool}-${activeChatId ?? "new"}`}
-              toolLabel={toolLabel}
-              canvasId={canvasId}
-              onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
-            />
+            {isDocumentEditor ? (
+              <DocumentEditor
+                key={`doc-${activeChatId ?? "new"}`}
+                conversationId={chat.dbConversationId || activeChatId}
+                chatTurnId={documentChatSeed.turnId}
+                chatMarkdown={documentChatSeed.markdown}
+                onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+              />
+            ) : (
+              <OutputInteractive
+                key={`${frappeTool}-${activeChatId ?? "new"}`}
+                toolLabel={toolLabel}
+                canvasId={canvasId}
+                onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+              />
+            )}
           </div>
         </aside>
       ) : null}

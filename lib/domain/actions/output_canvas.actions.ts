@@ -11,6 +11,7 @@ import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import type { FrappeOutputTarget, FrappeToolMode } from "@/lib/entities/frappe_output.type";
 import type { OutputCanvasItem, OutputCanvasResult } from "@/lib/entities/output_canvas.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { canUseFrappeToolMode } from "@/lib/utils/frappe-tool-rbac";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unexpected error.";
@@ -61,6 +62,9 @@ export async function upsertOutputCanvasAction(input: {
     }
     if (!hasPermission(userSession.user.permissions, permission)) {
       return { ok: false, error: "You are not authorized for this action." };
+    }
+    if (!canUseFrappeToolMode(userSession.user.permissions, input.toolMode)) {
+      return { ok: false, error: "You are not authorized for this Output tool." };
     }
 
     const result = await upsertOutputCanvasService({

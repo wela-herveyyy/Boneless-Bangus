@@ -25,7 +25,8 @@ function parseFrappeTool(raw: string | null): FrappeToolMode {
   if (
     raw === FRAPPE_TOOL_MODE.WEBFORM ||
     raw === FRAPPE_TOOL_MODE.WEBPAGE ||
-    raw === FRAPPE_TOOL_MODE.PRINT_FORMAT
+    raw === FRAPPE_TOOL_MODE.PRINT_FORMAT ||
+    raw === FRAPPE_TOOL_MODE.DOCUMENT_EDITOR
   ) {
     return raw;
   }

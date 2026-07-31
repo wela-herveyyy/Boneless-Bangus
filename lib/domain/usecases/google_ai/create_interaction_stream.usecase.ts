@@ -18,7 +18,9 @@ import { connectMcpServers, executeMcpTool, sanitizeJsonSchema, type McpRuntimeS
 import { getGoogleWorkspaceAuth } from "@/lib/domain/usecases/google_workspace_auth/get_google_workspace_auth.usecase";
 import { resolveApiKey } from "@/lib/domain/usecases/ai/resolve_api_key.usecase";
 import { AI_PROVIDER } from "@/lib/entities/ai.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { getSession } from "../auth/get_session.usecase";
+import { getUserAccess } from "../users/get_user_access.usecase";
 import {
   sendGmailMessageUseCase,
 } from "@/lib/domain/usecases/mcp_google_workspace/gmail.usecases";
@@ -199,10 +201,17 @@ export async function* createInteractionStream(
   // In-process Workspace only — never connect remote MCP (erpnext SSE/HTTP) for Gemini.
   if (input.userId) {
     try {
-      const auth = await getGoogleWorkspaceAuth(input.userId);
-      if (auth.isConnected) {
-        hasWorkspaceAuth = true;
-        message = yield* injectWorkspaceContext(input.userId, message, apiKey);
+      const access = await getUserAccess(input.userId);
+      const canUseWorkspace = hasPermission(
+        access?.permissions,
+        USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+      );
+      if (canUseWorkspace) {
+        const auth = await getGoogleWorkspaceAuth(input.userId);
+        if (auth.isConnected) {
+          hasWorkspaceAuth = true;
+          message = yield* injectWorkspaceContext(input.userId, message, apiKey);
+        }
       }
     } catch (err) {
       console.warn("Failed to check Google Workspace Auth:", err);

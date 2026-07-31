@@ -9,8 +9,10 @@ import {
   type FrappeOutputKind,
   type FrappeOutputTarget,
 } from "@/lib/entities/frappe_output.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { saveFrappeSourceDoc } from "@/lib/domain/usecases/erpnext/frappe_source_doc.usecase";
 import { normalizeErpnextBaseUrl } from "@/lib/domain/usecases/erpnext/erpnext_http.usecase";
+import { getUserAccess } from "../users/get_user_access.usecase";
 
 type SchoolSession = { sid: string; baseUrl: string };
 
@@ -223,7 +225,14 @@ async function buildEnrolleeSummary(session: SchoolSession) {
  */
 export async function buildSchoolErpCustomTools(
   mcpServers: Record<string, { headers?: Record<string, string> }> | undefined,
+  userId?: string,
 ): Promise<Record<string, SDKCustomTool> | undefined> {
+  if (!userId) return undefined;
+  const access = await getUserAccess(userId);
+  if (!hasPermission(access?.permissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS)) {
+    return undefined;
+  }
+
   const session = extractSchoolSession(mcpServers);
   if (!session) return undefined;
 

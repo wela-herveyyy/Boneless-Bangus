@@ -3,6 +3,8 @@ import {
   getGoogleWorkspaceAuthStatusService,
   runWorkspaceChatToolService,
 } from "@/lib/domain/services/google_workspace_auth.service";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
+import { getUserAccess } from "../users/get_user_access.usecase";
 
 function jsonResult(data: unknown): SDKJsonValue {
   return JSON.parse(JSON.stringify(data ?? null)) as SDKJsonValue;
@@ -23,6 +25,11 @@ function tool(
 export async function buildWorkspaceCustomTools(
   userId: string,
 ): Promise<Record<string, SDKCustomTool> | undefined> {
+  const access = await getUserAccess(userId);
+  if (!hasPermission(access?.permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS)) {
+    return undefined;
+  }
+
   const status = await getGoogleWorkspaceAuthStatusService(userId);
   if (!status.isConnected) return undefined;
 

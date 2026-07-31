@@ -10,12 +10,14 @@ import {
   WORKSPACE_GEMINI_SYSTEM_HINT,
   WORKSPACE_GEMINI_TOOLS,
 } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
+import { getUserAccess } from "@/lib/domain/usecases/users/get_user_access.usecase";
 import {
   AI_PROVIDER,
   type AiResult,
   type PromptAiInput,
   type PromptAiOutput,
 } from "@/lib/entities/ai.type";
+import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiOutput>> {
   const message = input.message.trim();
@@ -67,8 +69,15 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         const session = await getSession();
         userId = session?.user?.id;
         if (userId) {
-          const status = await getGoogleWorkspaceAuthStatusService(userId);
-          workspaceConnected = status.isConnected;
+          const access = await getUserAccess(userId);
+          const canUseWorkspace = hasPermission(
+            access?.permissions,
+            USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
+          );
+          if (canUseWorkspace) {
+            const status = await getGoogleWorkspaceAuthStatusService(userId);
+            workspaceConnected = status.isConnected;
+          }
         }
       } catch {
         workspaceConnected = false;
