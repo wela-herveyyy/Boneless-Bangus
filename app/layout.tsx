@@ -18,12 +18,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BBAI | Boneless Bangus AI",
+  title: "Giya",
   description:
-    "Boneless Bangus AI — Livro Systems' internal assistant for tasks, QA, and school setup support.",
+    "Giya — Livro Systems' internal assistant that guides tasks, QA, and school setup.",
   appleWebApp: {
     capable: true,
-    title: "BBAI",
+    title: "Giya",
   },
   icons: {
     icon: "/icon.svg",

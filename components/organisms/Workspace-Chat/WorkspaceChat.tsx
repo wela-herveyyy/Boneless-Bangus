@@ -15,7 +15,10 @@ import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
-import { DocumentEditor } from "@/components/organisms/DocumentEditor/DocumentEditor";
+import {
+  DocumentEditor,
+  documentChatPrefaceFromMarkdown,
+} from "@/components/organisms/DocumentEditor/DocumentEditor";
 import { OutputInteractive } from "@/components/organisms/OutputInteractive/OutputInteractive";
 import {
   clearPendingOutputTarget,
@@ -27,6 +30,7 @@ import {
   upsertOutputCanvasAction,
 } from "@/lib/domain/actions/output_canvas.actions";
 import {
+  FRAPPE_OUTPUT_KIND,
   FRAPPE_TOOL_MODE,
   FRAPPE_TOOL_OPTIONS,
   parseOutputMarker,
@@ -505,13 +509,38 @@ export function WorkspaceChat({
     if (conversationId) void persistCanvas(conversationId, target);
   }, [chat.turns, outputOpen, isDocumentEditor, chat.dbConversationId, activeChatId, persistCanvas]);
 
+  // Document Editor canvas — chat left, document on Output canvas with cv_ id
+  useEffect(() => {
+    if (!outputOpen || !isDocumentEditor) return;
+    const conversationId = chat.dbConversationId || activeChatId;
+    if (!conversationId) return;
+    const titleMatch = documentChatSeed.markdown.match(/^\s*#\s+(.+?)\s*$/m);
+    const title =
+      titleMatch?.[1]?.trim() ||
+      (documentChatSeed.markdown.trim() ? "Document" : "Untitled document");
+    const target: FrappeOutputTarget = {
+      kind: FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR,
+      title,
+      name: conversationId,
+    };
+    lastTargetRef.current = target;
+    void persistCanvas(conversationId, target);
+  }, [
+    outputOpen,
+    isDocumentEditor,
+    chat.dbConversationId,
+    activeChatId,
+    documentChatSeed.markdown,
+    persistCanvas,
+  ]);
+
   // Conversation just saved — attach pending target to the new canvas id
   useEffect(() => {
     const conversationId = chat.dbConversationId;
     const target = lastTargetRef.current;
-    if (!conversationId || !target || !outputOpen || isDocumentEditor) return;
+    if (!conversationId || !target || !outputOpen) return;
     void persistCanvas(conversationId, target);
-  }, [chat.dbConversationId, outputOpen, isDocumentEditor, persistCanvas]);
+  }, [chat.dbConversationId, outputOpen, persistCanvas]);
 
   // Open canvas from sidebar list (pinpoint)
   useEffect(() => {
@@ -520,7 +549,9 @@ export function WorkspaceChat({
     if (chat.loadingThread) return;
     lastTargetRef.current = pendingCanvas.target;
     setCanvasId(pendingCanvas.id);
-    dispatchOutputTarget(pendingCanvas.target);
+    if (pendingCanvas.target.kind !== FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR) {
+      dispatchOutputTarget(pendingCanvas.target);
+    }
     onPendingCanvasConsumed?.();
   }, [
     pendingCanvas,
@@ -543,7 +574,10 @@ export function WorkspaceChat({
       }
       setCanvasId(result.data.id);
       lastTargetRef.current = result.data.target;
-      if (frappeTool === result.data.toolMode) {
+      if (
+        frappeTool === result.data.toolMode &&
+        result.data.target.kind !== FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR
+      ) {
         dispatchOutputTarget(result.data.target);
       }
     })();
@@ -664,7 +698,7 @@ export function WorkspaceChat({
               placeholder={
                 chat.activeCommand ? "Add additional context…" : "e.g. What tasks are overdue?"
               }
-              aria-label="Ask BBAI"
+              aria-label="Ask Giya"
               className="max-h-32 min-h-10 min-w-48 flex-1 resize-none bg-transparent py-2 text-[15px] leading-5 text-on-surface outline-none placeholder:text-on-surface-muted/80"
               value={chat.message}
               onChange={(event) => {
@@ -754,11 +788,13 @@ export function WorkspaceChat({
         <section
           className={[
             "flex h-full min-h-0 flex-col px-4 py-5 md:px-5",
-            outputOpen ? "w-full md:w-[42%] md:max-w-xl" : "mx-auto w-full max-w-2xl",
+            outputOpen
+              ? "w-[min(100%,20rem)] shrink-0 sm:w-[42%] sm:max-w-xl"
+              : "mx-auto w-full max-w-2xl",
           ].join(" ")}
         >
           <p className="mb-3 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
-            BBAI · {firstName} · {routeLabel}
+            Giya · {firstName} · {routeLabel}
           </p>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
             Chat
@@ -791,23 +827,20 @@ export function WorkspaceChat({
             {chat.turns.map((turn) => {
               const displayText =
                 turn.role === "assistant" ? stripOutputMarker(turn.text) : turn.text;
-              const showDocEditorHint =
+              const docChatPreface =
                 isDocumentEditor &&
                 turn.role === "assistant" &&
                 Boolean(displayText) &&
-                turn.id !== chat.streamingAssistantId;
+                turn.id !== chat.streamingAssistantId
+                  ? documentChatPrefaceFromMarkdown(displayText)
+                  : null;
+              const thoughts =
+                turn.id === chat.streamingAssistantId
+                  ? chat.thinkingText || turn.thinking || ""
+                  : turn.thinking || "";
+              const isStreamingTurn = turn.id === chat.streamingAssistantId;
               return (
               <Fragment key={turn.id}>
-                {turn.id === chat.streamingAssistantId && chat.thinkingText ? (
-                  <div className="chat-bubble-assistant flex justify-start">
-                    <div className="max-w-[95%] whitespace-pre-wrap rounded-2xl bg-surface-container px-4 py-3 text-xs leading-relaxed text-on-surface-muted">
-                      <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.2em]">
-                        Thinking
-                      </p>
-                      {chat.thinkingText}
-                    </div>
-                  </div>
-                ) : null}
                 <div
                   className={[
                     "flex",
@@ -824,10 +857,43 @@ export function WorkspaceChat({
                         : "bg-surface-container-lowest text-on-surface shadow-bloom",
                     ].join(" ")}
                   >
-                    {showDocEditorHint ? (
-                      <span className="text-on-surface-muted">
-                        Written to Document Editor.
-                      </span>
+                    {turn.role === "assistant" && thoughts.trim() ? (
+                      <details
+                        className="mb-3 rounded-xl bg-surface-container/80 px-3 py-2 text-xs text-on-surface-muted"
+                        open={isStreamingTurn}
+                      >
+                        <summary className="cursor-pointer select-none text-[10px] font-medium uppercase tracking-[0.2em] text-on-surface-muted marker:content-none [&::-webkit-details-marker]:hidden">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              className={[
+                                "inline-block size-1.5 rounded-full",
+                                isStreamingTurn ? "animate-pulse bg-primary" : "bg-on-surface-muted/50",
+                              ].join(" ")}
+                              aria-hidden
+                            />
+                            {isStreamingTurn ? "Thinking" : "Thoughts"}
+                          </span>
+                        </summary>
+                        <div className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap leading-relaxed">
+                          <ChatMarkdown content={thoughts} />
+                        </div>
+                      </details>
+                    ) : null}
+                    {docChatPreface !== null ? (
+                      docChatPreface ? (
+                        <ChatMarkdown content={docChatPreface} />
+                      ) : (
+                        <span className="text-on-surface-muted">
+                          Updated the document canvas
+                          {canvasId ? (
+                            <span className="ml-1 font-mono text-[10px] text-primary">
+                              {canvasId}
+                            </span>
+                          ) : (
+                            "."
+                          )}
+                        </span>
+                      )
                     ) : displayText ? (
                       turn.role === "assistant" ? (
                         <ChatMarkdown content={displayText} />
@@ -866,9 +932,9 @@ export function WorkspaceChat({
           <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
         </section>
 
-        {/* Output — only when Tools is on */}
+        {/* Output / Canvas — results live here; chat stays on the left */}
         {outputOpen ? (
-          <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
+          <aside className="min-h-0 min-w-0 flex-1 overflow-hidden">
             <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
               {isDocumentEditor ? (
                 <DocumentEditor
@@ -876,6 +942,7 @@ export function WorkspaceChat({
                   conversationId={chat.dbConversationId || activeChatId}
                   chatTurnId={documentChatSeed.turnId}
                   chatMarkdown={documentChatSeed.markdown}
+                  canvasId={canvasId}
                   onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
                 />
               ) : (
@@ -1046,7 +1113,9 @@ export function WorkspaceChat({
       <section
         className={[
           "flex h-full min-h-0 flex-col justify-center px-4 py-8 md:px-5",
-          outputOpen ? "w-full md:w-[42%] md:max-w-xl" : "mx-auto w-full max-w-2xl",
+          outputOpen
+            ? "w-[min(100%,20rem)] shrink-0 sm:w-[42%] sm:max-w-xl"
+            : "mx-auto w-full max-w-2xl",
         ].join(" ")}
       >
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
@@ -1061,7 +1130,9 @@ export function WorkspaceChat({
           </h1>
           <p className="text-base leading-relaxed text-on-surface-muted">
             {outputOpen
-              ? `Generate a Frappe ${toolLabel.toLowerCase()} here — live preview streams in Output.`
+              ? isDocumentEditor
+                ? "Chat on the left — document results land on the Output canvas."
+                : `Generate a Frappe ${toolLabel.toLowerCase()} here — live preview streams in Output.`
               : "Ask about tasks, bugs, or school setup."}
           </p>
           {profile ? (
@@ -1082,7 +1153,7 @@ export function WorkspaceChat({
       </section>
 
       {outputOpen ? (
-        <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
+        <aside className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
             {isDocumentEditor ? (
               <DocumentEditor
@@ -1090,6 +1161,7 @@ export function WorkspaceChat({
                 conversationId={chat.dbConversationId || activeChatId}
                 chatTurnId={documentChatSeed.turnId}
                 chatMarkdown={documentChatSeed.markdown}
+                canvasId={canvasId}
                 onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
               />
             ) : (

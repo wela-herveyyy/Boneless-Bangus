@@ -16,7 +16,7 @@ export async function SignUpForm({ searchParams }: SignUpFormProps) {
   const params = await searchParams;
 
   if (session) {
-    redirect(params.callbackURL || "/");
+    redirect(params.callbackURL || "/onboarding");
   }
 
   const { callbackURL, error, fields } = getSignUpFormState(params);

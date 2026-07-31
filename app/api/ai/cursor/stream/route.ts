@@ -1,45 +1,32 @@
 import { auth } from "@/lib/domain/services/auth.service";
-import { createInteractionStream } from "@/lib/domain/services/google_ai.service";
+import { createCursorAgentStream } from "@/lib/domain/services/cursor.service";
 import { insertAiMessage } from "@/lib/domain/services/ai_conversation.service";
-import { getGoogleWorkspaceAuthStatusService } from "@/lib/domain/services/google_workspace_auth.service";
 import {
   GIYA_SYSTEM_CONTEXT,
-  buildSystemInstructionWithMcp,
   cleanupAiPrompt,
   usageFromApi,
 } from "@/lib/domain/usecases/ai/prompt.usecase";
 import { resolveApiKeySource } from "@/lib/domain/usecases/ai/resolve_api_key_source.usecase";
-import { WORKSPACE_GEMINI_SYSTEM_HINT } from "@/lib/domain/usecases/google_workspace_auth/workspace_gemini_tools.usecase";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { AI_PROVIDER, type AiKeySource } from "@/lib/entities/ai.type";
-
-function parseKeySource(value: unknown): AiKeySource | undefined {
-  if (value === "personal" || value === "team" || value === "system") return value;
-  return undefined;
-}
+import type { CursorMcpServerConfig, CursorSkill } from "@/lib/entities/cursor.type";
 import type { AiStreamClientEvent } from "@/lib/entities/google_ai.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export const maxDuration = 300;
 
+function parseKeySource(value: unknown): AiKeySource | undefined {
+  if (value === "personal" || value === "team" || value === "system") return value;
+  return undefined;
+}
+
 function sseLine(event: AiStreamClientEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
 
-function buildSystemInstruction(
-  mcpServers: unknown,
-  workspaceConnected: boolean,
-): string {
-  let instruction = buildSystemInstructionWithMcp(mcpServers);
-  if (workspaceConnected) {
-    instruction = `${instruction}\n\n${WORKSPACE_GEMINI_SYSTEM_HINT}`;
-  }
-  return instruction || GIYA_SYSTEM_CONTEXT;
-}
-
 export async function POST(request: Request) {
-  const action = "ai:stream:google_ai";
-  const permission = USER_PERMISSION.GOOGLE_AI_INTERACT;
+  const action = "ai:stream:cursor";
+  const permission = USER_PERMISSION.CURSOR_PROMPT;
   const encoder = new TextEncoder();
 
   try {
@@ -56,14 +43,15 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as {
       message?: string;
-      model?: string;
-      previousInteractionId?: string;
+      previousAgentId?: string;
       dbConversationId?: string;
       name?: string;
       email?: string;
-      mcpServers?: unknown[];
+      mcpServers?: Record<string, CursorMcpServerConfig>;
+      skills?: CursorSkill[];
       files?: { name: string; mimeType: string; base64Data: string }[];
       keySource?: AiKeySource;
+      modelId?: string;
     };
     const keySource = parseKeySource(body.keySource);
 
@@ -72,17 +60,6 @@ export async function POST(request: Request) {
     if (!message && !hasFiles) {
       return Response.json({ ok: false, error: "Message or file is required." }, { status: 400 });
     }
-
-    const canUseWorkspace = hasPermission(
-      userSession.user.permissions,
-      USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS,
-    );
-    const workspaceStatus = canUseWorkspace
-      ? await getGoogleWorkspaceAuthStatusService(userSession.user.id).catch(() => null)
-      : null;
-    const workspaceConnected = Boolean(workspaceStatus?.isConnected);
-    // Pass mcpServers from client so web UI can test MCP pipelines
-    const systemInstruction = buildSystemInstruction(body.mcpServers, workspaceConnected);
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -97,16 +74,16 @@ export async function POST(request: Request) {
         let failed = false;
 
         try {
-          for await (const event of createInteractionStream({
-            message,
-            model: body.model,
-            previousInteractionId: body.previousInteractionId,
-            systemInstruction,
+          for await (const event of createCursorAgentStream({
+            message: `${GIYA_SYSTEM_CONTEXT}\n\n${message}`,
+            name: body.name,
+            email: body.email,
             mcpServers: body.mcpServers,
-            userId: userSession.user.id,
-            dbConversationId: body.dbConversationId,
+            skills: body.skills,
             files: body.files,
             keySource,
+            modelId: body.modelId,
+            previousAgentId: body.previousAgentId,
           })) {
             if (event.type === "created") {
               conversationId = event.conversationId;
@@ -152,7 +129,7 @@ export async function POST(request: Request) {
               const cleaned = cleanupAiPrompt(accumulated, usage);
               const resolvedKeySource = await resolveApiKeySource(
                 userSession.user.id,
-                AI_PROVIDER.GOOGLE_AI,
+                AI_PROVIDER.CURSOR,
                 keySource,
               );
 
@@ -196,7 +173,6 @@ export async function POST(request: Request) {
                   conversationId,
                   dbConversationId: saved.data.conversationId,
                   messageId: saved.data.messageId,
-                  workspaceTools: workspaceConnected,
                   ...usage,
                 },
               });
@@ -204,7 +180,7 @@ export async function POST(request: Request) {
           }
 
           if (!failed && !conversationId && !accumulated) {
-            send({ type: "error", error: "Google AI stream ended with no response." });
+            send({ type: "error", error: "Cursor stream ended with no response." });
           }
         } catch (error) {
           const errorText = error instanceof Error ? error.message : "Stream failed.";

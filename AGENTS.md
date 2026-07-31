@@ -6,8 +6,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## SYSTEM RULE — Do not alter the codebase (School ERP / outputs)
 
-BBAI agents, Cursor agents, and skills **must not modify this repository** to generate or fix School ERP Report Cards, Print Formats, Web Pages, Web Forms, or grading outputs. Deliver only via **School ERP MCP / Frappe** on the connected school site. See `.cursor/rules/no-alter-codebase-erp.mdc`.
+Giya agents, Cursor agents, and skills **must not modify this repository** to generate or fix School ERP Report Cards, Print Formats, Web Pages, Web Forms, or grading outputs. Deliver only via **School ERP MCP / Frappe** on the connected school site. See `.cursor/rules/no-alter-codebase-erp.mdc`.
 
-Exception: the user explicitly asks for a Boneless Bangus **app** code change.
+Exception: the user explicitly asks for a Giya **app** code change.
 
 For project structure, domain flow, PWA/landing patterns, and common pitfalls, use skill **rnd-nextjs-template** (`.cursor/skills/rnd-nextjs-template/SKILL.md`).

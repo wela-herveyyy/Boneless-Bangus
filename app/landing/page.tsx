@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { InstallLanding } from "@/components/organisms/InstallLanding/InstallLanding";
 
 export const metadata: Metadata = {
-  title: "BBAI | Boneless Bangus AI",
+  title: "Giya",
   description:
-    "Boneless Bangus AI — Livro Systems' internal assistant for tasks, QA, and school setup support.",
+    "Giya — Livro Systems' internal assistant that guides tasks, QA, and school setup.",
 };
 
 export default function LandingPage() {

@@ -82,7 +82,7 @@ export function ErpEmbedBootstrap() {
             },
             { forceSchool, schoolCode: json.schoolCode },
           );
-          const dest = json.needsOnboarding ? "/" : "/workspace";
+          const dest = json.needsOnboarding ? "/onboarding" : "/workspace";
           const url = new URL(dest, window.location.origin);
           url.searchParams.set("embed", "1");
           url.searchParams.set("parent", baseUrl);

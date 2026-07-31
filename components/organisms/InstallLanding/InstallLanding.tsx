@@ -9,12 +9,6 @@ import { DesktopWindowFrame } from "@/components/molecules/DesktopWindowFrame/De
 import { FuturisticBackdrop } from "@/components/molecules/FuturisticBackdrop/FuturisticBackdrop";
 import { usePwaInstall } from "./installLanding.hooks";
 
-const BBAI_ACRONYMS = [
-  "Boneless Bangus Always Informed",
-  "Better Business AI Inside",
-  "Bangus Brains Always Investigating",
-] as const;
-
 const KEY_PILLARS = [
   {
     title: "Task intelligence",
@@ -59,7 +53,7 @@ export function InstallLanding() {
               href="/"
               className="text-sm font-medium text-on-surface-muted transition-colors hover:text-primary"
             >
-              ← Home
+              Giya
             </Link>
             <Link
               href="/docs"
@@ -67,7 +61,7 @@ export function InstallLanding() {
             >
               Docs
             </Link>
-            <span className="hidden text-sm text-on-surface-muted lg:inline">BBAI workspace</span>
+            <span className="hidden text-sm text-on-surface-muted lg:inline">Giya workspace</span>
           </div>
           <StatusOrb label={statusLabel} variant={statusVariant} />
         </header>
@@ -80,8 +74,8 @@ export function InstallLanding() {
                   <LuFishSymbol className="size-7" aria-hidden />
                 </div>
                 <div>
-                  <p className="font-display text-lg font-semibold tracking-tight text-primary">BBAI</p>
-                  <p className="text-sm text-on-surface-muted">Boneless Bangus AI</p>
+                  <p className="font-display text-lg font-semibold tracking-tight text-primary">Giya</p>
+                  <p className="text-sm text-on-surface-muted">Guide · Steer · Direct</p>
                 </div>
               </div>
 
@@ -89,29 +83,23 @@ export function InstallLanding() {
                 Livro Systems Inc.
               </p>
               <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-on-surface sm:text-5xl lg:text-[3.25rem]">
-                Boneless Bangus AI
+                Giya
               </h1>
               <p className="max-w-xl text-base leading-relaxed text-on-surface-muted">
-                BBAI is Livro&apos;s internal assistant — help with tasks, bugs, and school setups,
+                Giya is Livro&apos;s internal assistant — help with tasks, bugs, and school setups,
                 using only the data your account already has access to.
               </p>
             </div>
 
             <div className="space-y-3 rounded-xl bg-surface-container-low/80 p-4 backdrop-blur-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
-                Quick introduction
+                What Giya means
               </p>
               <p className="text-sm leading-relaxed text-on-surface-muted">
-                <strong className="text-on-surface">BBAI</strong> stands for{" "}
-                <strong className="text-on-surface">Boneless Bangus AI</strong> — unofficially also:
+                In Cebuano/Binisaya, <strong className="text-on-surface">giya</strong> means to
+                guide, steer, conduct, or give direction — and can also refer to the act of
+                guidance itself.
               </p>
-              <ul className="space-y-1 text-sm text-on-surface-muted">
-                {BBAI_ACRONYMS.map((line) => (
-                  <li key={line} className="leading-relaxed">
-                    {line}
-                  </li>
-                ))}
-              </ul>
             </div>
 
             <div className="flex flex-wrap items-center gap-4 lg:gap-5">
@@ -135,7 +123,7 @@ export function InstallLanding() {
 
             {installOutcome === "dismissed" ? (
               <p className="text-sm text-on-surface-muted">
-                Install dismissed — use the browser install icon to add BBAI to your desktop.
+                Install dismissed — use the browser install icon to add Giya to your desktop.
               </p>
             ) : null}
 
@@ -157,13 +145,13 @@ export function InstallLanding() {
 
           <div className="relative">
             <div className="futuristic-frame rounded-2xl bg-surface-container-low/60 p-4 backdrop-blur-sm lg:p-5">
-              <DesktopWindowFrame title="BBAI — Livro Systems">
+              <DesktopWindowFrame title="Giya — Livro Systems">
                 <div className="flex h-full flex-col justify-between">
                   <div>
                     <div className="mb-6 flex size-20 items-center justify-center rounded-2xl bg-surface-container-low text-primary ring-1 ring-primary/10">
                       <LuFishSymbol className="size-11" aria-hidden />
                     </div>
-                    <h2 className="font-display text-2xl font-semibold text-primary">Boneless Bangus AI</h2>
+                    <h2 className="font-display text-2xl font-semibold text-primary">Giya</h2>
                     <p className="mt-2 text-base text-on-surface-muted">
                       Tasks · bugs · school setup · Good Stuffs plugins
                     </p>

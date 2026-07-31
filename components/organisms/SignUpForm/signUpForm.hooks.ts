@@ -35,7 +35,7 @@ const signUpFields: LabelInputField[] = [
 
 export function getSignUpFormState(params: SignUpFormParams) {
   return {
-    callbackURL: params.callbackURL || "/",
+    callbackURL: params.callbackURL || "/onboarding",
     error: params.error,
     fields: signUpFields,
   };

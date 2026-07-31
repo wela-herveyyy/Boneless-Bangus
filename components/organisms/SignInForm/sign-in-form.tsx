@@ -82,12 +82,12 @@ export async function SignInForm({ searchParams }: SignInFormProps) {
       school_mcp: params.school_mcp,
       callbackURL: params.callbackURL,
     });
-    redirect(access ? `/workspace${embedQs}` : `/${embedQs}`);
+    redirect(access ? `/workspace${embedQs}` : `/onboarding${embedQs}`);
   }
 
   return (
     <AuthShell
-      title={hasEmbedSid ? "Connecting to BBAI" : copy.title}
+      title={hasEmbedSid ? "Connecting to Giya" : copy.title}
       description={
         hasEmbedSid
           ? "Using your ERPNext session — no password required."

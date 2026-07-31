@@ -1,16 +1,16 @@
 ---
-description: BBAI/agents must not alter this codebase for School ERP or report outputs
+description: Giya/agents must not alter this codebase for School ERP or report outputs
 alwaysApply: true
 ---
 
 # SYSTEM RULE — Do not alter the codebase
 
-**BBAI workspace agents, Cursor agents, slash skills, and AGENTS guidance must not modify this repository** to produce or “fix” School ERP / grading / Report Card / Print Format / Web Page / Web Form outputs.
+**Giya workspace agents, Cursor agents, slash skills, and AGENTS guidance must not modify this repository** to produce or “fix” School ERP / grading / Report Card / Print Format / Web Page / Web Form outputs.
 
 ## Forbidden
 
 - Editing, creating, or patching files under this repo (`lib/`, `components/`, `app/`, skill templates, `.tmp/`, etc.) as if they were the school product
-- Changing local HTML/CSS/Jinja in Boneless Bangus and treating that as the deployed Report Card or Print Format
+- Changing local HTML/CSS/Jinja in Giya and treating that as the deployed Report Card or Print Format
 - Altering School ERP / Frappe **app source** (Python, JS apps on the school site) unless the user explicitly orders a code change on a named repo they own
 
 ## Required instead
@@ -22,4 +22,4 @@ alwaysApply: true
 
 ## Sole exception
 
-The user **explicitly** asks to change Boneless Bangus application code (app bugs, features, rules, seeds). Even then: do not use that exception to rewrite Report Card / Print Format product into this repo.
+The user **explicitly** asks to change Giya application code (app bugs, features, rules, seeds). Even then: do not use that exception to rewrite Report Card / Print Format product into this repo.

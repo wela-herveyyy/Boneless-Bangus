@@ -2,6 +2,7 @@ export const FRAPPE_OUTPUT_KIND = {
   PRINT_FORMAT: "print_format",
   WEBPAGE: "webpage",
   WEBFORM: "webform",
+  DOCUMENT_EDITOR: "document_editor",
 } as const;
 
 export type FrappeOutputKind =
@@ -56,7 +57,7 @@ export function frappeToolPromptPrefix(mode: FrappeToolMode): string {
   if (mode === FRAPPE_TOOL_MODE.OFF) return "";
   if (mode === FRAPPE_TOOL_MODE.WEBFORM) {
     return [
-      "[BBAI Frappe tool: Web Form]",
+      "[Giya Frappe tool: Web Form]",
       "Help the user generate a Frappe Web Form DocType: client_script, custom_css, web_form_fields, published, route, button_label, etc.",
       "When ready, call school_erp_open_output with kind=webform, name=<Web Form name>, and route when published for Preview. Include the <!-- bbai:output ... --> marker so Output opens Source (client_script / custom_css) + Preview.",
       "",
@@ -64,7 +65,7 @@ export function frappeToolPromptPrefix(mode: FrappeToolMode): string {
   }
   if (mode === FRAPPE_TOOL_MODE.WEBPAGE) {
     return [
-      "[BBAI Frappe tool: Web Page]",
+      "[Giya Frappe tool: Web Page]",
       "Create/update a Frappe Web Page with REAL HTML. Frappe HTML mode uses field main_section_html (not only main_section).",
       "Required flow:",
       "1) Create the Web Page on School ERP (title, route, published=1, content_type=HTML).",
@@ -76,21 +77,21 @@ export function frappeToolPromptPrefix(mode: FrappeToolMode): string {
   }
   if (mode === FRAPPE_TOOL_MODE.DOCUMENT_EDITOR) {
     return [
-      "[BBAI tool: Document Editor]",
-      "Your reply is AUTOMATICALLY written into the Output Document Editor — do NOT ask the user to copy/paste.",
-      "Write the full document body in Markdown: # / ## headings (blank line before/after), paragraphs, lists, and GFM pipe tables when tabular data is needed.",
-      "Example table:",
+      "[Giya tool: Document Editor]",
+      "Split every reply into TWO parts:",
+      "1) Chat preface (1–3 short sentences) — conversational status for the left Chat panel. No tables/headings here.",
+      "2) Document body — starts with a # title, then ## sections, lists, and GFM pipe tables. This is AUTOMATICALLY written into the Output canvas (Document Editor). Do NOT ask the user to copy/paste.",
+      "Example table in the document body:",
       "| Column A | Column B |",
       "| --- | --- |",
       "| value | value |",
-      "Start with a # title when appropriate. Keep a short 1-sentence chat preface optional; the main body should be the document itself.",
-      "Export-friendly: PDF, TXT, DOCX, CSV, Excel are available in Output (CSV/Excel prefer real tables).",
+      "Export-friendly: PDF, TXT, DOCX, CSV, Excel are on the Output canvas.",
       "Do not use School ERP Web Page / Print Format / Web Form markers unless the user asks to publish to ERP.",
       "",
     ].join("\n");
   }
   return [
-    "[BBAI Frappe tool: Custom Print Format]",
+    "[Giya Frappe tool: Custom Print Format]",
     "Help the user generate a Frappe Print Format DocType (custom Jinja): fields include html, css, custom_format=1, print_format_type=Jinja, doc_type (e.g. Class), standard=No.",
     "If this is a BED Report Card print format: follow skills \"Generate Report Card Print Format (SF9)\" + \"BED Report Card Layout (SF9)\" — use the canonical SF9 Jinja/CSS (name BED Report Card SF9). Do NOT invent SCSHS/school-specific layouts.",
     "When ready, call school_erp_open_output with kind=print_format, format=<Print Format name>, and for Preview also doctype + name (document to print). Include the <!-- bbai:output ... --> marker so Output opens Preview + Source (html/css editor).",
@@ -123,12 +124,12 @@ export type FrappeOutputStreamEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
-export const BBAI_OUTPUT_EVENT = "bbai-output-target";
-export const BBAI_OUTPUT_MARKER_RE =
+export const GIYA_OUTPUT_EVENT = "bbai-output-target";
+export const GIYA_OUTPUT_MARKER_RE =
   /<!--\s*bbai:output\s+(\{[\s\S]*?\})\s*-->/;
 
 export function parseOutputMarker(text: string): FrappeOutputTarget | null {
-  const match = BBAI_OUTPUT_MARKER_RE.exec(text);
+  const match = GIYA_OUTPUT_MARKER_RE.exec(text);
   if (!match?.[1]) return null;
   try {
     const parsed = JSON.parse(match[1]) as FrappeOutputTarget;
@@ -205,6 +206,9 @@ export function sourceFieldDefsForKind(kind: FrappeOutputKind): FrappeSourceFiel
       { key: "css", label: "CSS" },
     ];
   }
+  if (kind === FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR) {
+    return [];
+  }
   // Matches Frappe Web Form desk form: client_script + custom_css.
   return [
     { key: "client_script", label: "Client Script" },
@@ -216,6 +220,7 @@ export function sourceFieldDefsForKind(kind: FrappeOutputKind): FrappeSourceFiel
 export function sourceDocTypeForKind(kind: FrappeOutputKind): string {
   if (kind === FRAPPE_OUTPUT_KIND.PRINT_FORMAT) return "Print Format";
   if (kind === FRAPPE_OUTPUT_KIND.WEBPAGE) return "Web Page";
+  if (kind === FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR) return "Document";
   return "Web Form";
 }
 
@@ -263,6 +268,9 @@ export function buildFrappeDeskSourcePath(target: FrappeOutputTarget): string | 
 
 /** True when Output can open Source and/or Preview for this target. */
 export function canOpenOutputTarget(target: FrappeOutputTarget): boolean {
+  if (target.kind === FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR) {
+    return Boolean(target.title?.trim() || target.name?.trim());
+  }
   if (target.kind === FRAPPE_OUTPUT_KIND.PRINT_FORMAT) {
     return Boolean(target.format?.trim() || target.name?.trim());
   }

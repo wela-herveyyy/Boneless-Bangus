@@ -364,6 +364,18 @@ export function documentBodyFromAssistantMarkdown(markdown: string): string {
   return text;
 }
 
+/** Conversational bit before the first heading — stays in Chat; body goes to canvas. */
+export function documentChatPrefaceFromMarkdown(markdown: string): string {
+  const text = markdown.trim();
+  if (!text) return "";
+  const headingIdx = text.search(/^#{1,6}\s+/m);
+  if (headingIdx > 0) return text.slice(0, headingIdx).trim();
+  if (headingIdx === 0) return "";
+  // No headings — keep a short chat line; full body still lands on canvas.
+  const firstLine = text.split("\n").find((line) => line.trim())?.trim() ?? "";
+  return firstLine.length > 220 ? `${firstLine.slice(0, 217)}…` : firstLine;
+}
+
 /** Ensure headings/tables aren't glued to neighboring lines before HTML convert. */
 function normalizeDocumentMarkdown(markdown: string): string {
   return markdown
@@ -401,6 +413,7 @@ function ChatImportPlugin({
     if (!turnId) return;
     const body = normalizeDocumentMarkdown(documentBodyFromAssistantMarkdown(markdown));
     if (!body.trim()) return;
+    // Document body only — chat preface stays in the left conversation.
     const key = `${turnId}:${body}`;
     if (lastKeyRef.current === key) return;
     lastKeyRef.current = key;
@@ -431,6 +444,7 @@ export function DocumentEditor({
   conversationId,
   chatTurnId = null,
   chatMarkdown = "",
+  canvasId = null,
 }: {
   onClose?: () => void;
   conversationId?: string | null;
@@ -438,6 +452,8 @@ export function DocumentEditor({
   chatTurnId?: string | null;
   /** Latest assistant markdown to place in the document */
   chatMarkdown?: string;
+  /** One canvas per conversation — pin id shown in Output */
+  canvasId?: string | null;
 }) {
   const doc = useDocumentEditor(conversationId);
   const onTitleHint = useCallback(
@@ -474,7 +490,7 @@ export function DocumentEditor({
       <header className="flex items-start justify-between gap-3 px-5 py-4">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-            Output
+            Output · Canvas
           </p>
           <input
             value={doc.title}
@@ -483,8 +499,15 @@ export function DocumentEditor({
             placeholder="Untitled document"
             aria-label="Document title"
           />
-          <p className="mt-1.5 text-[11px] text-on-surface-muted">
-            Document Editor · headings, tables, spacing · export PDF / TXT / DOCX / CSV / Excel
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-on-surface-muted">
+            <span>Document Editor · export PDF / TXT / DOCX / CSV / Excel</span>
+            {canvasId ? (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-primary">
+                {canvasId}
+              </span>
+            ) : (
+              <span className="text-on-surface-muted/80">Canvas id after first message</span>
+            )}
           </p>
         </div>
         {onClose ? (

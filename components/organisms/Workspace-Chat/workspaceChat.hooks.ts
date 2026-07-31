@@ -7,7 +7,7 @@ import {
   getOnboardingStorageKey,
   type OnboardingProfile,
 } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
-import { promptAiAction, listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
+import { listConversationMessagesAction } from "@/lib/domain/actions/ai.actions";
 import { getCurrentUserRoleAction } from "@/lib/domain/actions/profile.actions";
 import { getSkillsAction } from "@/lib/domain/actions/skills.actions";
 import { listLocalRecordsAction } from "@/lib/domain/actions/storage.actions";
@@ -232,6 +232,8 @@ export type ChatTurn = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  /** Model / agent thoughts + tool activity for this turn (interactive, expandable). */
+  thinking?: string;
 };
 
 const HISTORY_PAGE = 20;
@@ -622,12 +624,145 @@ export function useWorkspaceChat(
     setKeySourceState(preferredKeySource(provider, options?.apiKeys));
   }, [keySource, options?.apiKeys, provider]);
 
+  const appendTurnThinking = useCallback((assistantId: string, chunk: string) => {
+    if (!chunk) return;
+    setThinkingText((prev) => prev + chunk);
+    setTurns((prev) =>
+      prev.map((turn) =>
+        turn.id === assistantId
+          ? { ...turn, thinking: `${turn.thinking ?? ""}${chunk}` }
+          : turn,
+      ),
+    );
+  }, []);
+
+  const consumeAiSse = useCallback(
+    async (response: Response, assistantId: string) => {
+      if (!response.ok || !response.body) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Stream failed (${response.status}).`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawDone = false;
+
+      const applyEvent = (raw: string) => {
+        const line = raw.trim();
+        if (!line.startsWith("data:")) return;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") return;
+
+        const event = JSON.parse(payload) as {
+          type: string;
+          text?: string;
+          error?: string;
+          conversationId?: string;
+          dbConversationId?: string;
+          messageId?: string;
+          slug?: string;
+          toolName?: string;
+          reason?: string;
+          ok?: boolean;
+          args?: Record<string, unknown>;
+        };
+
+        if (event.type === "tool_warning") {
+          appendTurnThinking(
+            assistantId,
+            `\n*[MCP Warning: ${event.slug ?? ""} - ${event.reason ?? ""}]*\n`,
+          );
+          return;
+        }
+        if (event.type === "tool_call") {
+          appendTurnThinking(
+            assistantId,
+            `\n> **Calling tool:** \`${event.slug ?? ""}__${event.toolName ?? ""}\`...\n`,
+          );
+          return;
+        }
+        if (event.type === "tool_result") {
+          appendTurnThinking(
+            assistantId,
+            `> **Tool \`${event.slug ?? ""}__${event.toolName ?? ""}\`** ${event.ok ? "completed successfully" : "failed"}.\n\n`,
+          );
+          return;
+        }
+        if (event.type === "requires_confirmation") {
+          setPendingConfirmations((prev) => [
+            ...prev,
+            { slug: event.slug, toolName: event.toolName, args: event.args },
+          ]);
+          return;
+        }
+
+        if (event.type === "thinking" && event.text) {
+          appendTurnThinking(assistantId, event.text);
+          return;
+        }
+        if (event.type === "text" && event.text) {
+          setTurns((prev) =>
+            prev.map((turn) =>
+              turn.id === assistantId ? { ...turn, text: turn.text + event.text } : turn,
+            ),
+          );
+          return;
+        }
+        if (event.type === "created" && event.conversationId) {
+          setProviderConversationId(event.conversationId);
+          return;
+        }
+        if (event.type === "done") {
+          sawDone = true;
+          if (event.conversationId) setProviderConversationId(event.conversationId);
+          if (event.dbConversationId) {
+            setDbConversationId(event.dbConversationId);
+            options?.onConversationSaved?.(event.dbConversationId);
+          }
+          setTurns((prev) =>
+            prev.map((turn) =>
+              turn.id === assistantId
+                ? {
+                    ...turn,
+                    id: event.messageId ?? turn.id,
+                    text: event.text ?? turn.text,
+                  }
+                : turn,
+            ),
+          );
+          setThinkingText("");
+          setStreamingAssistantId(null);
+          return;
+        }
+        if (event.type === "error") {
+          throw new Error(event.error ?? "Stream error.");
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) applyEvent(part);
+      }
+      if (buffer.trim()) applyEvent(buffer);
+
+      if (!sawDone) {
+        throw new Error("Stream ended before completion.");
+      }
+    },
+    [appendTurnThinking, options],
+  );
+
   const sendGoogleStream = useCallback(
     async (text: string) => {
       const assistantId = `a-${Date.now()}`;
       setThinkingText("");
       setStreamingAssistantId(assistantId);
-      setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "" }]);
+      setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "", thinking: "" }]);
 
       const shouldDropChainAndRetry = (message: string) =>
         /404|requested entity was not found|internal error|invalid_request|unrecoverable data loss|the 'type' parameter is required|terminated/i.test(
@@ -649,11 +784,11 @@ export function useWorkspaceChat(
               reader.onerror = reject;
               reader.readAsDataURL(file);
             });
-          })
+          }),
         );
 
         // Gemini uses in-process Workspace tools only — do not pass remote MCP
-        // (erpnext SSE/HTTP). Remote MCP stays on the Cursor path via promptAiAction.
+        // (erpnext SSE/HTTP). Remote MCP stays on the Cursor path.
         const response = await fetch("/api/ai/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -673,110 +808,7 @@ export function useWorkspaceChat(
           }),
         });
 
-        if (!response.ok || !response.body) {
-          const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(payload?.error ?? `Stream failed (${response.status}).`);
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let sawDone = false;
-
-        const applyEvent = (raw: string) => {
-          const line = raw.trim();
-          if (!line.startsWith("data:")) return;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === "[DONE]") return;
-
-          const event = JSON.parse(payload) as {
-            type: string;
-            text?: string;
-            error?: string;
-            conversationId?: string;
-            dbConversationId?: string;
-            messageId?: string;
-            slug?: string;
-            toolName?: string;
-            reason?: string;
-            ok?: boolean;
-            args?: any;
-          };
-
-          if (event.type === "tool_warning") {
-            setThinkingText((prev) => prev + `\n*[MCP Warning: ${event.slug ?? ""} - ${event.reason ?? ""}]*\n`);
-            return;
-          }
-          if (event.type === "tool_call") {
-            setThinkingText((prev) => prev + `\n> **Calling tool:** \`${event.slug ?? ""}__${event.toolName ?? ""}\`...\n`);
-            return;
-          }
-          if (event.type === "tool_result") {
-            setThinkingText((prev) => prev + `> **Tool \`${event.slug ?? ""}__${event.toolName ?? ""}\`** ${event.ok ? "completed successfully" : "failed"}.\n\n`);
-            return;
-          }
-          if (event.type === "requires_confirmation") {
-            setPendingConfirmations((prev) => [...prev, { slug: event.slug, toolName: event.toolName, args: event.args }]);
-            return;
-          }
-
-          if (event.type === "thinking" && event.text) {
-            setThinkingText((prev) => prev + event.text);
-            return;
-          }
-          if (event.type === "text" && event.text) {
-            setThinkingText("");
-            setTurns((prev) =>
-              prev.map((turn) =>
-                turn.id === assistantId ? { ...turn, text: turn.text + event.text } : turn,
-              ),
-            );
-            return;
-          }
-          if (event.type === "created" && event.conversationId) {
-            setProviderConversationId(event.conversationId);
-            return;
-          }
-          if (event.type === "done") {
-            sawDone = true;
-            if (event.conversationId) setProviderConversationId(event.conversationId);
-            if (event.dbConversationId) {
-              setDbConversationId(event.dbConversationId);
-              options?.onConversationSaved?.(event.dbConversationId);
-            }
-            setTurns((prev) =>
-              prev.map((turn) =>
-                turn.id === assistantId
-                  ? {
-                    ...turn,
-                    id: event.messageId ?? turn.id,
-                    text: event.text ?? turn.text,
-                  }
-                  : turn,
-              ),
-            );
-            setThinkingText("");
-            setStreamingAssistantId(null);
-            return;
-          }
-          if (event.type === "error") {
-            throw new Error(event.error ?? "Stream error.");
-          }
-        };
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const parts = buffer.split("\n\n");
-          buffer = parts.pop() ?? "";
-          for (const part of parts) applyEvent(part);
-        }
-        if (buffer.trim()) applyEvent(buffer);
-
-        if (!sawDone) {
-          throw new Error("Stream ended before completion.");
-        }
+        await consumeAiSse(response, assistantId);
       };
 
       try {
@@ -788,7 +820,9 @@ export function useWorkspaceChat(
             setProviderConversationId(undefined);
             setThinkingText("");
             setTurns((prev) =>
-              prev.map((turn) => (turn.id === assistantId ? { ...turn, text: "" } : turn)),
+              prev.map((turn) =>
+                turn.id === assistantId ? { ...turn, text: "", thinking: "" } : turn,
+              ),
             );
             await runStream(undefined);
           } else {
@@ -807,6 +841,7 @@ export function useWorkspaceChat(
     },
     [
       attachments,
+      consumeAiSse,
       googleModel,
       keySource,
       mcpServers,
@@ -814,7 +849,82 @@ export function useWorkspaceChat(
       dbConversationId,
       user?.name,
       user?.email,
-      options,
+    ],
+  );
+
+  const sendCursorStream = useCallback(
+    async (text: string) => {
+      const assistantId = `a-${Date.now()}`;
+      setThinkingText("");
+      setStreamingAssistantId(assistantId);
+      setTurns((prev) => [...prev, { id: assistantId, role: "assistant", text: "", thinking: "" }]);
+
+      try {
+        const filePayloads = await Promise.all(
+          attachments.map(
+            (file) =>
+              new Promise<{ name: string; mimeType: string; base64Data: string }>(
+                (resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    resolve({
+                      name: file.name,
+                      mimeType: file.type || "application/octet-stream",
+                      base64Data: reader.result as string,
+                    });
+                  };
+                  reader.onerror = reject;
+                  reader.readAsDataURL(file);
+                },
+              ),
+          ),
+        );
+
+        const liveMcpServers: Record<string, CursorMcpServerConfig> = {
+          ...(mcpServers ?? {}),
+        };
+        delete liveMcpServers[ERP_MCP_SERVER_KEY];
+        delete liveMcpServers[SCHOOL_ERP_MCP_SERVER_KEY];
+        Object.assign(liveMcpServers, readInternalErpMcpServers());
+
+        const response = await fetch("/api/ai/cursor/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            previousAgentId: providerConversationId,
+            dbConversationId,
+            name: user?.name,
+            email: user?.email,
+            mcpServers: Object.keys(liveMcpServers).length > 0 ? liveMcpServers : undefined,
+            skills,
+            files: filePayloads,
+            keySource,
+          }),
+        });
+
+        await consumeAiSse(response, assistantId);
+        notifySkillsChanged();
+      } catch (err) {
+        setProviderConversationId(undefined);
+        setThinkingText("");
+        setStreamingAssistantId(null);
+        setTurns((prev) =>
+          prev.filter((turn) => turn.id !== assistantId || turn.text.trim().length > 0),
+        );
+        throw err;
+      }
+    },
+    [
+      attachments,
+      consumeAiSse,
+      dbConversationId,
+      keySource,
+      mcpServers,
+      providerConversationId,
+      skills,
+      user?.email,
+      user?.name,
     ],
   );
 
@@ -875,64 +985,7 @@ export function useWorkspaceChat(
         if (provider === AI_PROVIDER.GOOGLE_AI) {
           await sendGoogleStream(finalPrompt);
         } else {
-          const filePayloads = await Promise.all(
-            attachments.map(
-              (file) =>
-                new Promise<{ name: string; mimeType: string; base64Data: string }>(
-                  (resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      resolve({
-                        name: file.name,
-                        mimeType: file.type || "application/octet-stream",
-                        base64Data: reader.result as string,
-                      });
-                    };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                  }
-                )
-            )
-          );
-
-          const liveMcpServers: Record<string, CursorMcpServerConfig> = {
-            ...(mcpServers ?? {}),
-          };
-          delete liveMcpServers[ERP_MCP_SERVER_KEY];
-          delete liveMcpServers[SCHOOL_ERP_MCP_SERVER_KEY];
-          Object.assign(liveMcpServers, readInternalErpMcpServers());
-
-          const result = await promptAiAction({
-            provider,
-            message: finalPrompt,
-            name: user?.name,
-            email: user?.email,
-            mcpServers: Object.keys(liveMcpServers).length > 0 ? liveMcpServers : undefined,
-            skills,
-            dbConversationId,
-            files: filePayloads,
-            keySource,
-          });
-
-          if (result.ok) {
-            // skill-maker / skills_create_skill may have written to DB during this turn
-            notifySkillsChanged();
-            setProviderConversationId(result.data.conversationId);
-            if (result.data.dbConversationId) {
-              setDbConversationId(result.data.dbConversationId);
-              options?.onConversationSaved?.(result.data.dbConversationId);
-            }
-            setTurns((prev) => [
-              ...prev,
-              {
-                id: result.data.messageId ?? `a-${Date.now()}`,
-                role: "assistant",
-                text: result.data.text,
-              },
-            ]);
-          } else {
-            setError(result.error);
-          }
+          await sendCursorStream(finalPrompt);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Request failed.");
@@ -954,6 +1007,7 @@ export function useWorkspaceChat(
       dbConversationId,
       options,
       options?.frappeTool,
+      sendCursorStream,
       sendGoogleStream,
     ],
   );

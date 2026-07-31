@@ -102,7 +102,7 @@ export function useErpPasswordSignIn({
         // Prefer onboarding / workspace with embed flags — nested callbackURL to
         // `/?embed=1&parent=…` without a sticky cookie was causing reload loops.
         const dest = new URL(
-          json.needsOnboarding ? "/" : "/workspace",
+          json.needsOnboarding ? "/onboarding" : "/workspace",
           window.location.origin,
         );
         if (baseUrl) {

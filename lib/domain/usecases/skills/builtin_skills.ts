@@ -35,7 +35,7 @@ Use this skill when the user wants to file leave (vacation, sick, etc.): create 
 ## Requirements
 
 - Provider must be **Cursor** (needs ERPNext MCP + Workspace custom tools together).
-- ERPNext MCP must be connected (user logged into ERPNext in BBAI).
+- ERPNext MCP must be connected (user logged into ERPNext in Giya).
 - Google Workspace must be connected with **email** capability enabled.
 - Prefer tools: ERPNext MCP document tools + Workspace \`send_email\` (first-party custom tool, not remote Google MCP).
 
@@ -104,7 +104,7 @@ Use this skill when the user wants to **wrap up their day**: combine **ERPNext**
 ## Requirements
 
 - Provider must be **Cursor** (ERPNext MCP + Workspace custom tools together).
-- ERPNext MCP connected (user logged into ERPNext in BBAI).
+- ERPNext MCP connected (user logged into ERPNext in Giya).
 - Google Workspace connected with **email** and **calendar** enabled.
 - Prefer: ERPNext \`get_user_profile\`, \`get_documents\`, \`run_report\` + Workspace \`list_recent_emails\`, \`list_upcoming_calendar_events\`.
 

@@ -1,6 +1,6 @@
-# BBAI — App Features
+# Giya — App Features
 
-**Boneless Bangus AI (BBAI)** is Livro Systems’ internal assistant for tasks, QA/bugs, and school setup. It answers from your account, role, and connected tools—not from access you don’t have.
+**Giya** is Livro Systems’ internal assistant for tasks, QA/bugs, and school setup. In Cebuano/Binisaya, *giya* means to guide, steer, conduct, or give direction. It answers from your account, role, and connected tools—not from access you don’t have.
 
 ---
 
@@ -10,13 +10,13 @@
 |--------|------------------|
 | **Sign up / sign in** | Create an account or sign in with email and password. |
 | **Onboarding** | Set your display name, role, and focus (tasks, bugs, school setup, or general). |
-| **Install as app (PWA)** | Open `/landing` and install BBAI as a standalone app when your browser supports it. |
+| **Install as app (PWA)** | Open `/` (or `/landing`) and install Giya as a standalone app when your browser supports it. |
 
 ---
 
 ## Workspace chat
 
-The main place you work with BBAI.
+The main place you work with Giya.
 
 - Ask questions in natural language; replies stream in Markdown.
 - Attach files to a message.
@@ -32,7 +32,7 @@ The main place you work with BBAI.
 
 ## Slash commands & skills
 
-Skills teach BBAI a repeatable workflow. Installed skills show up as `/` commands.
+Skills teach Giya a repeatable workflow. Installed skills show up as `/` commands.
 
 ### Always available
 
@@ -110,7 +110,7 @@ MCP (Model Context Protocol) servers give the agent extra tools.
 
 ---
 
-## What BBAI is good for
+## What Giya is good for
 
 1. **Task intelligence** — priorities, status, and next steps from your connected work systems.
 2. **QA & bugs** — root-cause style help within your permissions and context.
@@ -128,4 +128,4 @@ MCP (Model Context Protocol) servers give the agent extra tools.
 
 ---
 
-*Product name: Boneless Bangus AI · Short name: BBAI · Maker: Livro Systems Inc.*
+*Product name: Giya · Maker: Livro Systems Inc.*

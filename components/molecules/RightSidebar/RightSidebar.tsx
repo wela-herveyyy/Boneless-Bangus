@@ -37,6 +37,7 @@ export function RightSidebarTrigger({
   className = "",
 }: RightSidebarTriggerProps) {
   const { isOpen, isSwitching, isAnyRightSidebarOpen, togglePinned } = sidebar;
+  const centerVertically = topOffset === "50%" || topOffset.trim() === "50%";
 
   return (
     <button
@@ -44,9 +45,11 @@ export function RightSidebarTrigger({
       aria-label={isOpen ? labelOpen : labelClosed}
       aria-expanded={isOpen}
       onClick={togglePinned}
+      style={{ top: topOffset }}
       className={[
-        "right-sidebar-trigger relative z-320 pointer-events-auto flex items-center justify-center shrink-0",
-        "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
+        "right-sidebar-trigger pointer-events-auto fixed z-320 flex size-10 shrink-0 items-center justify-center md:size-12",
+        "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
+        centerVertically ? "-translate-y-1/2" : "",
         isSwitching
           ? "transition-none duration-0"
           : "transition-[right,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",

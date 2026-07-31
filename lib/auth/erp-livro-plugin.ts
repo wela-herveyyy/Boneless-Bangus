@@ -221,7 +221,7 @@ export function erpLivroPlugin(): BetterAuthPlugin {
         async (ctx) => {
           const sid = ctx.body.sid.trim();
           const parent = normalizeErpBaseUrl(ctx.body.parent || ERP_BASE_URL);
-          const callbackURL = ctx.body.callbackURL || "/";
+          const callbackURL = ctx.body.callbackURL || "/onboarding";
 
           if (!parent) {
             throw APIError.from("BAD_REQUEST", {

@@ -5,7 +5,7 @@ import {
   getGoogleWorkspaceAuthStatusService,
   runWorkspaceChatToolService,
 } from "@/lib/domain/services/google_workspace_auth.service";
-import { BBAI_SYSTEM_CONTEXT, usageFromApi } from "@/lib/domain/usecases/ai/prompt.usecase";
+import { GIYA_SYSTEM_CONTEXT, usageFromApi } from "@/lib/domain/usecases/ai/prompt.usecase";
 import {
   WORKSPACE_GEMINI_SYSTEM_HINT,
   WORKSPACE_GEMINI_TOOLS,
@@ -28,7 +28,7 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
   switch (input.provider) {
     case AI_PROVIDER.CURSOR: {
       const result = await promptAgent({
-        message: `${BBAI_SYSTEM_CONTEXT}\n\n${message}`,
+        message: `${GIYA_SYSTEM_CONTEXT}\n\n${message}`,
         name: input.name,
         email: input.email,
         mcpServers: input.mcpServers,
@@ -84,8 +84,8 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
       }
 
       const systemInstruction = workspaceConnected
-        ? `${BBAI_SYSTEM_CONTEXT}\n\n${WORKSPACE_GEMINI_SYSTEM_HINT}`
-        : BBAI_SYSTEM_CONTEXT;
+        ? `${GIYA_SYSTEM_CONTEXT}\n\n${WORKSPACE_GEMINI_SYSTEM_HINT}`
+        : GIYA_SYSTEM_CONTEXT;
 
       const result = await createInteraction({
         message,

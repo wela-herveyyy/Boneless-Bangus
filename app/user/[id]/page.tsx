@@ -13,7 +13,7 @@ type PageProps = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   return {
-    title: "BBAI | User profile",
+    title: "Giya | User profile",
     description: `Profile and prompt history for user ${id}.`,
   };
 }

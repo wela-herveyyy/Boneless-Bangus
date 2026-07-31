@@ -25,13 +25,13 @@ export function AuthShell({ title, description, variant, children }: AuthShellPr
         <FuturisticBackdrop />
 
         <div className="relative z-10">
-          <Link href="/landing" className="inline-flex items-center gap-3 text-primary">
+          <Link href="/" className="inline-flex items-center gap-3 text-primary">
             <span className="flex size-10 items-center justify-center bg-surface-container-high text-primary">
               <LuFishSymbol className="size-5" aria-hidden />
             </span>
             <span>
-              <span className="font-display text-sm font-semibold">BBAI</span>
-              <span className="block text-xs text-on-surface-muted">Boneless Bangus AI</span>
+              <span className="font-display text-sm font-semibold">Giya</span>
+              <span className="block text-xs text-on-surface-muted">Guide · Steer · Direct</span>
             </span>
           </Link>
         </div>

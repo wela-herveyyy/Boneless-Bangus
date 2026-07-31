@@ -20,7 +20,7 @@ function isDcmuAllowedRole(role: string | null): boolean {
 export async function signInAction(formData: FormData) {
   const email = readField(formData, "email");
   const password = readField(formData, "password");
-  const callbackURL = readField(formData, "callbackURL") || "/";
+  const callbackURL = readField(formData, "callbackURL") || "/onboarding";
 
   const result = await signIn({ email, password, callbackURL, rememberMe: true });
 
@@ -60,7 +60,7 @@ export async function signUpAction(formData: FormData) {
   const name = readField(formData, "name");
   const email = readField(formData, "email");
   const password = readField(formData, "password");
-  const callbackURL = readField(formData, "callbackURL") || "/";
+  const callbackURL = readField(formData, "callbackURL") || "/onboarding";
 
   const result = await signUp({ name, email, password, callbackURL });
 

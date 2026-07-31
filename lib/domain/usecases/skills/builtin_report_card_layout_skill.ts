@@ -3,17 +3,17 @@ import type { BuiltinSkillDefinition } from "./builtin_skills";
 /**
  * Canonical BED Report Card layout (DepEd SF9 / Form 138).
  * Derived from Livro school samples (CORE, SAAI, RMB, EXEL, SCSHS, AMSAI,
- * MHRPS, HCJC, SHS Hijas, preschool EXEL). NON-NEGOTIABLE for BBAI.
+ * MHRPS, HCJC, SHS Hijas, preschool EXEL). NON-NEGOTIABLE for Giya.
  */
 export const BED_REPORT_CARD_LAYOUT_INSTRUCTIONS = `# BED Report Card Layout (SF9) — NON-NEGOTIABLE
 
-This skill is the **only allowed general layout** for K–12 / BED **Report Cards** in BBAI.
+This skill is the **only allowed general layout** for K–12 / BED **Report Cards** in Giya.
 
 It is based on real school samples (DepEd SF9 / Form 138 family): CORE (new format), SAAI JHS, RMB, EXEL G1–JHS, SCSHS JHS, AMSAI Gensan GS, MHRPS, HCJC, SHS Hijas (conduct-per-subject), EXEL Preschool.
 
 ## NON-NEGOTIABLE (do not break)
 
-0. **Do not alter any codebase** (Boneless Bangus repo, School ERP app source, local templates under \`lib/\` or \`.tmp/\`). Report Card work is **School ERP documents only** (Print Format / Script Report via MCP). Never “fix” the card by editing BBAI files.
+0. **Do not alter any codebase** (Giya repo, School ERP app source, local templates under \`lib/\` or \`.tmp/\`). Report Card work is **School ERP documents only** (Print Format / Script Report via MCP). Never “fix” the card by editing Giya files.
 1. **Never invent** a different report-card design (no dashboards, cards, “modern” one-pagers, Web Page mockups, or AI restyles).
 2. **Never** invent a new Print Format / Web Page design. If the user asks to **generate a Print Format** for Report Card → follow skill **Generate Report Card Print Format (SF9)** and write HTML/CSS **into the school’s Print Format doc via MCP** — not into this repo.
 3. When the user asks to **run / print** an existing Report Card → prefer School ERP **Script Report** \`Report Card\` / \`Report Card Senior High\` / \`Preschool Report Card\` (see School ERP Grading skills). Layout = ERP template + **this** structure.
@@ -94,7 +94,7 @@ Allowed alternate (school option, e.g. HCJC): honors bands (With Highest / High 
 - Using Web Page / marketing landing layouts for report cards.
 - Mixing college TOR / Form 10 layout into Report Card (those are different skills/reports).
 
-## How to respond in BBAI
+## How to respond in Giya
 
 1. Confirm which report: GS/JHS \`Report Card\`, SHS \`Report Card Senior High\`, or \`Preschool Report Card\`.
 2. Collect filters from the School ERP Grading skill (school year, quarter, section, student range, etc.).
@@ -120,7 +120,7 @@ export function builtinReportCardLayoutSkill(): BuiltinSkillDefinition {
       commandName: "school-erp",
       subCommand: "report-card-layout",
       promptText:
-        'Follow the skill "BED Report Card Layout (SF9)" — NON-NEGOTIABLE. Do NOT alter any codebase (BBAI or School ERP apps). Use only School ERP MCP/Print Format/Script Reports. Enforce DepEd SF9 / Form 138 structure from that skill only — no inventing layouts or editing local repo files.',
+        'Follow the skill "BED Report Card Layout (SF9)" — NON-NEGOTIABLE. Do NOT alter any codebase (Giya or School ERP apps). Use only School ERP MCP/Print Format/Script Reports. Enforce DepEd SF9 / Form 138 structure from that skill only — no inventing layouts or editing local repo files.',
     },
   };
 }

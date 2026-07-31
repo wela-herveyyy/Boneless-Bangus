@@ -16,7 +16,7 @@ type PageProps = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   return {
-    title: "BBAI | Team profile",
+    title: "Giya | Team profile",
     description: `Team dashboard for ${id}.`,
   };
 }

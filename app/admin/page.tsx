@@ -7,7 +7,7 @@ import { auth } from "@/lib/domain/services/auth.service";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 
 export const metadata: Metadata = {
-  title: "BBAI | Admin",
+  title: "Giya | Admin",
   description: "Manage teams, user access, and review prompt history.",
 };
 

@@ -3,6 +3,7 @@ import { getSessionFromHeaders } from "@/lib/domain/services/auth.service";
 
 const authPaths = ["/sign-in", "/sign-up", "/dcmu"];
 const publicPaths = [
+  "/",
   "/sign-in",
   "/sign-up",
   "/dcmu",
@@ -14,7 +15,10 @@ const publicPaths = [
 ];
 
 function matchesPath(pathname: string, paths: string[]) {
-  return paths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  return paths.some((path) => {
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(`${path}/`);
+  });
 }
 
 export async function proxy(request: NextRequest) {
@@ -34,13 +38,13 @@ export async function proxy(request: NextRequest) {
   const hasEmbedSid = Boolean(sid?.trim() && parent?.trim());
 
   // Already signed in — leave auth pages. Keep embed sid/parent for silent login.
-  // Send to `/` (not /workspace): no-role users need onboarding; home routes
-  // role users to workspace. Avoids sign-in ↔ workspace reload loops.
+  // Send to `/onboarding` (not /workspace): no-role users finish setup there;
+  // users with a role are forwarded to workspace by that page.
   if (session && matchesPath(pathname, authPaths)) {
     if (hasEmbedSid) {
       return NextResponse.next();
     }
-    const dest = new URL("/", request.url);
+    const dest = new URL("/onboarding", request.url);
     const embed = request.nextUrl.searchParams.get("embed");
     if (embed) dest.searchParams.set("embed", embed);
     if (parent) dest.searchParams.set("parent", parent);

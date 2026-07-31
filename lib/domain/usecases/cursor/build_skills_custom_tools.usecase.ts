@@ -30,7 +30,7 @@ export async function buildSkillsCustomTools(
 ): Promise<Record<string, SDKCustomTool>> {
   return {
     skills_create_skill: tool(
-      "Create a reusable skill and save it to the BBAI database (not source code). Use after collecting name, description, and instructions via /skill-maker.",
+      "Create a reusable skill and save it to the Giya database (not source code). Use after collecting name, description, and instructions via /skill-maker.",
       {
         type: "object",
         properties: {

@@ -98,7 +98,7 @@ export function WorkspaceSidebar({
               <LuFishSymbol className="size-4" aria-hidden />
             </span>
             <div className="min-w-0">
-              <p className="font-display text-sm font-semibold text-on-surface">BBAI</p>
+              <p className="font-display text-sm font-semibold text-on-surface">Giya</p>
               <p className="text-xs text-on-surface-muted">Chat history</p>
             </div>
           </div>
@@ -190,7 +190,7 @@ export function WorkspaceSidebar({
               </span>
               <p className="text-sm font-medium text-on-surface">No conversations yet</p>
               <p className="mt-1 text-xs leading-relaxed text-on-surface-muted">
-                Your chats with BBAI will show up here.
+                Your chats with Giya will show up here.
               </p>
             </div>
           ) : (

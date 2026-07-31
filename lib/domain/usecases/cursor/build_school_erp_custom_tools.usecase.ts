@@ -220,7 +220,7 @@ async function buildEnrolleeSummary(session: SchoolSession) {
 }
 
 /**
- * In-process School ERP tools using the desk SID from BBAI School ERP login.
+ * In-process School ERP tools using the desk SID from Giya School ERP login.
  * Works even when remote school_erpnext MCP tool discovery fails.
  */
 export async function buildSchoolErpCustomTools(
@@ -378,7 +378,7 @@ export async function buildSchoolErpCustomTools(
             return {
               ok: false,
               error:
-                "School MCP session missing. Connect School ERP in the BBAI rail so the desk SID is available.",
+                "School MCP session missing. Connect School ERP in the Giya rail so the desk SID is available.",
             };
           }
           const kind = String(args.kind || FRAPPE_OUTPUT_KIND.PRINT_FORMAT) as FrappeOutputKind;
@@ -409,7 +409,7 @@ export async function buildSchoolErpCustomTools(
           name: {
             type: "string",
             description:
-              'Web Page document name (desk slug), title, or route — e.g. "bbai-—-boneless-bangus-ai", "BBAI — Boneless Bangus AI", or "bbai"',
+              'Web Page document name (desk slug), title, or route — e.g. "giya", "Giya", or a published route',
           },
           main_section: {
             type: "string",
@@ -423,7 +423,7 @@ export async function buildSchoolErpCustomTools(
           },
           route: {
             type: "string",
-            description: "Optional website route to set, e.g. bbai",
+            description: "Optional website route to set, e.g. giya",
           },
         },
         required: ["name", "main_section"],
@@ -435,7 +435,7 @@ export async function buildSchoolErpCustomTools(
             return {
               ok: false,
               error:
-                "School MCP session missing. Connect School ERP in the BBAI rail so the desk SID is available.",
+                "School MCP session missing. Connect School ERP in the Giya rail so the desk SID is available.",
             };
           }
           const name = String(args.name || "").trim();
@@ -469,7 +469,7 @@ export async function buildSchoolErpCustomTools(
           });
           if (!result.ok) return { ok: false, error: result.error };
 
-          const route = fields.route || "bbai";
+          const route = fields.route || "giya";
           const target: FrappeOutputTarget = {
             kind: FRAPPE_OUTPUT_KIND.WEBPAGE,
             name: result.data.name,

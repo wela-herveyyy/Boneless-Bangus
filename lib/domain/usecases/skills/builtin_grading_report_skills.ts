@@ -418,7 +418,7 @@ Use this skill when the user wants to **generate / open / run** a BED grading Sc
 
 ## Requirements
 
-- School ERP connected in BBAI (rail / embed SID).
+- School ERP connected in Giya (rail / embed SID).
 - Prefer Cursor + School ERP tools / school MCP (\`run_report\` when available).
 - These are **Desk Script Reports** under module **Grading** — not Web Pages.
 

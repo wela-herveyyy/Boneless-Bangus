@@ -439,7 +439,7 @@ function ErpDashboardView({
         <LuInfo className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
         <p className="text-xs leading-relaxed text-on-surface">
           Whatever data this ERPNext account can access,{" "}
-          <span className="font-semibold">BBAI</span> can access through ERPNext MCP tools.
+          <span className="font-semibold">Giya</span> can access through ERPNext MCP tools.
         </p>
       </div>
 
@@ -500,7 +500,7 @@ function SchoolErpDashboardView({
       <div className="flex gap-2.5 rounded-xl bg-primary/8 px-3 py-2.5">
         <LuInfo className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
         <p className="text-xs leading-relaxed text-on-surface">
-          Whatever data this school account can access, <span className="font-semibold">BBAI</span>{" "}
+          Whatever data this school account can access, <span className="font-semibold">Giya</span>{" "}
           can access through School ERP MCP tools.
         </p>
       </div>
@@ -726,7 +726,7 @@ export function WorkspaceToolsSidebar({ topOffset }: { topOffset?: string } = {}
       icon={<SiErpnext className="size-5" aria-hidden />}
       title="Tools"
       brandLabel="ERPNext"
-      loginHint="Livro session is created when you sign in to BBAI."
+      loginHint="Livro session is created when you sign in to Giya."
       usesAppSessionLogin
       missingSessionTitle="Livro session missing"
       missingSessionBody="You already sign in with Livro on the app login page. Sign out and sign in again to refresh Livro MCP."

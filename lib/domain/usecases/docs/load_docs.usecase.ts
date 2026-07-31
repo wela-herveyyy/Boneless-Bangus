@@ -9,7 +9,7 @@ const DOC_SOURCES = [
     file: "FEATURES.md",
     title: "App features",
     shortTitle: "Features",
-    description: "What you can do in Boneless Bangus AI — workspace, skills, tools, and admin.",
+    description: "What you can do in Giya — workspace, skills, tools, and admin.",
   },
   {
     id: "readme" as const,

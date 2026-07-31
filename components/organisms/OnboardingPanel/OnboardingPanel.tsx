@@ -87,13 +87,13 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
         <FuturisticBackdrop />
 
         <div className="relative z-10">
-          <Link href="/landing" className="inline-flex items-center gap-3 text-primary">
+          <Link href="/" className="inline-flex items-center gap-3 text-primary">
             <span className="flex size-10 items-center justify-center bg-surface-container-high text-primary">
               <LuFishSymbol className="size-5" aria-hidden />
             </span>
             <span>
-              <span className="font-display text-sm font-semibold">BBAI</span>
-              <span className="block text-xs text-on-surface-muted">Boneless Bangus AI</span>
+              <span className="font-display text-sm font-semibold">Giya</span>
+              <span className="block text-xs text-on-surface-muted">Guide · Steer · Direct</span>
             </span>
           </Link>
         </div>
@@ -103,13 +103,13 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
           <blockquote className="font-display text-2xl font-semibold leading-snug text-on-surface xl:text-3xl">
             &ldquo;Just a few questions so I know how to help — and what to call you.&rdquo;
           </blockquote>
-          <p className="text-sm text-on-surface-muted">— Boneless Bangus AI</p>
+          <p className="text-sm text-on-surface-muted">— Giya</p>
           <ul className="space-y-3 pt-2">
             <li className="rounded-xl bg-surface-container-high/80 px-4 py-3 text-sm leading-relaxed text-on-surface-muted">
               Your answers stay on this device — same as other PWA storage.
             </li>
             <li className="rounded-xl bg-surface-container-high/80 px-4 py-3 text-sm leading-relaxed text-on-surface-muted">
-              BBAI only uses data your account already has access to.
+              Giya only uses data your account already has access to.
             </li>
             <li className="rounded-xl bg-surface-container-high/80 px-4 py-3 text-sm leading-relaxed text-on-surface-muted">
               You can redo onboarding anytime from this page.
@@ -125,7 +125,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
         <div className="mb-6 w-full max-w-md space-y-2 lg:hidden">
           <p className="text-xs font-medium uppercase tracking-wider text-secondary">Getting started</p>
           <p className="font-display text-lg font-semibold leading-snug text-on-surface">
-            Tell BBAI a bit about you
+            Tell Giya a bit about you
           </p>
         </div>
 
@@ -151,7 +151,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
               <div>
                 <h1 className="font-display text-3xl font-semibold text-on-surface">What&apos;s your name?</h1>
                 <p className="mt-2 text-sm text-on-surface-muted">
-                  How should BBAI greet you in this workspace?
+                  How should Giya greet you in this workspace?
                 </p>
               </div>
               <label className="block space-y-2">
@@ -254,7 +254,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
                   You&apos;re all set, {profile.name.trim().split(" ")[0]}.
                 </h1>
                 <p className="mt-2 text-sm text-on-surface-muted">
-                  BBAI will prioritize {getFocusLabel(profile.focus).toLowerCase()} for your{" "}
+                  Giya will prioritize {getFocusLabel(profile.focus).toLowerCase()} for your{" "}
                   {getRoleLabel(profile.role, onboardingRoles).toLowerCase()} workflow.
                 </p>
               </div>
@@ -274,7 +274,7 @@ export function OnboardingPanel({ defaultName, userId }: OnboardingPanelProps) {
               </div>
               <div className="flex flex-col gap-3">
                 <Link href="/workspace" className={`${primaryLinkClass} w-full`}>
-                  Open BBAI workspace
+                  Open Giya workspace
                 </Link>
                 <Button type="button" variant="secondary" onClick={restart}>
                   Redo onboarding

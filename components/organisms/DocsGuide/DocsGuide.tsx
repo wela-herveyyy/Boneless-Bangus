@@ -90,7 +90,7 @@ export function DocsGuide({ docs }: DocsGuideProps) {
               ← Home
             </Link>
             <Link
-              href="/landing"
+              href="/"
               className="hidden text-sm text-on-surface-muted transition-colors hover:text-primary sm:inline"
             >
               Install app
@@ -111,12 +111,12 @@ export function DocsGuide({ docs }: DocsGuideProps) {
               <LuFishSymbol className="size-7" aria-hidden />
             </div>
             <div>
-              <p className="font-display text-lg font-semibold tracking-tight text-primary">BBAI</p>
+              <p className="font-display text-lg font-semibold tracking-tight text-primary">Giya</p>
               <p className="text-sm text-on-surface-muted">Documentation</p>
             </div>
           </div>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-on-surface sm:text-4xl">
-            How BBAI works
+            How Giya works
           </h1>
           <p className="max-w-2xl text-base leading-relaxed text-on-surface-muted">
             Start with app features, then quick start and architecture. Search and section nav stay
@@ -251,7 +251,7 @@ export function DocsGuide({ docs }: DocsGuideProps) {
         </div>
 
         <footer className="mt-10 pb-4 text-center text-xs text-on-surface-muted">
-          Boneless Bangus AI · BBAI · Livro Systems Inc.
+          Giya · Livro Systems Inc.
         </footer>
       </div>
 

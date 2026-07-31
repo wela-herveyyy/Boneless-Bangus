@@ -36,6 +36,7 @@ export function frappeToolModeFromKind(kind: FrappeOutputKind): FrappeToolMode {
   if (kind === FRAPPE_OUTPUT_KIND.WEBFORM) return FRAPPE_TOOL_MODE.WEBFORM;
   if (kind === FRAPPE_OUTPUT_KIND.WEBPAGE) return FRAPPE_TOOL_MODE.WEBPAGE;
   if (kind === FRAPPE_OUTPUT_KIND.PRINT_FORMAT) return FRAPPE_TOOL_MODE.PRINT_FORMAT;
+  if (kind === FRAPPE_OUTPUT_KIND.DOCUMENT_EDITOR) return FRAPPE_TOOL_MODE.DOCUMENT_EDITOR;
   return FRAPPE_TOOL_MODE.OFF;
 }
 

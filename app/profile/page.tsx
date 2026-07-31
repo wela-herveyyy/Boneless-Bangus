@@ -7,7 +7,7 @@ import { getProfileService } from "@/lib/domain/services/profile.service";
 import type { UserRole } from "@/lib/entities/users.type";
 
 export const metadata: Metadata = {
-  title: "BBAI | Profile",
+  title: "Giya | Profile",
   description: "Manage your profile, team, and API keys.",
 };
 

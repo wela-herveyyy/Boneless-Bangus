@@ -28,7 +28,7 @@ async function loadSf9TemplateInstructions(): Promise<string> {
   const css = await readFile(path.join(dir, "bed_report_card_sf9_print.css"), "utf8");
   return `# ${BED_REPORT_CARD_SF9_TEMPLATE_SKILL_NAME}
 
-Canonical BED Report Card SF9 Print Format assets. Deliver to School ERP via MCP only — do not edit the BBAI codebase.
+Canonical BED Report Card SF9 Print Format assets. Deliver to School ERP via MCP only — do not edit the Giya codebase.
 
 ## Canonical HTML (Print Format \`html\`)
 

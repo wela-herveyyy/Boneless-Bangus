@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BBAI_OUTPUT_EVENT,
+  GIYA_OUTPUT_EVENT,
   FRAPPE_OUTPUT_KIND,
   buildFrappeDeskSourcePath,
   buildFrappeOutputPath,
@@ -383,7 +383,7 @@ export function useOutputInteractive() {
     window.addEventListener("bbai-school-erp-session", onSession);
     window.addEventListener("bbai-erp-session", onSession);
     window.addEventListener("storage", onSession);
-    window.addEventListener(BBAI_OUTPUT_EVENT, onTarget);
+    window.addEventListener(GIYA_OUTPUT_EVENT, onTarget);
 
     const session = readSchoolSession();
     if (session) void bindSchoolPreviewSession(session);
@@ -396,7 +396,7 @@ export function useOutputInteractive() {
       window.removeEventListener("bbai-school-erp-session", onSession);
       window.removeEventListener("bbai-erp-session", onSession);
       window.removeEventListener("storage", onSession);
-      window.removeEventListener(BBAI_OUTPUT_EVENT, onTarget);
+      window.removeEventListener(GIYA_OUTPUT_EVENT, onTarget);
     };
   }, [loadTarget, refreshSchoolSession]);
 
@@ -549,7 +549,7 @@ export function useOutputInteractive() {
 export function dispatchOutputTarget(target: FrappeOutputTarget) {
   pendingOutputTarget = target;
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(BBAI_OUTPUT_EVENT, { detail: target }));
+  window.dispatchEvent(new CustomEvent(GIYA_OUTPUT_EVENT, { detail: target }));
 }
 
 export function clearPendingOutputTarget() {

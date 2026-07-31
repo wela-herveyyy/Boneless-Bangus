@@ -18,7 +18,7 @@ import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
 export async function GET(request: Request) {
   const userSession = await auth();
   if (!userSession || userSession.expired) {
-    return new Response("Sign in to BBAI first.", { status: 401 });
+    return new Response("Sign in to Giya first.", { status: 401 });
   }
 
   const jar = await cookies();

@@ -455,7 +455,7 @@ export function GithubSidebar({ topOffset }: { topOffset?: string } = {}) {
                     <p className="text-[11px] leading-relaxed text-on-surface-variant">
                       Recommended:{" "}
                       <a
-                        href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=BBAI"
+                        href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=Giya"
                         target="_blank"
                         rel="noreferrer"
                         className="font-medium text-primary hover:underline"

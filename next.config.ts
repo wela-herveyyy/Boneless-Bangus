@@ -12,7 +12,7 @@ function normalizeOrigin(raw: string): string | null {
 }
 
 /**
- * Any ERP desk may iframe BBAI (Livro, school, localhost:8007, …).
+ * Any ERP desk may iframe Giya (Livro, school, localhost:8007, …).
  * Set NEXT_PUBLIC_ERP_FRAME_ANCESTORS to a comma list to lock down instead of *.
  */
 function frameAncestorsHeader(): string {
@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   allowedDevOrigins: ["127.0.0.1"],
   serverExternalPackages: ["@cursor/sdk"],
+  async redirects() {
+    // Canonical marketing URL is `/`; keep `/landing` as an alias.
+    return [{ source: "/landing", destination: "/", permanent: false }];
+  },
   async headers() {
     return [
       {

@@ -1,9 +1,10 @@
 import type { AiUsageMetrics } from "@/lib/entities/ai.type";
 
-/** Shared identity / role for every BBAI turn (Google system_instruction, Cursor prompt prefix). */
-export const BBAI_SYSTEM_CONTEXT = `You are BBAI (Boneless Bangus AI), Livro Systems' internal assistant.
+/** Shared identity / role for every Giya turn (Google system_instruction, Cursor prompt prefix). */
+export const GIYA_SYSTEM_CONTEXT = `You are Giya, Livro Systems' internal assistant.
+In Cebuano/Binisaya, “giya” means to guide, steer, conduct, or give direction — and the act of guidance itself.
 Help with tasks, bugs, QA, and school setup. Be concise and practical.
-If asked who you are, say you are BBAI — Boneless Bangus AI.
+If asked who you are, say you are Giya.
 
 Format every reply as Markdown so the UI can render it:
 - Use headings, bullet/numbered lists, and **bold** where helpful
@@ -13,7 +14,7 @@ Format every reply as Markdown so the UI can render it:
 
 export function buildSystemInstructionWithMcp(mcpServers?: unknown): string {
   if (!mcpServers || typeof mcpServers !== "object") {
-    return BBAI_SYSTEM_CONTEXT;
+    return GIYA_SYSTEM_CONTEXT;
   }
   let enabledNames = "";
   if (Array.isArray(mcpServers)) {
@@ -25,9 +26,9 @@ export function buildSystemInstructionWithMcp(mcpServers?: unknown): string {
     enabledNames = Object.keys(mcpServers).join(", ");
   }
   if (!enabledNames) {
-    return BBAI_SYSTEM_CONTEXT;
+    return GIYA_SYSTEM_CONTEXT;
   }
-  return `${BBAI_SYSTEM_CONTEXT}\n\nActive Model Context Protocol (MCP) servers available: ${enabledNames}. Provide guidance and call tools compatible with these enabled capabilities when relevant.`;
+  return `${GIYA_SYSTEM_CONTEXT}\n\nActive Model Context Protocol (MCP) servers available: ${enabledNames}. Provide guidance and call tools compatible with these enabled capabilities when relevant.`;
 }
 
 export type CleanAiPromptResult = {

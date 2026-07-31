@@ -8,8 +8,8 @@ import { normalizeErpBaseUrl } from "@/lib/entities/erpnext.type";
 import { isLivroParent } from "@/lib/utils/erp-embed";
 
 export const metadata: Metadata = {
-  title: "BBAI | Workspace",
-  description: "Boneless Bangus AI workspace — tasks, bugs, and school setup support.",
+  title: "Giya | Workspace",
+  description: "Giya workspace — tasks, bugs, and school setup support.",
 };
 
 type WorkspacePageProps = {
@@ -57,7 +57,7 @@ export default async function Page({ searchParams }: WorkspacePageProps) {
   // Cookie session but no role → onboarding (not sign-in — that loops forever)
   const userSession = await auth();
   if (!userSession || userSession.expired) {
-    redirect(`/${qs}`);
+    redirect(`/onboarding${qs}`);
   }
 
   const profileData = await getProfileService(userSession.user.id);

@@ -143,7 +143,7 @@ export async function POST(request: Request) {
       erpRoles,
       // New school users still need onboarding — but only after session cookie sticks
       needsOnboarding: !role,
-      redirectTo: !role ? "/" : "/workspace",
+      redirectTo: !role ? "/onboarding" : "/workspace",
       // Client must set this via document.cookie — Set-Cookie from fetch is
       // blocked in cross-site ERPNext iframes (127.0.0.1 embedding localhost).
       sessionCookie: {

@@ -25,7 +25,7 @@ export function createSkillsMcpServer(userId: string) {
         {
           name: "create_skill",
           description:
-            "Create and persist a new reusable skill in the BBAI skills database (not source code). Requires name, description, and detailed instructions.",
+            "Create and persist a new reusable skill in the Giya skills database (not source code). Requires name, description, and detailed instructions.",
           inputSchema: {
             type: "object",
             properties: {

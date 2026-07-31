@@ -124,7 +124,7 @@ export function AdminShell({
             <LuFishSymbol className="size-5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="font-display text-sm font-semibold text-on-surface">BBAI Control</p>
+            <p className="font-display text-sm font-semibold text-on-surface">Giya Control</p>
             <p className="text-xs text-on-surface-muted">
               {isTeamLeaderNav ? "Team leader" : "Administration"}
             </p>

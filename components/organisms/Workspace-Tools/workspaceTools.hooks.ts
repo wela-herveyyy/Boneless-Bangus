@@ -586,7 +586,7 @@ export function useErpLogin(config: ErpToolConfig) {
         if (!json) {
           setLoginError(
             res.status === 401
-              ? "Sign in to BBAI first, then connect School ERP."
+              ? "Sign in to Giya first, then connect School ERP."
               : `School login failed (HTTP ${res.status}).`,
           );
           return;
@@ -655,7 +655,7 @@ export function useErpLogin(config: ErpToolConfig) {
         if (!json) {
           setLoginError(
             res.status === 401
-              ? "Sign in to BBAI first, then connect School ERP."
+              ? "Sign in to Giya first, then connect School ERP."
               : `School login failed (HTTP ${res.status}).`,
           );
           return;

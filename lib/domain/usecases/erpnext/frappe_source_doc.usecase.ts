@@ -313,7 +313,7 @@ export async function fetchFrappeSourceDoc(input: {
     fields[def.key] = value == null ? "" : String(value);
   }
 
-  // Also read legacy/Text Editor field — BBAI used to write only main_section.
+  // Also read legacy/Text Editor field — Giya used to write only main_section.
   const mainSection =
     doc.main_section == null ? "" : String(doc.main_section);
   const mainSectionHtml = fields.main_section_html ?? "";

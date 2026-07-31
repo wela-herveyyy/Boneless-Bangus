@@ -61,7 +61,7 @@ async function main() {
   const skipSkills = hasFlag("--skip-skills");
   const skipMcp = hasFlag("--skip-mcp");
 
-  console.log("BBAI seed-deploy");
+  console.log("Giya seed-deploy");
   console.log(`  DATABASE_URL host: ${safeDbHost(process.env.DATABASE_URL)}`);
   if (author) console.log(`  skills author: ${author}`);
 

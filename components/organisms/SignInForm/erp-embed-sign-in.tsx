@@ -108,7 +108,7 @@ export function ErpEmbedSignIn({
             { forceSchool: !isLivro, schoolCode: json.schoolCode },
           );
           // Stay inside the ERPNext chat iframe — never break out to a new tab
-          const dest = json.redirectTo || (json.needsOnboarding ? "/" : "/workspace");
+          const dest = json.redirectTo || (json.needsOnboarding ? "/onboarding" : "/workspace");
           const url = new URL(dest, window.location.origin);
           url.searchParams.set("embed", "1");
           // Keep parent in URL — iframe sessionStorage can be flaky cross-port
@@ -128,7 +128,7 @@ export function ErpEmbedSignIn({
         started.current = false;
         setError(
           err instanceof Error && err.name === "AbortError"
-            ? "ERP sign-in timed out. Is the school site reachable from BBAI?"
+            ? "ERP sign-in timed out. Is the school site reachable from Giya?"
             : err instanceof Error
               ? err.message
               : "SID sign-in failed.",

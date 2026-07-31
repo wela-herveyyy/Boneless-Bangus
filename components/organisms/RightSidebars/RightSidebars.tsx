@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
-import { ThemeSidebar } from "@/components/organisms/ThemeSidebar/ThemeSidebar";
 import { GoogleWorkspaceSidebar } from "@/components/organisms/GoogleWorkspaceSidebar/GoogleWorkspaceSidebar";
 import { GithubSidebar } from "@/components/organisms/GithubSidebar/GithubSidebar";
 import {
@@ -20,11 +19,7 @@ import {
 } from "@/lib/utils/erp-embed";
 import { buildRightDockTools, RightToolsDock } from "./RightToolsDock";
 
-/** Theme only on public pages — workspace theme/skills/settings live in Profile. */
-const PUBLIC_SIDEBARS: ComponentType<{ topOffset?: string }>[] = [ThemeSidebar];
-
 const AUTH_SIDEBAR_PATHS = ["/workspace", "/admin", "/user", "/team"];
-const PUBLIC_THEME_PATHS = ["/landing", "/docs", "/sign-in", "/sign-up", "/dcmu"];
 
 function syncSchoolSidFromUrl() {
   if (typeof window === "undefined") return;
@@ -72,45 +67,35 @@ export function RightSidebars() {
   }, [pathname]);
 
   const showAuthRail = AUTH_SIDEBAR_PATHS.some((path) => pathname?.startsWith(path));
-  const showPublicTheme = PUBLIC_THEME_PATHS.some(
-    (path) => pathname === path || pathname?.startsWith(`${path}/`),
-  );
-
-  if (!showAuthRail && !showPublicTheme) return null;
+  if (!showAuthRail) return null;
 
   const isTeacher = role === "teacher";
   const permsReady = permissions !== null;
 
   const showGoogle =
-    showAuthRail &&
     permsReady &&
     (isTeacher || hasPermission(permissions, USER_PERMISSION.GOOGLE_WORKSPACE_ACCESS));
   const showGithub =
-    showAuthRail &&
     permsReady &&
     !isTeacher &&
     hasPermission(permissions, USER_PERMISSION.GITHUB_MCP_ACCESS);
   const showSchool =
-    showAuthRail &&
     permsReady &&
     !isTeacher &&
     hasPermission(permissions, USER_PERMISSION.ERPNEXT_SCHOOL_ACCESS);
   const showLivro =
-    showAuthRail &&
     permsReady &&
     !isTeacher &&
     hasPermission(permissions, USER_PERMISSION.ERPNEXT_LIVRO_ACCESS);
 
-  const sidebars: ComponentType<{ topOffset?: string }>[] = showAuthRail
-    ? isTeacher
-      ? [GoogleWorkspaceSidebar]
-      : [
+  const sidebars: ComponentType<{ topOffset?: string }>[] = isTeacher
+    ? [GoogleWorkspaceSidebar]
+    : [
         ...(showGoogle ? [GoogleWorkspaceSidebar] : []),
         ...(showGithub ? [GithubSidebar] : []),
         ...(showSchool ? [SchoolErpToolsSidebar] : []),
         ...(showLivro ? [WorkspaceToolsSidebar] : []),
-      ]
-    : PUBLIC_SIDEBARS;
+      ];
 
   const dockTools = buildRightDockTools({
     showGoogle,
@@ -118,16 +103,6 @@ export function RightSidebars() {
     showSchool,
     showLivro,
   });
-
-  if (!showAuthRail) {
-    return (
-      <div className="pointer-events-none fixed inset-0 z-300">
-        {sidebars.map((Sidebar, i) => (
-          <Sidebar key={i} />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <RightToolsDock tools={dockTools}>
