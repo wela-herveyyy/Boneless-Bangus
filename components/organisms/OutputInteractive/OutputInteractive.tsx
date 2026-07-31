@@ -1,7 +1,14 @@
 "use client";
 
-import { useRef } from "react";
 import {
+  useCallback,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import {
+  LuAppWindow,
   LuCode,
   LuExternalLink,
   LuFileDown,
@@ -13,6 +20,7 @@ import {
   LuX,
 } from "react-icons/lu";
 import {
+  DetachedFloatingPanel,
   languageForSourceField,
   SimpleCodeEditor,
 } from "@/components/molecules/SimpleCodeEditor/SimpleCodeEditor";
@@ -30,6 +38,8 @@ export function OutputInteractive({
   canvasId?: string | null;
 } = {}) {
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
+  const [workspaceDetached, setWorkspaceDetached] = useState(false);
+  const dockWorkspace = useCallback(() => setWorkspaceDetached(false), []);
   const {
     state,
     tab,
@@ -61,6 +71,8 @@ export function OutputInteractive({
     { id: "source", label: "Source" },
   ];
 
+  const canDetachWorkspace = Boolean(state.target) && !source.loading;
+
   return (
     <section className="flex h-full min-h-0 flex-col bg-surface-container-low">
       <header className="flex items-start justify-between gap-3 px-5 py-4">
@@ -91,7 +103,20 @@ export function OutputInteractive({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {tab === "preview" && state.frameUrl ? (
+          {canDetachWorkspace ? (
+            <button
+              type="button"
+              onClick={() => setWorkspaceDetached(true)}
+              disabled={workspaceDetached}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-high px-2.5 py-2 text-[11px] font-semibold text-on-surface-muted transition-colors hover:text-on-surface disabled:opacity-50"
+              aria-label="Detach editor and preview"
+              title="Detach editor + preview"
+            >
+              <LuAppWindow className="size-3.5" />
+              Detach
+            </button>
+          ) : null}
+          {tab === "preview" && state.frameUrl && !workspaceDetached ? (
             <>
               <button
                 type="button"
@@ -125,7 +150,7 @@ export function OutputInteractive({
               </button>
             </>
           ) : null}
-          {tab === "source" ? (
+          {tab === "source" && !workspaceDetached ? (
             <button
               type="button"
               onClick={refreshSource}
@@ -169,8 +194,9 @@ export function OutputInteractive({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
+              disabled={workspaceDetached}
               className={[
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-45",
                 active
                   ? "bg-primary text-on-primary"
                   : "bg-surface-container-high text-on-surface-muted hover:text-on-surface",
@@ -187,40 +213,14 @@ export function OutputInteractive({
       </div>
 
       <div className="relative mx-5 mb-5 min-h-0 flex-1 overflow-hidden rounded-2xl bg-surface-container-lowest">
-        {tab === "preview" ? (
-          <>
-            {state.status || state.error || state.loading ? (
-              <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium text-on-surface backdrop-blur-md">
-                {state.loading ? (
-                  <LuLoaderCircle className="size-3.5 animate-spin text-primary" />
-                ) : (
-                  <span
-                    className={[
-                      "size-2 rounded-full",
-                      state.error ? "bg-secondary" : "bg-emerald-500",
-                    ].join(" ")}
-                  />
-                )}
-                <span className={state.error ? "text-secondary" : "text-on-surface-muted"}>
-                  {state.error || state.status}
-                </span>
-              </div>
-            ) : null}
-
-            {state.frameUrl ? (
-              <iframe
-                key={state.frameUrl}
-                ref={previewFrameRef}
-                data-bbai-output-preview="1"
-                title={state.title || "School ERP preview"}
-                src={state.frameUrl}
-                className="h-full w-full bg-white"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
-              />
-            ) : (
-              <EmptyPreview toolLabel={toolLabel} />
-            )}
-          </>
+        {workspaceDetached ? (
+          <DetachedPlaceholder onDock={dockWorkspace} />
+        ) : tab === "preview" ? (
+          <PreviewPane
+            state={state}
+            toolLabel={toolLabel}
+            frameRef={previewFrameRef}
+          />
         ) : (
           <SourceEditor
             source={source}
@@ -232,7 +232,109 @@ export function OutputInteractive({
           />
         )}
       </div>
+
+      {workspaceDetached ? (
+        <DetachedFloatingPanel
+          title={state.title || source.name || toolLabel || "Output workspace"}
+          eyebrow="Editor + preview"
+          onDock={dockWorkspace}
+          minWidth={860}
+          minHeight={480}
+        >
+          <DetachedWorkspace
+            source={source}
+            fieldDefs={fieldDefs}
+            onActiveField={setActiveField}
+            onChange={setFieldValue}
+            onSave={() => void saveSource()}
+            onRefreshSource={refreshSource}
+            onReloadPreview={reload}
+            frameUrl={state.frameUrl}
+            previewTitle={state.title || "School ERP preview"}
+            toolLabel={toolLabel}
+            status={state.status}
+            error={state.error}
+            loading={state.loading}
+            canPdf={canPdf}
+            onDownloadPdf={downloadPdf}
+            onPrint={printPreview}
+            previewFrameRef={previewFrameRef}
+          />
+        </DetachedFloatingPanel>
+      ) : null}
     </section>
+  );
+}
+
+function DetachedPlaceholder({ onDock }: { onDock: () => void }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-surface-container-high text-primary">
+        <LuAppWindow className="size-6" />
+      </span>
+      <div>
+        <p className="font-display text-base font-semibold text-on-surface">
+          Editor + preview detached
+        </p>
+        <p className="mt-1 max-w-sm text-xs leading-relaxed text-on-surface-muted">
+          Source and live preview are in the floating panel. Drag it, resize the corner, or press
+          Esc / Dock to bring them back.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDock}
+        className="rounded-xl bg-surface-container-high px-3.5 py-2 text-[11px] font-semibold text-on-surface"
+      >
+        Dock now
+      </button>
+    </div>
+  );
+}
+
+function PreviewPane({
+  state,
+  toolLabel,
+  frameRef,
+}: {
+  state: ReturnType<typeof useOutputInteractive>["state"];
+  toolLabel?: string;
+  frameRef: RefObject<HTMLIFrameElement | null>;
+}) {
+  return (
+    <>
+      {state.status || state.error || state.loading ? (
+        <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-surface/90 px-3 py-1.5 text-[11px] font-medium text-on-surface backdrop-blur-md">
+          {state.loading ? (
+            <LuLoaderCircle className="size-3.5 animate-spin text-primary" />
+          ) : (
+            <span
+              className={[
+                "size-2 rounded-full",
+                state.error ? "bg-secondary" : "bg-emerald-500",
+              ].join(" ")}
+            />
+          )}
+          <span className={state.error ? "text-secondary" : "text-on-surface-muted"}>
+            {state.error || state.status}
+          </span>
+        </div>
+      ) : null}
+
+      {state.frameUrl ? (
+        <iframe
+          key={state.frameUrl}
+          ref={frameRef}
+          data-bbai-output-preview="1"
+          title={state.title || "School ERP preview"}
+          src={state.frameUrl}
+          className="h-full w-full bg-white"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
+        />
+      ) : (
+        <EmptyPreview toolLabel={toolLabel} />
+      )}
+    </>
   );
 }
 
@@ -254,6 +356,154 @@ function EmptyPreview({ toolLabel }: { toolLabel?: string }) {
                 : `Chat generates the ${toolLabel?.toLowerCase() || "Frappe"} result. Preview and Source use your School MCP session.`}
         </p>
       </div>
+    </div>
+  );
+}
+
+function SourceEditorToolbar({
+  source,
+  onSave,
+  onRefreshSource,
+  extraActions,
+}: {
+  source: ReturnType<typeof useOutputInteractive>["source"];
+  onSave: () => void;
+  onRefreshSource?: () => void;
+  extraActions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-on-surface">
+          {source.doctype} · {source.name}
+        </p>
+        <p className="text-[11px] text-on-surface-muted">
+          {source.dirty
+            ? "Unsaved changes"
+            : source.savedAt
+              ? `Saved ${source.savedAt}`
+              : "Edit and save back to School ERP"}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {extraActions}
+        {onRefreshSource ? (
+          <button
+            type="button"
+            onClick={onRefreshSource}
+            disabled={source.loading || source.saving}
+            className="flex size-9 items-center justify-center rounded-xl bg-surface-container-high text-on-surface-muted transition-colors hover:text-on-surface disabled:opacity-50"
+            aria-label="Reload source"
+          >
+            <LuRefreshCw className={["size-4", source.loading ? "animate-spin" : ""].join(" ")} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={source.saving || !source.dirty}
+          className="inline-flex items-center gap-2 rounded-xl bg-linear-to-br from-primary to-primary-container px-3.5 py-2 text-xs font-semibold text-on-primary transition-transform active:scale-[0.98] disabled:opacity-45"
+        >
+          {source.saving ? (
+            <LuLoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <LuSave className="size-3.5" />
+          )}
+          {source.saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SourceFieldTabs({
+  source,
+  fieldDefs,
+  onActiveField,
+}: {
+  source: ReturnType<typeof useOutputInteractive>["source"];
+  fieldDefs: ReturnType<typeof useOutputInteractive>["fieldDefs"];
+  onActiveField: (key: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5 px-4 pb-2">
+      {fieldDefs.map((field) => {
+        const active = field.key === source.activeField;
+        return (
+          <button
+            key={field.key}
+            type="button"
+            onClick={() => onActiveField(field.key)}
+            className={[
+              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+              active
+                ? "bg-primary/12 text-primary"
+                : "bg-surface-container-high text-on-surface-muted hover:text-on-surface",
+            ].join(" ")}
+          >
+            {field.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SourceEditorBody({
+  source,
+  fieldDefs,
+  onActiveField,
+  onChange,
+  onSave,
+  onRefreshSource,
+  extraActions,
+}: {
+  source: ReturnType<typeof useOutputInteractive>["source"];
+  fieldDefs: ReturnType<typeof useOutputInteractive>["fieldDefs"];
+  onActiveField: (key: string) => void;
+  onChange: (key: string, value: string) => void;
+  onSave: () => void;
+  onRefreshSource?: () => void;
+  extraActions?: ReactNode;
+}) {
+  const activeValue = source.fields[source.activeField] ?? "";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <SourceEditorToolbar
+        source={source}
+        onSave={onSave}
+        onRefreshSource={onRefreshSource}
+        extraActions={extraActions}
+      />
+
+      {source.error ? (
+        <p className="px-4 pb-2 text-xs text-secondary" role="alert">
+          {source.error}
+        </p>
+      ) : null}
+
+      {source.emptyContent && !source.dirty ? (
+        <div className="mx-4 mb-2 rounded-xl bg-secondary/10 px-3 py-2.5 text-[11px] leading-relaxed text-secondary">
+          This {source.doctype} exists on School ERP but its content is empty
+          {source.contentType ? ` (content type: ${source.contentType})` : ""}.
+          Paste HTML below and Save (writes{" "}
+          <code className="text-on-surface">main_section_html</code>), or ask chat to fill it
+          then reload Preview.
+        </div>
+      ) : null}
+
+      <SourceFieldTabs source={source} fieldDefs={fieldDefs} onActiveField={onActiveField} />
+
+      <SimpleCodeEditor
+        key={source.activeField}
+        value={activeValue}
+        onChange={(code) => onChange(source.activeField, code)}
+        language={languageForSourceField(source.activeField)}
+        placeholder={`// ${source.activeField}`}
+        aria-label={`${source.activeField} source`}
+        disabled={source.saving}
+      />
     </div>
   );
 }
@@ -306,84 +556,150 @@ function SourceEditor({
     );
   }
 
-  const activeValue = source.fields[source.activeField] ?? "";
+  return (
+    <SourceEditorBody
+      source={source}
+      fieldDefs={fieldDefs}
+      onActiveField={onActiveField}
+      onChange={onChange}
+      onSave={onSave}
+    />
+  );
+}
+
+function DetachedWorkspace({
+  source,
+  fieldDefs,
+  onActiveField,
+  onChange,
+  onSave,
+  onRefreshSource,
+  onReloadPreview,
+  frameUrl,
+  previewTitle,
+  toolLabel,
+  status,
+  error,
+  loading,
+  canPdf,
+  onDownloadPdf,
+  onPrint,
+  previewFrameRef,
+}: {
+  source: ReturnType<typeof useOutputInteractive>["source"];
+  fieldDefs: ReturnType<typeof useOutputInteractive>["fieldDefs"];
+  onActiveField: (key: string) => void;
+  onChange: (key: string, value: string) => void;
+  onSave: () => void;
+  onRefreshSource: () => void;
+  onReloadPreview: () => void;
+  frameUrl: string | null;
+  previewTitle: string;
+  toolLabel?: string;
+  status: string | null;
+  error: string | null;
+  loading: boolean;
+  canPdf: boolean;
+  onDownloadPdf: () => void;
+  onPrint: () => void;
+  previewFrameRef: RefObject<HTMLIFrameElement | null>;
+}) {
+  if (source.loading) {
+    return (
+      <div className="flex h-full items-center justify-center gap-2 text-sm text-on-surface-muted">
+        <LuLoaderCircle className="size-4 animate-spin text-primary" />
+        Loading source from School ERP…
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-on-surface">
-            {source.doctype} · {source.name}
-          </p>
-          <p className="text-[11px] text-on-surface-muted">
-            {source.dirty
-              ? "Unsaved changes"
-              : source.savedAt
-                ? `Saved ${source.savedAt}`
-                : "Edit and save back to School ERP"}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={source.saving || !source.dirty}
-          className="inline-flex items-center gap-2 rounded-xl bg-linear-to-br from-primary to-primary-container px-3.5 py-2 text-xs font-semibold text-on-primary transition-transform active:scale-[0.98] disabled:opacity-45"
-        >
-          {source.saving ? (
-            <LuLoaderCircle className="size-3.5 animate-spin" />
-          ) : (
-            <LuSave className="size-3.5" />
-          )}
-          {source.saving ? "Saving…" : "Save"}
-        </button>
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface">
+        <SourceEditorBody
+          source={source}
+          fieldDefs={fieldDefs}
+          onActiveField={onActiveField}
+          onChange={onChange}
+          onSave={onSave}
+          onRefreshSource={onRefreshSource}
+        />
       </div>
 
-      {source.error ? (
-        <p className="px-4 pb-2 text-xs text-secondary" role="alert">
-          {source.error}
-        </p>
-      ) : null}
-
-      {source.emptyContent && !source.dirty ? (
-        <div className="mx-4 mb-2 rounded-xl bg-secondary/10 px-3 py-2.5 text-[11px] leading-relaxed text-secondary">
-          This {source.doctype} exists on School ERP but its content is empty
-          {source.contentType ? ` (content type: ${source.contentType})` : ""}.
-          Paste HTML below and Save (writes{" "}
-          <code className="text-on-surface">main_section_html</code>), or ask chat to fill it
-          then reload Preview.
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-1.5 px-4 pb-2">
-        {fieldDefs.map((field) => {
-          const active = field.key === source.activeField;
-          return (
+      <div className="relative flex min-h-[40%] min-w-0 flex-1 flex-col bg-surface-container-low md:min-h-0">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+            Preview
+          </p>
+          <div className="flex items-center gap-1">
+            {frameUrl ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onPrint}
+                  className="inline-flex items-center gap-1 rounded-lg bg-surface-container-high px-2 py-1.5 text-[10px] font-semibold text-on-surface-muted hover:text-on-surface"
+                  title="Print"
+                >
+                  <LuPrinter className="size-3.5" />
+                </button>
+                {canPdf ? (
+                  <button
+                    type="button"
+                    onClick={onDownloadPdf}
+                    className="inline-flex items-center gap-1 rounded-lg bg-surface-container-high px-2 py-1.5 text-[10px] font-semibold text-on-surface-muted hover:text-on-surface"
+                    title="Get PDF"
+                  >
+                    <LuFileDown className="size-3.5" />
+                  </button>
+                ) : null}
+              </>
+            ) : null}
             <button
-              key={field.key}
               type="button"
-              onClick={() => onActiveField(field.key)}
-              className={[
-                "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-                active
-                  ? "bg-primary/12 text-primary"
-                  : "bg-surface-container-high text-on-surface-muted hover:text-on-surface",
-              ].join(" ")}
+              onClick={onReloadPreview}
+              className="flex size-8 items-center justify-center rounded-lg bg-surface-container-high text-on-surface-muted hover:text-on-surface"
+              aria-label="Reload preview"
+              title="Reload preview"
             >
-              {field.label}
+              <LuRefreshCw className={["size-3.5", loading ? "animate-spin" : ""].join(" ")} />
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </div>
 
-      <SimpleCodeEditor
-        key={source.activeField}
-        value={activeValue}
-        onChange={(code) => onChange(source.activeField, code)}
-        language={languageForSourceField(source.activeField)}
-        placeholder={`// ${source.activeField}`}
-        aria-label={`${source.activeField} source`}
-        disabled={source.saving}
-      />
+        <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
+          {status || error || loading ? (
+            <div className="absolute left-2 top-2 z-10 flex items-center gap-2 rounded-full bg-surface/90 px-2.5 py-1 text-[10px] font-medium text-on-surface backdrop-blur-md">
+              {loading ? (
+                <LuLoaderCircle className="size-3 animate-spin text-primary" />
+              ) : (
+                <span
+                  className={[
+                    "size-1.5 rounded-full",
+                    error ? "bg-secondary" : "bg-emerald-500",
+                  ].join(" ")}
+                />
+              )}
+              <span className={error ? "text-secondary" : "text-on-surface-muted"}>
+                {error || status}
+              </span>
+            </div>
+          ) : null}
+
+          {frameUrl ? (
+            <iframe
+              key={frameUrl}
+              ref={previewFrameRef}
+              data-bbai-output-preview="1"
+              title={previewTitle}
+              src={frameUrl}
+              className="h-full w-full bg-white"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
+            />
+          ) : (
+            <EmptyPreview toolLabel={toolLabel} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

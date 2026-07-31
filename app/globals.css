@@ -415,73 +415,19 @@ body:is(
   display: none !important;
 }
 
-/* Output Source — react-simple-code-editor + Prism (light tokens) */
+/* Output Source — Monaco editor shell */
 .bbai-simple-code-editor {
   color: var(--color-on-surface);
 }
 
-.bbai-simple-code-editor textarea,
-.bbai-simple-code-editor pre,
-.bbai-simple-code-editor pre * {
-  font-family: inherit !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
-  tab-size: 2;
+.bbai-monaco-editor,
+.bbai-monaco-editor .monaco-editor,
+.bbai-monaco-editor .overflow-guard {
+  height: 100%;
+  min-height: 0;
 }
 
-.bbai-simple-code-editor textarea {
-  outline: none !important;
-  caret-color: var(--color-primary);
-}
-
-.bbai-simple-code-editor .token.comment,
-.bbai-simple-code-editor .token.prolog,
-.bbai-simple-code-editor .token.doctype,
-.bbai-simple-code-editor .token.cdata {
-  color: color-mix(in srgb, var(--color-on-surface-muted) 85%, transparent);
-  font-style: italic;
-}
-
-.bbai-simple-code-editor .token.punctuation {
-  color: var(--color-on-surface-muted);
-}
-
-.bbai-simple-code-editor .token.property,
-.bbai-simple-code-editor .token.tag,
-.bbai-simple-code-editor .token.boolean,
-.bbai-simple-code-editor .token.number,
-.bbai-simple-code-editor .token.constant,
-.bbai-simple-code-editor .token.symbol {
-  color: var(--color-primary);
-}
-
-.bbai-simple-code-editor .token.selector,
-.bbai-simple-code-editor .token.attr-name,
-.bbai-simple-code-editor .token.string,
-.bbai-simple-code-editor .token.char,
-.bbai-simple-code-editor .token.builtin {
-  color: color-mix(in srgb, var(--color-primary) 70%, #0d9488);
-}
-
-.bbai-simple-code-editor .token.operator,
-.bbai-simple-code-editor .token.entity,
-.bbai-simple-code-editor .token.url,
-.bbai-simple-code-editor .token.variable {
-  color: var(--color-secondary);
-}
-
-.bbai-simple-code-editor .token.atrule,
-.bbai-simple-code-editor .token.attr-value,
-.bbai-simple-code-editor .token.keyword {
-  color: color-mix(in srgb, var(--color-primary) 55%, #7c3aed);
-}
-
-.bbai-simple-code-editor .token.function,
-.bbai-simple-code-editor .token.class-name {
-  color: color-mix(in srgb, var(--color-secondary) 80%, #c2410c);
-}
-
-.bbai-simple-code-editor .token.regex,
-.bbai-simple-code-editor .token.important {
-  color: var(--color-secondary);
+.bbai-monaco-editor .monaco-editor .margin,
+.bbai-monaco-editor .monaco-editor .monaco-editor-background {
+  background-color: transparent !important;
 }
