@@ -1,15 +1,17 @@
-import { auth } from "@/lib/domain/services/auth.service";
+import { authFromHeaders } from "@/lib/domain/services/auth.service";
 import { hasPermission } from "@/lib/entities/users.type";
 import { logAction } from "@/lib/domain/usecases/auth/log_action.usecase";
 import { loginLivroErp } from "@/lib/domain/usecases/erpnext/login_livro.usecase";
 import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
+import { jsonWithSchoolPreviewCookie } from "@/lib/domain/usecases/erpnext/school_preview_proxy.usecase";
 import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
+import { isLivroParent } from "@/lib/utils/erp-embed";
 
 export async function POST(request: Request) {
   const action = "erp:login";
 
   try {
-    const userSession = await auth();
+    const userSession = await authFromHeaders(request.headers);
     if (!userSession || userSession.expired) {
       return Response.json({ ok: false, error: "Authentication required." }, { status: 401 });
     }
@@ -92,14 +94,23 @@ export async function POST(request: Request) {
       },
     });
 
-    return Response.json({
-      ok: true,
+    const payload = {
+      ok: true as const,
       data: {
         sid: result.data.sid,
         fullName: result.data.fullName,
         baseUrl: result.data.baseUrl,
       },
-    });
+    };
+
+    // Bind School MCP SID for Output mini-browser as soon as login succeeds.
+    if (!isLivroParent(result.data.baseUrl)) {
+      return jsonWithSchoolPreviewCookie(payload, {
+        sid: result.data.sid,
+        baseUrl: result.data.baseUrl,
+      });
+    }
+    return Response.json(payload);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unexpected error.";
     await logAction({ userId: "unknown", action, success: false, error: msg });

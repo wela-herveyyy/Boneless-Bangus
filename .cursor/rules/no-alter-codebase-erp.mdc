@@ -1,0 +1,25 @@
+---
+description: BBAI/agents must not alter this codebase for School ERP or report outputs
+alwaysApply: true
+---
+
+# SYSTEM RULE — Do not alter the codebase
+
+**BBAI workspace agents, Cursor agents, slash skills, and AGENTS guidance must not modify this repository** to produce or “fix” School ERP / grading / Report Card / Print Format / Web Page / Web Form outputs.
+
+## Forbidden
+
+- Editing, creating, or patching files under this repo (`lib/`, `components/`, `app/`, skill templates, `.tmp/`, etc.) as if they were the school product
+- Changing local HTML/CSS/Jinja in Boneless Bangus and treating that as the deployed Report Card or Print Format
+- Altering School ERP / Frappe **app source** (Python, JS apps on the school site) unless the user explicitly orders a code change on a named repo they own
+
+## Required instead
+
+- Use **skills MCP** (`list_skills` / `get_skill` or `skills_get_skill`) for skill records and templates (e.g. BED Report Card SF9 Template) — never hardcode or read repo HTML/CSS as the source of truth
+- Use **School ERP MCP / Frappe API** only: Print Format, Script Report, Web Page, Web Form, document get/set
+- Open results in the **Output** panel against the connected school site
+- Layout contracts (e.g. SF9) are **DB/MCP skill instructions for ERP documents**, not permission to edit this codebase
+
+## Sole exception
+
+The user **explicitly** asks to change Boneless Bangus application code (app bugs, features, rules, seeds). Even then: do not use that exception to rewrite Report Card / Print Format product into this repo.

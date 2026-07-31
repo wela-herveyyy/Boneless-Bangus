@@ -13,9 +13,10 @@ It is based on real school samples (DepEd SF9 / Form 138 family): CORE (new form
 
 ## NON-NEGOTIABLE (do not break)
 
+0. **Do not alter any codebase** (Boneless Bangus repo, School ERP app source, local templates under \`lib/\` or \`.tmp/\`). Report Card work is **School ERP documents only** (Print Format / Script Report via MCP). Never “fix” the card by editing BBAI files.
 1. **Never invent** a different report-card design (no dashboards, cards, “modern” one-pagers, Web Page mockups, or AI restyles).
-2. **Never** rebuild the card as a BBAI Output Web Page / custom Print Format unless the user is explicitly editing the **installed School ERP Report Card** template — and even then, structure below stays mandatory.
-3. When the user asks to generate / print / open a Report Card → use School ERP **Script Report** \`Report Card\` / \`Report Card Senior High\` / \`Preschool Report Card\` (see School ERP Grading skills). Layout = ERP template + **this** structure.
+2. **Never** invent a new Print Format / Web Page design. If the user asks to **generate a Print Format** for Report Card → follow skill **Generate Report Card Print Format (SF9)** and write HTML/CSS **into the school’s Print Format doc via MCP** — not into this repo.
+3. When the user asks to **run / print** an existing Report Card → prefer School ERP **Script Report** \`Report Card\` / \`Report Card Senior High\` / \`Preschool Report Card\` (see School ERP Grading skills). Layout = ERP template + **this** structure.
 4. School logos, names, addresses, principals = from **School ERP General Settings / Letter Head** — do not invent branding.
 5. If a school requests a variant (e.g. conduct per subject, preschool domains, honors scale), **keep the SF9 block structure**; only swap the allowed school options listed below.
 
@@ -119,7 +120,7 @@ export function builtinReportCardLayoutSkill(): BuiltinSkillDefinition {
       commandName: "school-erp",
       subCommand: "report-card-layout",
       promptText:
-        'Follow the skill "BED Report Card Layout (SF9)" — NON-NEGOTIABLE. Use only the DepEd SF9 / Form 138 structure from that skill (identity, learning progress table, observed values AO/SO/RO/NO, attendance, parent signatures). Do not invent a new layout. If I want to generate a card, use School ERP Report Card Script Reports and this layout.',
+        'Follow the skill "BED Report Card Layout (SF9)" — NON-NEGOTIABLE. Do NOT alter any codebase (BBAI or School ERP apps). Use only School ERP MCP/Print Format/Script Reports. Enforce DepEd SF9 / Form 138 structure from that skill only — no inventing layouts or editing local repo files.',
     },
   };
 }

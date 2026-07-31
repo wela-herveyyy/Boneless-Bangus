@@ -118,7 +118,8 @@ function writeStoredSession(
       /* ignore */
     }
     // Bind School MCP SID into Output mini-browser cookie (same session as MCP tools).
-    void fetch("/api/erp/output/session", {
+    // Login /api/erp/session also sets this; /bind is the dedicated endpoint.
+    void fetch("/api/erp/output/bind", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

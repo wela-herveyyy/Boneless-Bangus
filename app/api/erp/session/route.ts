@@ -1,15 +1,18 @@
-import { auth } from "@/lib/domain/services/auth.service";
+import { authFromHeaders } from "@/lib/domain/services/auth.service";
 import { hasPermission } from "@/lib/entities/users.type";
 import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
+import { jsonWithSchoolPreviewCookie } from "@/lib/domain/usecases/erpnext/school_preview_proxy.usecase";
 import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
+import { isLivroParent } from "@/lib/utils/erp-embed";
 
 /**
  * Validate an ERPNext sid.
  * // ponytail: only "expired" when ERP says Guest — never wipe on blips
+ * School SIDs also bind the Output mini-browser cookie.
  */
 export async function POST(request: Request) {
   try {
-    const userSession = await auth();
+    const userSession = await authFromHeaders(request.headers);
     if (!userSession || userSession.expired) {
       return Response.json({ ok: false, error: "Authentication required." }, { status: 401 });
     }
@@ -56,6 +59,13 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, error: "Session expired." }, { status: 401 });
     }
 
+    // School MCP SID → Output preview cookie (same session tools use)
+    if (!isLivroParent(erpUrl)) {
+      return jsonWithSchoolPreviewCookie(
+        { ok: true, data: { email, sid } },
+        { sid, baseUrl: erpUrl },
+      );
+    }
     return Response.json({ ok: true, data: { email, sid } });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unexpected error.";

@@ -19,13 +19,51 @@ export type FrappeSourceDoc = {
   emptyContent?: boolean;
 };
 
-function erpHeaders(sid: string) {
-  return {
+function erpHeaders(sid: string, csrf?: string | null) {
+  const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
-    Authorization: `Bearer ${sid}`,
+    // Session cookie auth (same as school_erp custom tools). Bearer sid is not a
+    // Frappe API token and can make mutating calls fail as "Invalid Request".
     Cookie: `sid=${sid}`,
   };
+  if (csrf) {
+    headers["X-Frappe-CSRF-Token"] = csrf;
+  }
+  return headers;
+}
+
+/** Session cookie PUTs/POSTs need CSRF on most Frappe sites. */
+async function fetchCsrfToken(baseUrl: string, sid: string): Promise<string | null> {
+  const endpoints = [
+    `${baseUrl}/api/method/frappe.auth.get_logged_user`,
+    `${baseUrl}/api/method/frappe.sessions.get_csrf_token`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          Cookie: `sid=${sid}`,
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+      });
+      const fromHeader =
+        res.headers.get("x-frappe-csrf-token") ||
+        res.headers.get("X-Frappe-CSRF-Token");
+      if (fromHeader?.trim()) return fromHeader.trim();
+
+      if (!res.ok) continue;
+      const json = (await res.json()) as { message?: unknown };
+      if (typeof json.message === "string" && json.message.trim() && url.includes("csrf")) {
+        return json.message.trim();
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
 async function listByRoute(
@@ -324,29 +362,65 @@ export async function saveFrappeSourceDoc(input: {
     }
   }
 
-  const res = await fetch(
-    `${baseUrl}/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`,
-    {
+  const csrf = await fetchCsrfToken(baseUrl, sid);
+  const url = `${baseUrl}/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`;
+  const headers = erpHeaders(sid, csrf);
+
+  // Prefer flat JSON (current Frappe). Fall back to { data } wrapper used by older sites.
+  const attempts: unknown[] = [payload, { data: payload }];
+  let lastText = "";
+  let lastStatus = 0;
+
+  for (const body of attempts) {
+    const res = await fetch(url, {
       method: "PUT",
-      headers: erpHeaders(sid),
-      body: JSON.stringify(payload),
+      headers,
+      body: JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
-    },
-  );
-
-  const text = await res.text();
-  if (!res.ok) {
-    const fallback = `Save failed (HTTP ${res.status}).`;
-    const message = parseFrappeError(text, fallback);
-    const notFoundHint =
-      doctype === "Web Page" && name !== hint
-        ? ""
-        : doctype === "Web Page"
-          ? ` Web Page not found for “${hint}”. Use the desk slug (e.g. bbai-—-boneless-bangus-ai) or route bbai.`
-          : "";
-    return { ok: false, error: `${message}${notFoundHint}`.trim() };
+    });
+    lastText = await res.text();
+    lastStatus = res.status;
+    if (res.ok) {
+      return { ok: true, data: { name } };
+    }
+    const message = parseFrappeError(lastText, "").toLowerCase();
+    // Only retry wrapper for classic body-shape failures
+    if (!message.includes("invalid request") && !message.includes("nonetype")) {
+      break;
+    }
   }
 
-  return { ok: true, data: { name } };
+  // Last resort: frappe.client.set_value (dict fieldname) — still needs CSRF
+  if (csrf) {
+    const setRes = await fetch(`${baseUrl}/api/method/frappe.client.set_value`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        doctype,
+        name,
+        fieldname: payload,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    const setText = await setRes.text();
+    if (setRes.ok) {
+      return { ok: true, data: { name } };
+    }
+    lastText = setText;
+    lastStatus = setRes.status;
+  }
+
+  const fallback = `Save failed (HTTP ${lastStatus || 400}).`;
+  const message = parseFrappeError(lastText, fallback);
+  const csrfHint =
+    /csrf|invalid request/i.test(message) && !csrf
+      ? " Could not obtain Frappe CSRF token — reconnect School ERP and try again."
+      : "";
+  const notFoundHint =
+    doctype === "Web Page" && /not found|does not exist|404/i.test(message)
+      ? ` Web Page not found for “${hint}”. Use the desk slug or route.`
+      : "";
+  return { ok: false, error: `${message}${csrfHint}${notFoundHint}`.trim() };
 }

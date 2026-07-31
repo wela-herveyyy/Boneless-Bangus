@@ -28,6 +28,32 @@ export function encodeSchoolPreviewCookie(session: SchoolPreviewCookie): string 
   ).toString("base64url");
 }
 
+/** Build `Set-Cookie` without NextResponse.cookies (avoids App Router cookie mutate quirks). */
+export function schoolPreviewSetCookieHeader(
+  session: SchoolPreviewCookie | null,
+): string {
+  if (!session) {
+    return `${SCHOOL_PREVIEW_COOKIE}=; Path=/api/erp/output; HttpOnly; SameSite=Lax; Max-Age=0`;
+  }
+  const value = encodeSchoolPreviewCookie(session);
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${SCHOOL_PREVIEW_COOKIE}=${value}; Path=/api/erp/output; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 12}${secure}`;
+}
+
+/** JSON response that also sets (or clears) the School MCP preview cookie. */
+export function jsonWithSchoolPreviewCookie(
+  data: unknown,
+  session: SchoolPreviewCookie | null,
+  init?: { status?: number },
+): Response {
+  const headers = new Headers({ "Content-Type": "application/json; charset=utf-8" });
+  headers.append("Set-Cookie", schoolPreviewSetCookieHeader(session));
+  return new Response(JSON.stringify(data), {
+    status: init?.status ?? 200,
+    headers,
+  });
+}
+
 export function decodeSchoolPreviewCookie(raw: string | undefined): SchoolPreviewCookie | null {
   if (!raw?.trim()) return null;
   try {

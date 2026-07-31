@@ -1,4 +1,3 @@
-/** @deprecated Prefer `/api/erp/output/bind` — kept as alias. */
 import { authFromHeaders } from "@/lib/domain/services/auth.service";
 import { hasPermission } from "@/lib/entities/users.type";
 import { resolveErpBaseUrl } from "@/lib/domain/usecases/erpnext/resolve_erp_base_url.usecase";
@@ -6,6 +5,10 @@ import { jsonWithSchoolPreviewCookie } from "@/lib/domain/usecases/erpnext/schoo
 import { erpPermissionForBaseUrl } from "@/lib/utils/erp-permission";
 import { isLivroParent } from "@/lib/utils/erp-embed";
 
+/**
+ * Bind School MCP SID + site into an httpOnly cookie for the Output mini-browser
+ * (`/api/erp/output/browse`). Same credentials School MCP tools use.
+ */
 export async function POST(request: Request) {
   try {
     const userSession = await authFromHeaders(request.headers);
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
     return jsonWithSchoolPreviewCookie({ ok: true, baseUrl }, { sid, baseUrl });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Bind failed.";
-    console.error("[api/erp/output/session]", error);
+    console.error("[api/erp/output/bind]", error);
     return Response.json({ ok: false, error: msg }, { status: 500 });
   }
 }

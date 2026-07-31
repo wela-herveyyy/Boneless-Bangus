@@ -101,14 +101,38 @@ export function readSchoolSession(): SchoolOutputSession | null {
   return readSchoolErpMcpSessionFromBrowser();
 }
 
-async function bindSchoolPreviewSession(session: SchoolOutputSession): Promise<boolean> {
-  const res = await fetch("/api/erp/output/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ sid: session.sid, baseUrl: session.baseUrl }),
-  });
-  return res.ok;
+async function bindSchoolPreviewSession(
+  session: SchoolOutputSession,
+): Promise<{ ok: boolean; error?: string }> {
+  const body = JSON.stringify({ sid: session.sid, baseUrl: session.baseUrl });
+  const headers = { "Content-Type": "application/json" };
+
+  // Prefer /bind (session alias kept for older clients).
+  for (const path of ["/api/erp/output/bind", "/api/erp/output/session", "/api/erp/session"]) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body,
+    });
+    if (res.ok) return { ok: true };
+    if (path === "/api/erp/output/bind" || path === "/api/erp/session") {
+      const json = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (res.status !== 404) {
+        return {
+          ok: false,
+          error:
+            json?.error ||
+            `Could not bind School MCP session (${res.status}). Reconnect School ERP.`,
+        };
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    error: "Could not bind School MCP session for preview. Reconnect School ERP.",
+  };
 }
 
 export function useOutputInteractive() {
@@ -277,13 +301,15 @@ export function useOutputInteractive() {
 
       try {
         const bound = await bindSchoolPreviewSession(session);
-        if (!bound) {
+        if (!bound.ok) {
           loadingRef.current = false;
           setState((s) => ({
             ...s,
             loading: false,
             status: null,
-            error: "Could not bind School MCP session for preview. Reconnect School ERP.",
+            error:
+              bound.error ||
+              "Could not bind School MCP session for preview. Reconnect School ERP.",
           }));
           return;
         }
@@ -381,7 +407,7 @@ export function useOutputInteractive() {
     setTab("preview");
     setState(EMPTY);
     setSource(EMPTY_SOURCE);
-    void fetch("/api/erp/output/session", { method: "DELETE", credentials: "include" });
+    void fetch("/api/erp/output/bind", { method: "DELETE", credentials: "include" });
   }, []);
 
   const reload = useCallback(() => {

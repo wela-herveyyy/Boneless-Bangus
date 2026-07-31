@@ -1,6 +1,9 @@
 import type { SDKCustomTool, SDKJsonValue } from "@cursor/sdk";
 import { createSkillUsecase } from "../skills/create_skill.usecase";
-import { getSkillsUsecase } from "../skills/get_skills.usecase";
+import {
+  getSkillByNameUsecase,
+  listSkillCatalogUsecase,
+} from "../skills/get_skill.usecase";
 
 function jsonResult(data: unknown): SDKJsonValue {
   return JSON.parse(JSON.stringify(data ?? null)) as SDKJsonValue;
@@ -19,8 +22,8 @@ function str(value: SDKJsonValue | undefined, fallback = ""): string {
 }
 
 /**
- * Cursor custom tools that persist skills to the DATABASE (same as skills MCP).
- * // ponytail: no presets in source — agent passes name/description/instructions
+ * Cursor custom tools that persist/load skills from the DATABASE (same as skills MCP).
+ * Full templates live in DB records — use skills_get_skill, never repo files.
  */
 export async function buildSkillsCustomTools(
   userId: string,
@@ -67,11 +70,11 @@ export async function buildSkillsCustomTools(
       },
     ),
     skills_list_skills: tool(
-      "List skills stored in the BBAI database for this user.",
+      "List skill catalog (name/description only). Use skills_get_skill for full instructions/templates.",
       { type: "object", properties: {} },
       async () => {
         try {
-          const skills = await getSkillsUsecase(userId);
+          const skills = await listSkillCatalogUsecase(userId);
           return jsonResult(skills);
         } catch (error) {
           return {
@@ -79,6 +82,43 @@ export async function buildSkillsCustomTools(
               {
                 type: "text" as const,
                 text: error instanceof Error ? error.message : "Failed to list skills.",
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+    ),
+    skills_get_skill: tool(
+      "Load one skill by exact name including full instructions (e.g. BED Report Card SF9 Template HTML/CSS). Prefer this over reading the codebase.",
+      {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+        },
+        required: ["name"],
+      },
+      async (args) => {
+        try {
+          const record = await getSkillByNameUsecase(userId, str(args.name));
+          if (!record) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Skill not found or not accessible: ${str(args.name)}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+          return jsonResult(record);
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: error instanceof Error ? error.message : "Failed to get skill.",
               },
             ],
             isError: true,

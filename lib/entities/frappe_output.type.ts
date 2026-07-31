@@ -71,6 +71,7 @@ export function frappeToolPromptPrefix(mode: FrappeToolMode): string {
   return [
     "[BBAI Frappe tool: Custom Print Format]",
     "Help the user generate a Frappe Print Format DocType (custom Jinja): fields include html, css, custom_format=1, print_format_type=Jinja, doc_type (e.g. Class), standard=No.",
+    "If this is a BED Report Card print format: follow skills \"Generate Report Card Print Format (SF9)\" + \"BED Report Card Layout (SF9)\" — use the canonical SF9 Jinja/CSS (name BED Report Card SF9). Do NOT invent SCSHS/school-specific layouts.",
     "When ready, call school_erp_open_output with kind=print_format, format=<Print Format name>, and for Preview also doctype + name (document to print). Include the <!-- bbai:output ... --> marker so Output opens Preview + Source (html/css editor).",
     "",
   ].join("\n");

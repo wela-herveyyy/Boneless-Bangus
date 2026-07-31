@@ -1,0 +1,267 @@
+{# BED Report Card SF9 — canonical Print Format (Jinja). DocType: Class.
+   Layout is NON-NEGOTIABLE (skill: BED Report Card Layout SF9).
+   Branding from General Settings only — never hardcode a school name. #}
+{% set gs = frappe.get_doc("General Settings", "General Settings") %}
+{% set school_name = gs.school_name_bed or gs.school_name or "School Name" %}
+{% set school_address = gs.complete_address_bed or gs.school_adddress or "" %}
+{% set school_year = doc.school_year or gs.current_school_year_bed or "" %}
+{% set section = doc.section or "" %}
+{% set adviser = doc.teacher or "—" %}
+{% set principal = gs.school_principal or gs.president or gs.contact_person or "School Principal" %}
+{% set region = gs.region or gs.deped_region or "" %}
+{% set division = gs.division or gs.deped_division or "" %}
+{% set curriculum_line = gs.curriculum_bed or "K to 12 Basic Education Curriculum" %}
+{% set form_code = "SF9" %}
+
+{% set students = doc.students | sort(attribute="last_name") if doc.students else [] %}
+{% set st = students[0] if students else none %}
+{% set learner_name = ((st.last_name ~ ", " ~ st.first_name) if st and st.last_name else (st.full_name if st else "SAMPLE, STUDENT")) | upper %}
+{% set learner_lrn = (st.lrn or st.id_number) if st else "" %}
+{% if st and st.age %}
+  {% set learner_age = st.age %}
+{% elif st and st.birthday %}
+  {% set learner_age = (frappe.utils.date_diff(frappe.utils.today(), st.birthday) // 365) %}
+{% else %}
+  {% set learner_age = "" %}
+{% endif %}
+{% set learner_sex = (st.gender or st.sex) if st else "" %}
+{% set learner_level = st.level if st and st.level else (section.split(" - ")[0] if section else "") %}
+{% set grade_section = (learner_level ~ " - " ~ section.split(" - ")[-1]) if section and " - " in section else section %}
+
+{# Master Grade pivot — real Q1–Q4 + final per subject for first student #}
+{% set grade_rows = frappe.db.sql("""
+  SELECT subject,
+    MAX(CASE WHEN quarter IN ('First Quarter','1st Quarter') THEN COALESCE(final_grade, numeric_grade) END) AS q1,
+    MAX(CASE WHEN quarter IN ('Second Quarter','2nd Quarter') THEN COALESCE(final_grade, numeric_grade) END) AS q2,
+    MAX(CASE WHEN quarter IN ('Third Quarter','3rd Quarter') THEN COALESCE(final_grade, numeric_grade) END) AS q3,
+    MAX(CASE WHEN quarter IN ('Fourth Quarter','4th Quarter') THEN COALESCE(final_grade, numeric_grade) END) AS q4
+  FROM `tabMaster Grade`
+  WHERE section = %(section)s AND student_full_name = %(student)s
+  GROUP BY subject
+  ORDER BY subject
+""", {"section": section, "student": learner_name}, as_dict=True) %}
+{% if not grade_rows %}
+  {% set grade_rows = [
+    {"subject":"Filipino","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"English","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"Mathematics","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"Science","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"Araling Panlipunan","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"EPP / TLE","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"MAPEH","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""},
+    {"subject":"Edukasyon sa Pagpapakatao","q1":"","q2":"","q3":"","q4":"","final":"","remarks":""}
+  ] %}
+{% endif %}
+{% set ga_ns = namespace(total=0, count=0) %}
+
+{% set next_grade = "Grade " ~ ((learner_level.split(" ")[-1] | int) + 1) if learner_level and "Grade" in learner_level else "" %}
+{% set issue_date = frappe.utils.formatdate(frappe.utils.today(), "MMMM d, yyyy") %}
+
+<div class="bbai-sf9-wrap">
+  {# ── Face A: Identity ── #}
+  <div class="bbai-sf9-page bbai-sf9-front">
+    <div class="bbai-sf9-top-meta">
+      <span class="bbai-sf9-form-code">{{ form_code }}</span>
+      <span class="bbai-sf9-class-no">Class No. <span class="line-short"></span></span>
+    </div>
+
+    <div class="bbai-sf9-deped text-center">
+      <div>Republic of the Philippines</div>
+      <div>Department of Education</div>
+      {% if region %}<div>{{ region }}</div>{% endif %}
+      {% if division %}<div class="bbai-sf9-division">{{ division }}</div>{% endif %}
+    </div>
+
+    <div class="bbai-sf9-school-block text-center">
+      <div class="bbai-sf9-school-name">{{ school_name | upper }}</div>
+      <div class="bbai-sf9-curriculum">{{ curriculum_line }}</div>
+      {% if school_address %}<div class="bbai-sf9-address">{{ school_address }}</div>{% endif %}
+    </div>
+
+    <div class="bbai-sf9-logo-wrap text-center">
+      {% if gs.logo %}<img src="{{ gs.logo }}" class="bbai-sf9-logo" alt="School logo">{% endif %}
+      {% if gs.deped_logo %}<img src="{{ gs.deped_logo }}" class="bbai-sf9-logo bbai-sf9-logo-deped" alt="DepEd logo">{% endif %}
+    </div>
+
+    <div class="bbai-sf9-title-block text-center">
+      <div class="bbai-sf9-doc-title">PROGRESS REPORT CARD (SF9)</div>
+      <div class="bbai-sf9-level">{{ learner_level or "Basic Education" }}</div>
+      <div class="bbai-sf9-sy">School Year {{ school_year | replace("SY", "") | replace("sy", "") | trim }}</div>
+    </div>
+
+    <div class="bbai-sf9-identity">
+      <div class="bbai-sf9-field"><span class="lbl">Name</span><span class="val line-full">{{ learner_name }}</span></div>
+      <div class="bbai-sf9-field-row">
+        <div class="bbai-sf9-field half"><span class="lbl">LRN</span><span class="val line-full">{{ learner_lrn }}</span></div>
+        <div class="bbai-sf9-field half"><span class="lbl">Age</span><span class="val line-full">{{ learner_age }}</span></div>
+        <div class="bbai-sf9-field half"><span class="lbl">Sex</span><span class="val line-full">{{ learner_sex }}</span></div>
+      </div>
+      <div class="bbai-sf9-field"><span class="lbl">Grade &amp; Section</span><span class="val line-full">{{ grade_section }}</span></div>
+      <div class="bbai-sf9-field"><span class="lbl">Class Adviser</span><span class="val line-full">{{ adviser | upper }}</span></div>
+    </div>
+
+    <div class="bbai-sf9-parent-note">
+      <p><strong>Dear Parent/Guardian,</strong></p>
+      <p>This report card shows the ability and progress your child has made in the different learning areas as well as his/her core values.</p>
+      <p>The school welcomes you should you desire to know more about your child's progress.</p>
+    </div>
+
+    <div class="bbai-sf9-front-sigs">
+      <div class="bbai-sf9-sig text-center">
+        <div class="sig-line"></div>
+        <div class="sig-name">{{ adviser | upper }}</div>
+        <div class="sig-role">Class Adviser</div>
+      </div>
+      <div class="bbai-sf9-sig text-center">
+        <div class="sig-line"></div>
+        <div class="sig-name">{{ principal | upper }}</div>
+        <div class="sig-role">School Principal</div>
+      </div>
+    </div>
+
+    <div class="bbai-sf9-transfer-block">
+      <div class="bbai-sf9-transfer-title">Certificate of Transfer</div>
+      <div class="bbai-sf9-transfer-row">Admitted to Grade: <span class="line-mid">{{ next_grade }}</span> Section: <span class="line-mid"></span></div>
+      <div class="bbai-sf9-transfer-row">Eligibility for Admission to Grade: <span class="line-long"></span></div>
+      <div class="bbai-sf9-transfer-row">Cancellation of Eligibility to Transfer — Admitted in: <span class="line-mid"></span> Date: <span class="line-mid"></span></div>
+    </div>
+  </div>
+
+  <div class="bbai-sf9-page-break"></div>
+
+  {# ── Face B: Academics + Values + Attendance ── #}
+  <div class="bbai-sf9-page bbai-sf9-back">
+    <div class="bbai-sf9-section-title">REPORT ON LEARNING PROGRESS AND ACHIEVEMENT</div>
+    <table class="bbai-sf9-grades">
+      <thead>
+        <tr>
+          <th class="subj" rowspan="2">Learning Areas</th>
+          <th colspan="4">Quarter</th>
+          <th rowspan="2">Final<br>Grade</th>
+          <th rowspan="2">Remarks</th>
+        </tr>
+        <tr>
+          <th>1</th><th>2</th><th>3</th><th>4</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in grade_rows %}
+        {% set qvals = [row.q1, row.q2, row.q3, row.q4] | select | list %}
+        {% set row_final = row.final if row.final else ((qvals | map('float') | sum / qvals|length) | round(0) | int if qvals|length else "") %}
+        {% set row_remarks = row.remarks if row.remarks else ("PASSED" if row_final and row_final|float >= 75 else ("FAILED" if row_final else "")) %}
+        {% if row_final %}{% set ga_ns.total = ga_ns.total + row_final|float %}{% set ga_ns.count = ga_ns.count + 1 %}{% endif %}
+        <tr>
+          <td class="subj">{{ row.subject }}</td>
+          <td>{{ row.q1 or "" }}</td>
+          <td>{{ row.q2 or "" }}</td>
+          <td>{{ row.q3 or "" }}</td>
+          <td>{{ row.q4 or "" }}</td>
+          <td>{{ row_final or "" }}</td>
+          <td class="action">{{ row_remarks }}</td>
+        </tr>
+        {% endfor %}
+        {% set general_average = ((ga_ns.total / ga_ns.count) | round(0) | int) if ga_ns.count else "" %}
+        {% set ga_remarks = "PASSED" if general_average and general_average >= 75 else ("FAILED" if general_average else "") %}
+        <tr class="bbai-sf9-ga">
+          <td class="subj"><strong>GENERAL AVERAGE</strong></td>
+          <td colspan="4"></td>
+          <td>{{ general_average or "" }}</td>
+          <td class="action">{{ ga_remarks }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="bbai-sf9-scale">
+      <thead>
+        <tr><th>Description</th><th>Grading Scale</th><th>Remarks</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Outstanding</td><td>90 – 100</td><td>Passed</td></tr>
+        <tr><td>Very Satisfactory</td><td>85 – 89</td><td>Passed</td></tr>
+        <tr><td>Satisfactory</td><td>80 – 84</td><td>Passed</td></tr>
+        <tr><td>Fairly Satisfactory</td><td>75 – 79</td><td>Passed</td></tr>
+        <tr><td>Did Not Meet Expectations</td><td>Below 75</td><td>Failed</td></tr>
+      </tbody>
+    </table>
+
+    <div class="bbai-sf9-section-title">REPORT ON LEARNER'S OBSERVED VALUES</div>
+    <table class="bbai-sf9-values">
+      <thead>
+        <tr>
+          <th class="core">Core Values</th>
+          <th class="behavior">Behavior Statements</th>
+          <th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="core" rowspan="2">1. Maka-Diyos</td>
+          <td class="behavior">Expresses one's spiritual beliefs while respecting the spiritual beliefs of others.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="behavior">Shows adherence to ethical principles by upholding truth.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="core" rowspan="2">2. Maka-Tao</td>
+          <td class="behavior">Is sensitive to individual, social, and cultural differences.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="behavior">Demonstrates contributions toward solidarity.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="core">3. Maka-Kalikasan</td>
+          <td class="behavior">Cares for the environment and utilizes resources wisely, judiciously, and economically.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="core" rowspan="2">4. Maka-Bansa</td>
+          <td class="behavior">Demonstrates pride in being Filipino; exercises the rights and responsibilities of a Filipino citizen.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+        <tr>
+          <td class="behavior">Demonstrates appropriate behavior in carrying out activities in the school, community, and country.</td>
+          <td></td><td></td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="bbai-sf9-marking-legend">
+      <strong>Marking:</strong> AO Always Observed · SO Sometimes Observed · RO Rarely Observed · NO Not Observed
+    </div>
+
+    <div class="bbai-sf9-section-title">REPORT ON ATTENDANCE</div>
+    <table class="bbai-sf9-attendance">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+          <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>No. of School Days</td>{% for _ in range(12) %}<td></td>{% endfor %}<td></td></tr>
+        <tr><td>Days Present</td>{% for _ in range(12) %}<td></td>{% endfor %}<td></td></tr>
+        <tr><td>Days Absent</td>{% for _ in range(12) %}<td></td>{% endfor %}<td></td></tr>
+        <tr><td>Days Tardy</td>{% for _ in range(12) %}<td></td>{% endfor %}<td></td></tr>
+      </tbody>
+    </table>
+
+    <div class="bbai-sf9-parent-sigs">
+      <div class="bbai-sf9-section-title">PARENT / GUARDIAN'S SIGNATURE</div>
+      {% for q in ["1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter"] %}
+      <div class="bbai-sf9-parent-sig-row">
+        <span class="q">{{ q }}</span>
+        <span class="sig-line-wide"></span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="bbai-sf9-issue text-center">
+      <span>Date Issued: {{ issue_date }}</span>
+    </div>
+  </div>
+</div>

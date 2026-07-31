@@ -1,5 +1,6 @@
 /**
  * Upsert built-in marketplace skills (global) and install for the author.
+ * Large templates (SF9 HTML/CSS) load from scripts/seed-data — not app runtime.
  *
  *   bun scripts/seed-builtin-skills.mts
  *   bun scripts/seed-builtin-skills.mts --author you@livro.systems
@@ -9,13 +10,38 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { randomUUID } from "crypto";
+import { readFile } from "fs/promises";
+import path from "path";
 import { role as roleTable, skill, skillCategory, user, userInstalledSkill } from "../database/schema";
 import { BUILTIN_SKILLS } from "../lib/domain/usecases/skills/builtin_skills";
+import { BED_REPORT_CARD_SF9_TEMPLATE_SKILL_NAME } from "../lib/domain/usecases/skills/builtin_report_card_print_format_skill";
 
 function argValue(flag: string): string | undefined {
   const idx = process.argv.indexOf(flag);
   if (idx === -1) return undefined;
   return process.argv[idx + 1];
+}
+
+async function loadSf9TemplateInstructions(): Promise<string> {
+  const dir = path.join(process.cwd(), "scripts", "seed-data", "skills");
+  const html = await readFile(path.join(dir, "bed_report_card_sf9_print.html"), "utf8");
+  const css = await readFile(path.join(dir, "bed_report_card_sf9_print.css"), "utf8");
+  return `# ${BED_REPORT_CARD_SF9_TEMPLATE_SKILL_NAME}
+
+Canonical BED Report Card SF9 Print Format assets. Deliver to School ERP via MCP only — do not edit the BBAI codebase.
+
+## Canonical HTML (Print Format \`html\`)
+
+\`\`\`jinja
+${html.trim()}
+\`\`\`
+
+## Canonical CSS (Print Format \`css\`)
+
+\`\`\`css
+${css.trim()}
+\`\`\`
+`;
 }
 
 async function main() {
@@ -47,7 +73,21 @@ async function main() {
 
   console.log(`Seeding built-in skills as author ${author.email} (${author.id})…`);
 
+  const sf9TemplateBody = await loadSf9TemplateInstructions();
+
   for (const def of BUILTIN_SKILLS) {
+    let instructions = def.instructions;
+    let description = def.description;
+    if (def.name === BED_REPORT_CARD_SF9_TEMPLATE_SKILL_NAME) {
+      instructions = sf9TemplateBody;
+      description =
+        "Canonical Jinja HTML + CSS for BED Report Card SF9. Load via skills MCP get_skill.";
+    }
+    if (!instructions.trim()) {
+      console.warn(`⚠ Skip '${def.name}' — empty instructions`);
+      continue;
+    }
+
     let [category] = await database
       .select()
       .from(skillCategory)
@@ -76,8 +116,8 @@ async function main() {
       await database
         .update(skill)
         .set({
-          description: def.description,
-          instructions: def.instructions,
+          description,
+          instructions,
           categoryId: category.id,
           isGlobal: true,
           updatedAt: new Date(),
@@ -89,8 +129,8 @@ async function main() {
       await database.insert(skill).values({
         id: skillId,
         name: def.name,
-        description: def.description,
-        instructions: def.instructions,
+        description,
+        instructions,
         categoryId: category.id,
         authorId: author.id,
         isGlobal: true,

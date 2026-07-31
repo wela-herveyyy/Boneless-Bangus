@@ -1,6 +1,10 @@
 import type { CursorSkill } from "@/lib/entities/cursor.type";
 import { builtinGradingReportSkills } from "./builtin_grading_report_skills";
 import { builtinReportCardLayoutSkill } from "./builtin_report_card_layout_skill";
+import {
+  builtinReportCardPrintFormatSkill,
+  builtinReportCardSf9TemplateSkillStub,
+} from "./builtin_report_card_print_format_skill";
 
 export type BuiltinSlashCommand = {
   commandName: "google-workspace" | "erpnext" | "school-erp";
@@ -17,6 +21,11 @@ export type BuiltinSkillDefinition = {
   instructions: string;
   /** When set, skill is also exposed as a `/` slash command (seeded to DB). */
   slash?: BuiltinSlashCommand;
+  /**
+   * Seed into DB/MCP but do not dump `instructions` into every Cursor prompt.
+   * Agent must call skills MCP `get_skill` for the full record.
+   */
+  omitFromPrompt?: boolean;
 };
 
 const LEAVE_PLUS_EMAIL_INSTRUCTIONS = `# ERPNext Leave Application + Gmail Approver
@@ -312,11 +321,15 @@ export const BUILTIN_SKILLS: BuiltinSkillDefinition[] = [
 
   // ── School ERP grading (SF9 layout is NON-NEGOTIABLE) ─────
   builtinReportCardLayoutSkill(),
+  builtinReportCardPrintFormatSkill(),
+  // Full HTML/CSS filled at seed from scripts/seed-data — not shipped in app runtime.
+  builtinReportCardSf9TemplateSkillStub(),
   ...builtinGradingReportSkills(),
 ];
 
+/** @deprecated Prefer DB/MCP skills via getPromptSkills — kept for seed slash metadata only. */
 export function builtinSkillsAsCursorSkills(): CursorSkill[] {
-  return BUILTIN_SKILLS.map((s) => ({
+  return BUILTIN_SKILLS.filter((s) => !s.omitFromPrompt && s.content.trim()).map((s) => ({
     name: s.name,
     content: s.content,
   }));

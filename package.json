@@ -47,9 +47,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "canvas": "^3.2.3",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "pdfjs-dist": "^6.2.108",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
