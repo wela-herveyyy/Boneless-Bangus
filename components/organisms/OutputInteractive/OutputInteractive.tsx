@@ -1,10 +1,13 @@
 "use client";
 
+import { useRef } from "react";
 import {
   LuCode,
   LuExternalLink,
+  LuFileDown,
   LuLoaderCircle,
   LuMonitorPlay,
+  LuPrinter,
   LuRefreshCw,
   LuSave,
   LuX,
@@ -26,6 +29,7 @@ export function OutputInteractive({
   /** One canvas per conversation — pin id shown in Output */
   canvasId?: string | null;
 } = {}) {
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const {
     state,
     tab,
@@ -39,7 +43,18 @@ export function OutputInteractive({
     schoolSession,
     clear,
     reload,
+    downloadPdf,
+    canPdf,
   } = useOutputInteractive();
+
+  const printPreview = () => {
+    try {
+      previewFrameRef.current?.contentWindow?.focus();
+      previewFrameRef.current?.contentWindow?.print();
+    } catch {
+      window.print();
+    }
+  };
 
   const tabs: { id: OutputPaneTab; label: string }[] = [
     { id: "preview", label: "Preview" },
@@ -77,14 +92,38 @@ export function OutputInteractive({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {tab === "preview" && state.frameUrl ? (
-            <button
-              type="button"
-              onClick={reload}
-              className="flex size-9 items-center justify-center rounded-xl bg-surface-container-high text-on-surface-muted transition-colors hover:text-on-surface"
-              aria-label="Reload preview"
-            >
-              <LuRefreshCw className="size-4" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={printPreview}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-high px-2.5 py-2 text-[11px] font-semibold text-on-surface-muted transition-colors hover:text-on-surface"
+                aria-label="Print preview"
+                title="Print"
+              >
+                <LuPrinter className="size-3.5" />
+                Print
+              </button>
+              {canPdf ? (
+                <button
+                  type="button"
+                  onClick={downloadPdf}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-surface-container-high px-2.5 py-2 text-[11px] font-semibold text-on-surface-muted transition-colors hover:text-on-surface"
+                  aria-label="Download PDF"
+                  title="Get PDF"
+                >
+                  <LuFileDown className="size-3.5" />
+                  Get PDF
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={reload}
+                className="flex size-9 items-center justify-center rounded-xl bg-surface-container-high text-on-surface-muted transition-colors hover:text-on-surface"
+                aria-label="Reload preview"
+              >
+                <LuRefreshCw className="size-4" />
+              </button>
+            </>
           ) : null}
           {tab === "source" ? (
             <button
@@ -171,10 +210,12 @@ export function OutputInteractive({
             {state.frameUrl ? (
               <iframe
                 key={state.frameUrl}
+                ref={previewFrameRef}
+                data-bbai-output-preview="1"
                 title={state.title || "School ERP preview"}
                 src={state.frameUrl}
                 className="h-full w-full bg-white"
-                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads allow-modals"
               />
             ) : (
               <EmptyPreview toolLabel={toolLabel} />

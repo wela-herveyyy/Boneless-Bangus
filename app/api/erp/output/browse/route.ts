@@ -94,12 +94,19 @@ export async function GET(request: Request) {
       });
     }
 
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Cache-Control": "no-store",
+    };
+    if (upstream.contentDisposition) {
+      headers["Content-Disposition"] = upstream.contentDisposition;
+    } else if (/application\/pdf/i.test(contentType)) {
+      headers["Content-Disposition"] = 'inline; filename="print.pdf"';
+    }
+
     return new Response(upstream.body, {
       status: upstream.status,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "no-store",
-      },
+      headers,
     });
   } catch (error) {
     return new Response(

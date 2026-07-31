@@ -143,6 +143,22 @@ export function buildFrappeOutputPath(target: FrappeOutputTarget): string | null
   return `/${route}`;
 }
 
+/** ERP path for Frappe "Get PDF" (print format download). */
+export function buildFrappePdfPath(target: FrappeOutputTarget): string | null {
+  if (target.kind !== FRAPPE_OUTPUT_KIND.PRINT_FORMAT) return null;
+  if (!target.doctype?.trim() || !target.name?.trim() || !target.format?.trim()) {
+    return null;
+  }
+  const params = new URLSearchParams({
+    doctype: target.doctype.trim(),
+    name: target.name.trim(),
+    format: target.format.trim(),
+    no_letterhead: "0",
+    _lang: "en",
+  });
+  return `/api/method/frappe.utils.print_format.download_pdf?${params.toString()}`;
+}
+
 export type FrappeSourceFieldDef = {
   key: string;
   label: string;

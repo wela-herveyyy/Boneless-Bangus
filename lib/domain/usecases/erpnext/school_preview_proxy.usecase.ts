@@ -111,6 +111,16 @@ export function rewriteHtmlForSchoolProxy(
   // CSS url(...) — also used when proxying .css bundles (font/background paths).
   out = rewriteCssUrlsForSchoolProxy(out, toProxy);
 
+  // Printview "Get PDF" often uses window.open('/api/method/...') which would hit
+  // BBAI origin — bridge relative ERP paths back through the browse proxy.
+  const bridge = `<script>(function(){var P=${JSON.stringify(browsePathPrefix)};function prox(u){if(!u||typeof u!=="string")return u;if(u.indexOf("/api/erp/output/browse")!==-1)return u;try{var x=new URL(u,window.location.origin);if(x.origin!==window.location.origin)return u;var path=x.pathname+x.search;if(/^\\/(api|printview|app|files|private|assets)\\b/.test(path))return P+encodeURIComponent(path);}catch(e){}return u;}var o=window.open;window.open=function(u){if(typeof u==="string")u=prox(u);return o.apply(this,arguments);};document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;var a=t.closest("a[href]");if(a){var h=a.getAttribute("href")||"";if(/download_pdf|\\/api\\/method\\//i.test(h)){e.preventDefault();window.location.href=prox(h);return;}}var b=t.closest("button,a.btn,.btn");if(!b)return;var label=(b.textContent||"").replace(/\\s+/g," ").trim();if(/^get\\s*pdf$/i.test(label)||/download_pdf/i.test(b.getAttribute("onclick")||"")){var m=(b.getAttribute("onclick")||"").match(/['"](\\/api\\/method\\/[^'"]+)['"]/);if(m){e.preventDefault();e.stopPropagation();window.location.href=prox(m[1]);}}},true);})();</script>`;
+
+  if (/<\/head>/i.test(out)) {
+    out = out.replace(/<\/head>/i, `${bridge}</head>`);
+  } else {
+    out = bridge + out;
+  }
+
   return out;
 }
 
@@ -137,6 +147,7 @@ export async function proxySchoolErpRequest(input: {
   ok: boolean;
   status: number;
   contentType: string;
+  contentDisposition?: string | null;
   body: ArrayBuffer | Uint8Array;
   finalPath: string;
 }> {
@@ -167,24 +178,28 @@ export async function proxySchoolErpRequest(input: {
   }
 
   const sid = input.sid.trim();
+  const isPdf = /download_pdf|\.pdf(?:$|\?)/i.test(path);
   const res = await fetch(target.toString(), {
     headers: {
-      Accept: "*/*",
+      Accept: isPdf ? "application/pdf,*/*" : "*/*",
       Authorization: `Bearer ${sid}`,
       Cookie: `sid=${sid}`,
     },
     cache: "no-store",
     redirect: "follow",
-    signal: AbortSignal.timeout(30_000),
+    // wkhtmltopdf / chrome PDF can be slow on school sites
+    signal: AbortSignal.timeout(isPdf ? 90_000 : 30_000),
   });
 
   const body = await res.arrayBuffer();
   const contentType = res.headers.get("content-type") || "application/octet-stream";
+  const contentDisposition = res.headers.get("content-disposition");
 
   return {
     ok: res.ok,
     status: res.status,
     contentType,
+    contentDisposition,
     body,
     finalPath: `${target.pathname}${target.search}`,
   };

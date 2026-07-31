@@ -6,6 +6,7 @@ import {
   FRAPPE_OUTPUT_KIND,
   buildFrappeDeskSourcePath,
   buildFrappeOutputPath,
+  buildFrappePdfPath,
   canOpenOutputTarget,
   sourceFieldDefsForKind,
   type FrappeOutputKind,
@@ -503,6 +504,29 @@ export function useOutputInteractive() {
     source.availableKeys.includes(d.key),
   );
 
+  const downloadPdf = useCallback(() => {
+    const target = state.target;
+    if (!target) return;
+    const path = buildFrappePdfPath(target);
+    if (!path) {
+      setState((s) => ({
+        ...s,
+        error: "PDF needs Class (doctype + name) and Print Format name.",
+      }));
+      return;
+    }
+    const url = `/api/erp/output/browse?path=${encodeURIComponent(path)}&_=${Date.now()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [state.target]);
+
+  const canPdf = Boolean(
+    state.target?.kind === FRAPPE_OUTPUT_KIND.PRINT_FORMAT &&
+      state.target.doctype &&
+      state.target.name &&
+      state.target.format &&
+      state.frameUrl,
+  );
+
   return {
     state,
     tab,
@@ -517,6 +541,8 @@ export function useOutputInteractive() {
     reload,
     schoolSession,
     refreshSchoolSession,
+    downloadPdf,
+    canPdf,
   };
 }
 
