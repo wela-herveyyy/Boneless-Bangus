@@ -19,33 +19,75 @@ export type FrappeSourceDoc = {
   emptyContent?: boolean;
 };
 
-function erpHeaders(sid: string, csrf?: string | null) {
+function erpHeaders(sid: string, csrf?: string | null, baseUrl?: string) {
+  const cookie = csrf ? `sid=${sid}; system_user=yes` : `sid=${sid}`;
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
     // Session cookie auth (same as school_erp custom tools). Bearer sid is not a
     // Frappe API token and can make mutating calls fail as "Invalid Request".
-    Cookie: `sid=${sid}`,
+    Cookie: cookie,
   };
   if (csrf) {
     headers["X-Frappe-CSRF-Token"] = csrf;
   }
+  if (baseUrl) {
+    // Some school sites enforce allowed_referrers for session writes.
+    headers.Referer = `${baseUrl}/app`;
+    headers.Origin = baseUrl;
+  }
   return headers;
 }
 
-/** Session cookie PUTs/POSTs need CSRF on most Frappe sites. */
+function setCookieValues(res: Response): string[] {
+  const headers = res.headers as Headers & { getSetCookie?: () => string[] };
+  if (typeof headers.getSetCookie === "function") {
+    return headers.getSetCookie();
+  }
+  const single = res.headers.get("set-cookie");
+  return single ? [single] : [];
+}
+
+function csrfFromSetCookie(res: Response): string | null {
+  for (const raw of setCookieValues(res)) {
+    const match = /(?:^|,\s*)csrf_token=([^;,\s]+)/i.exec(raw);
+    if (match?.[1]?.trim()) return decodeURIComponent(match[1].trim());
+  }
+  return null;
+}
+
+function csrfFromHtml(html: string): string | null {
+  const patterns = [
+    /frappe\.csrf_token\s*=\s*["']([^"']+)["']/i,
+    /csrf_token\s*[:=]\s*["']([^"']+)["']/i,
+    /["']csrf_token["']\s*:\s*["']([^"']+)["']/i,
+    /window\.csrf_token\s*=\s*["']([^"']+)["']/i,
+  ];
+  for (const re of patterns) {
+    const match = re.exec(html);
+    const token = match?.[1]?.trim();
+    if (token && token !== "{{ csrf_token }}" && token.length >= 8) return token;
+  }
+  return null;
+}
+
+/**
+ * Session cookie PUTs/POSTs need CSRF when the sid session already has a token
+ * (desk boot). `frappe.sessions.get_csrf_token` is NOT whitelisted — scrape desk
+ * HTML / cookies instead.
+ */
 async function fetchCsrfToken(baseUrl: string, sid: string): Promise<string | null> {
-  const endpoints = [
+  const cookie = `sid=${sid}`;
+
+  // 1) API probes — header / Set-Cookie / whitelisted message
+  const apiUrls = [
     `${baseUrl}/api/method/frappe.auth.get_logged_user`,
     `${baseUrl}/api/method/frappe.sessions.get_csrf_token`,
   ];
-  for (const url of endpoints) {
+  for (const url of apiUrls) {
     try {
       const res = await fetch(url, {
-        headers: {
-          Accept: "application/json",
-          Cookie: `sid=${sid}`,
-        },
+        headers: { Accept: "application/json", Cookie: cookie },
         cache: "no-store",
         signal: AbortSignal.timeout(15_000),
       });
@@ -53,16 +95,47 @@ async function fetchCsrfToken(baseUrl: string, sid: string): Promise<string | nu
         res.headers.get("x-frappe-csrf-token") ||
         res.headers.get("X-Frappe-CSRF-Token");
       if (fromHeader?.trim()) return fromHeader.trim();
+      const fromCookie = csrfFromSetCookie(res);
+      if (fromCookie) return fromCookie;
 
       if (!res.ok) continue;
       const json = (await res.json()) as { message?: unknown };
-      if (typeof json.message === "string" && json.message.trim() && url.includes("csrf")) {
+      if (
+        typeof json.message === "string" &&
+        json.message.trim() &&
+        url.includes("get_csrf_token") &&
+        !json.message.includes("@") // don't treat logged-in email as CSRF
+      ) {
         return json.message.trim();
       }
     } catch {
       /* try next */
     }
   }
+
+  // 2) Desk HTML — rendering boot calls get_csrf_token() server-side
+  for (const path of ["/app", "/desk", "/app/print-format"]) {
+    try {
+      const res = await fetch(`${baseUrl}${path}`, {
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          Cookie: cookie,
+          Referer: `${baseUrl}/app`,
+        },
+        cache: "no-store",
+        redirect: "follow",
+        signal: AbortSignal.timeout(20_000),
+      });
+      const fromCookie = csrfFromSetCookie(res);
+      if (fromCookie) return fromCookie;
+      const html = await res.text();
+      const fromHtml = csrfFromHtml(html);
+      if (fromHtml) return fromHtml;
+    } catch {
+      /* try next */
+    }
+  }
+
   return null;
 }
 
@@ -362,45 +435,79 @@ export async function saveFrappeSourceDoc(input: {
     }
   }
 
-  const csrf = await fetchCsrfToken(baseUrl, sid);
+  let csrf = await fetchCsrfToken(baseUrl, sid);
   const url = `${baseUrl}/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`;
-  const headers = erpHeaders(sid, csrf);
 
   // Prefer flat JSON (current Frappe). Fall back to { data } wrapper used by older sites.
   const attempts: unknown[] = [payload, { data: payload }];
   let lastText = "";
   let lastStatus = 0;
 
-  for (const body of attempts) {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(body),
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
-    });
-    lastText = await res.text();
-    lastStatus = res.status;
-    if (res.ok) {
-      return { ok: true, data: { name } };
+  const tryPut = async (token: string | null) => {
+    const headers = erpHeaders(sid, token, baseUrl);
+    for (const body of attempts) {
+      const res = await fetch(url, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      });
+      lastText = await res.text();
+      lastStatus = res.status;
+      if (res.ok) return true;
+      const message = parseFrappeError(lastText, "").toLowerCase();
+      // Only retry wrapper for classic body-shape / CSRF failures
+      if (!message.includes("invalid request") && !message.includes("nonetype")) {
+        return false;
+      }
     }
-    const message = parseFrappeError(lastText, "").toLowerCase();
-    // Only retry wrapper for classic body-shape failures
-    if (!message.includes("invalid request") && !message.includes("nonetype")) {
-      break;
+    return false;
+  };
+
+  if (await tryPut(csrf)) {
+    return { ok: true, data: { name } };
+  }
+
+  // Refresh CSRF once (desk may mint a new token after first write attempt)
+  if (/invalid request/i.test(parseFrappeError(lastText, ""))) {
+    csrf = (await fetchCsrfToken(baseUrl, sid)) || csrf;
+    if (csrf && (await tryPut(csrf))) {
+      return { ok: true, data: { name } };
     }
   }
 
-  // Last resort: frappe.client.set_value (dict fieldname) — still needs CSRF
+  // Last resort: frappe.client.set_value (JSON + form with csrf_token)
+  const setBodies: Array<{ headers: Record<string, string>; body: string }> = [];
+  const jsonHeaders = erpHeaders(sid, csrf, baseUrl);
+  setBodies.push({
+    headers: jsonHeaders,
+    body: JSON.stringify({ doctype, name, fieldname: payload }),
+  });
   if (csrf) {
+    const form = new URLSearchParams();
+    form.set("doctype", doctype);
+    form.set("name", name);
+    form.set("fieldname", JSON.stringify(payload));
+    form.set("csrf_token", csrf);
+    setBodies.push({
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        Cookie: `sid=${sid}`,
+        "X-Frappe-CSRF-Token": csrf,
+        Referer: `${baseUrl}/app`,
+        Origin: baseUrl,
+      },
+      body: form.toString(),
+    });
+  }
+
+  for (const attempt of setBodies) {
     const setRes = await fetch(`${baseUrl}/api/method/frappe.client.set_value`, {
       method: "POST",
-      headers,
-      body: JSON.stringify({
-        doctype,
-        name,
-        fieldname: payload,
-      }),
+      headers: attempt.headers,
+      body: attempt.body,
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     });
@@ -416,8 +523,10 @@ export async function saveFrappeSourceDoc(input: {
   const message = parseFrappeError(lastText, fallback);
   const csrfHint =
     /csrf|invalid request/i.test(message) && !csrf
-      ? " Could not obtain Frappe CSRF token — reconnect School ERP and try again."
-      : "";
+      ? " Could not obtain Frappe CSRF token — reconnect School ERP and try Save again."
+      : /invalid request/i.test(message) && csrf
+        ? " Frappe rejected the write (CSRF/session). Reconnect School ERP and try again."
+        : "";
   const notFoundHint =
     doctype === "Web Page" && /not found|does not exist|404/i.test(message)
       ? ` Web Page not found for “${hint}”. Use the desk slug or route.`
