@@ -14,7 +14,10 @@
     "db:studio": "drizzle-kit studio",
     "create-account": "bun create-account.mts",
     "seed:skills": "bun scripts/seed-builtin-skills.mts",
-    "seed:role-permissions": "bun scripts/apply-role-permissions.mts"
+    "seed:roles": "bun scripts/seed-roles.mts",
+    "seed:role-permissions": "bun scripts/apply-role-permissions.mts",
+    "seed:mcp": "bun scripts/seed-mcp-catalogue.mts",
+    "seed:deploy": "bun scripts/seed-deploy.mts"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.23",
@@ -26,10 +29,12 @@
     "mysql2": "^3.22.5",
     "next": "16.2.4",
     "pdf-parse": "1.1.1",
+    "prismjs": "^1.30.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
+    "react-simple-code-editor": "^0.14.1",
     "remark-gfm": "^4.0.1",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"
@@ -38,6 +43,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.43",
     "@types/pdf-parse": "^1.1.5",
+    "@types/prismjs": "^1.26.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",

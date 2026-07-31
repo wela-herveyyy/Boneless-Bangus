@@ -48,6 +48,34 @@ export const aiMessage = mysqlTable("ai_message", {
     .notNull(),
 });
 
+/**
+ * One Output canvas per conversation (Web Page / Web Form / Print Format tool).
+ * `id` is the public canvas id users can pinpoint (e.g. cv_a1b2c3d4).
+ */
+export const aiOutputCanvas = mysqlTable(
+  "ai_output_canvas",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    conversationId: varchar("conversation_id", { length: 36 })
+      .notNull()
+      .references(() => aiConversation.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** webpage | webform | print_format */
+    toolMode: varchar("tool_mode", { length: 32 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    /** FrappeOutputTarget JSON */
+    target: json("target").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { fsp: 3 })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [unique("ai_output_canvas_conversation_uid").on(table.conversationId)],
+);
+
 export const role = mysqlTable("role", {
   id: varchar("id", { length: 36 }).primaryKey(),
   value: varchar("value", { length: 50 }).notNull().unique(),

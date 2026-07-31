@@ -63,6 +63,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!session && !matchesPath(pathname, publicPaths)) {
+    // Never redirect API callers to HTML /sign-in — clients parse JSON.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ ok: false, error: "Authentication required." }, { status: 401 });
+    }
     const signInUrl = new URL("/sign-in", request.url);
     const callbackPath = `${pathname}${request.nextUrl.search}`;
     signInUrl.searchParams.set("callbackURL", callbackPath);

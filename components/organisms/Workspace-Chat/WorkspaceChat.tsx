@@ -1,14 +1,13 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
   LuArrowUp,
   LuCheck,
   LuChevronDown,
   LuKeyRound,
+  LuLayers2,
   LuLoaderCircle,
-  LuMoveVertical,
-  LuPanelRightClose,
   LuPaperclip,
   LuX,
 } from "react-icons/lu";
@@ -16,7 +15,27 @@ import { Button } from "@/components/atoms/Button/Button";
 import { ChatMarkdown } from "@/components/atoms/ChatMarkdown/ChatMarkdown";
 import { AddSkillModal } from "@/components/molecules/AddSkillModal/AddSkillModal";
 import type { OnboardingProfile } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
+import { OutputInteractive } from "@/components/organisms/OutputInteractive/OutputInteractive";
+import {
+  clearPendingOutputTarget,
+  dispatchOutputTarget,
+} from "@/components/organisms/OutputInteractive/outputInteractive.hooks";
 import type { AiKeySource } from "@/lib/entities/ai.type";
+import {
+  getOutputCanvasByConversationAction,
+  upsertOutputCanvasAction,
+} from "@/lib/domain/actions/output_canvas.actions";
+import {
+  FRAPPE_TOOL_MODE,
+  FRAPPE_TOOL_OPTIONS,
+  parseOutputMarker,
+  type FrappeOutputTarget,
+  type FrappeToolMode,
+} from "@/lib/entities/frappe_output.type";
+import {
+  frappeToolModeFromKind,
+  type OutputCanvasItem,
+} from "@/lib/entities/output_canvas.type";
 import { notifySkillsChanged } from "@/lib/utils/skills-events";
 import {
   getFocusLabel,
@@ -27,6 +46,10 @@ import {
   type AiRouteId,
   type WorkspaceChatApiKeys,
 } from "./workspaceChat.hooks";
+
+function stripOutputMarker(text: string): string {
+  return text.replace(/<!--\s*bbai:output[\s\S]*?-->/g, "").trim();
+}
 
 const KEY_SOURCE_OPTIONS: {
   id: AiKeySource;
@@ -158,6 +181,91 @@ function AiRouteMenu({
   );
 }
 
+function ToolsPanelMenu({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: FrappeToolMode;
+  onChange: (id: FrappeToolMode) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected =
+    FRAPPE_TOOL_OPTIONS.find((option) => option.id === value) ?? FRAPPE_TOOL_OPTIONS[0];
+  const toolActive = value !== FRAPPE_TOOL_MODE.OFF;
+  useMenuDismiss(open, setOpen, rootRef);
+
+  return (
+    <div ref={rootRef} className="relative z-50">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Frappe tools"
+        onClick={() => setOpen((prev) => !prev)}
+        className={[
+          "inline-flex items-center gap-1.5 rounded-2xl px-3 py-2",
+          "bg-surface-container-low/80 text-xs font-medium text-on-surface",
+          "transition-colors duration-200 hover:bg-surface-container-high disabled:opacity-50",
+          open || toolActive ? "bg-surface-container-high" : "",
+        ].join(" ")}
+      >
+        <LuLayers2
+          className={[
+            "size-3.5 shrink-0",
+            toolActive ? "text-primary" : "text-on-surface-muted",
+          ].join(" ")}
+          aria-hidden
+        />
+        <span>{toolActive ? selected.label : "Tools"}</span>
+        <LuChevronDown
+          aria-hidden
+          className={[
+            "size-3.5 shrink-0 text-on-surface-muted transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        />
+      </button>
+
+      {open ? (
+        <ul
+          role="listbox"
+          aria-label="Frappe tools"
+          className="absolute bottom-full left-0 z-50 mb-2 min-w-56 overflow-hidden rounded-2xl bg-surface-container-lowest py-1.5 shadow-bloom ghost-border"
+        >
+          {FRAPPE_TOOL_OPTIONS.map((option) => {
+            const active = option.id === value;
+            return (
+              <li key={option.id} role="option" aria-selected={active}>
+                <button
+                  type="button"
+                  className={[
+                    "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                    active ? "bg-primary/8" : "hover:bg-surface-container-low",
+                  ].join(" ")}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-on-surface">{option.label}</span>
+                    <span className="block text-xs text-on-surface-muted">{option.hint}</span>
+                  </span>
+                  {active ? <LuCheck className="size-4 shrink-0 text-primary" aria-hidden /> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function KeySourceMenu({
   value,
   onChange,
@@ -258,6 +366,13 @@ type WorkspaceChatProps = {
   activeChatId?: string | null;
   onConversationSaved?: (dbConversationId: string) => void;
   apiKeys?: WorkspaceChatApiKeys;
+  /** Frappe Tools mode — chat generates; Output only displays. */
+  frappeTool?: FrappeToolMode;
+  onFrappeToolChange?: (mode: FrappeToolMode) => void;
+  onStartNewChat?: () => void;
+  pendingCanvas?: OutputCanvasItem | null;
+  onPendingCanvasConsumed?: () => void;
+  onCanvasSaved?: () => void;
 };
 
 export function WorkspaceChat({
@@ -269,29 +384,32 @@ export function WorkspaceChat({
   activeChatId = null,
   onConversationSaved,
   apiKeys,
+  frappeTool = FRAPPE_TOOL_MODE.OFF,
+  onFrappeToolChange,
+  onStartNewChat,
+  pendingCanvas = null,
+  onPendingCanvasConsumed,
+  onCanvasSaved,
 }: WorkspaceChatProps) {
   const firstName = displayName.split(" ")[0];
+  const outputOpen = frappeTool !== FRAPPE_TOOL_MODE.OFF;
+  const toolLabel =
+    FRAPPE_TOOL_OPTIONS.find((o) => o.id === frappeTool)?.label ?? "Output";
   const chat = useWorkspaceChat(
     {
       name: profile?.name || displayName,
       email: userEmail,
     },
-    { activeChatId, onConversationSaved, apiKeys },
+    { activeChatId, onConversationSaved, apiKeys, frappeTool },
   );
   const threadRef = useRef<HTMLDivElement>(null);
-  const [showRightTriggers, setShowRightTriggers] = useState(false);
   const [executingConfirmations, setExecutingConfirmations] = useState(false);
+  const [canvasId, setCanvasId] = useState<string | null>(null);
+  const lastTargetRef = useRef<FrappeOutputTarget | null>(null);
+  const lastUpsertKeyRef = useRef<string>("");
 
   const routeLabel =
     AI_ROUTE_OPTIONS.find((option) => option.id === chat.routeId)?.label ?? "AI";
-
-  useEffect(() => {
-    const hideTriggers = !showRightTriggers;
-    document.body.classList.toggle("hide-right-triggers", hideTriggers);
-    return () => {
-      document.body.classList.remove("hide-right-triggers");
-    };
-  }, [chat.hasChat, showRightTriggers]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
@@ -301,6 +419,104 @@ export function WorkspaceChat({
     if (!chat.sending && !chat.streamingAssistantId && !chat.thinkingText) return;
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
   }, [chat.turns, chat.sending, chat.streamingAssistantId, chat.thinkingText]);
+
+  const persistCanvas = useCallback(
+    async (conversationId: string, target: FrappeOutputTarget) => {
+      const toolMode = frappeTool !== FRAPPE_TOOL_MODE.OFF
+        ? frappeTool
+        : frappeToolModeFromKind(target.kind);
+      if (toolMode === FRAPPE_TOOL_MODE.OFF) return;
+
+      const key = `${conversationId}|${JSON.stringify(target)}`;
+      if (key === lastUpsertKeyRef.current) return;
+      lastUpsertKeyRef.current = key;
+
+      const result = await upsertOutputCanvasAction({
+        conversationId,
+        toolMode,
+        target,
+      });
+      if (result.ok) {
+        setCanvasId(result.data.id);
+        onCanvasSaved?.();
+      }
+    },
+    [frappeTool, onCanvasSaved],
+  );
+
+  // Stream Frappe outputs from assistant markers into Output + bind 1 canvas / convo
+  useEffect(() => {
+    if (!outputOpen) return;
+    const lastAssistant = [...chat.turns].reverse().find((t) => t.role === "assistant" && t.text);
+    if (!lastAssistant?.text) return;
+    const target = parseOutputMarker(lastAssistant.text);
+    if (!target) return;
+    lastTargetRef.current = target;
+    dispatchOutputTarget(target);
+    const conversationId = chat.dbConversationId || activeChatId;
+    if (conversationId) void persistCanvas(conversationId, target);
+  }, [chat.turns, outputOpen, chat.dbConversationId, activeChatId, persistCanvas]);
+
+  // Conversation just saved — attach pending target to the new canvas id
+  useEffect(() => {
+    const conversationId = chat.dbConversationId;
+    const target = lastTargetRef.current;
+    if (!conversationId || !target || !outputOpen) return;
+    void persistCanvas(conversationId, target);
+  }, [chat.dbConversationId, outputOpen, persistCanvas]);
+
+  // Open canvas from sidebar list (pinpoint)
+  useEffect(() => {
+    if (!pendingCanvas) return;
+    if (activeChatId !== pendingCanvas.conversationId) return;
+    if (chat.loadingThread) return;
+    lastTargetRef.current = pendingCanvas.target;
+    setCanvasId(pendingCanvas.id);
+    dispatchOutputTarget(pendingCanvas.target);
+    onPendingCanvasConsumed?.();
+  }, [
+    pendingCanvas,
+    activeChatId,
+    chat.loadingThread,
+    chat.historyEpoch,
+    onPendingCanvasConsumed,
+  ]);
+
+  // Load canvas id for the active chat; restore Output only if that tool is already on
+  useEffect(() => {
+    if (!activeChatId || pendingCanvas) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await getOutputCanvasByConversationAction(activeChatId);
+      if (cancelled) return;
+      if (!result.ok || !result.data) {
+        setCanvasId(null);
+        return;
+      }
+      setCanvasId(result.data.id);
+      lastTargetRef.current = result.data.target;
+      if (frappeTool === result.data.toolMode) {
+        dispatchOutputTarget(result.data.target);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChatId, pendingCanvas, frappeTool]);
+
+  const handleFrappeToolChange = (next: FrappeToolMode) => {
+    if (next === frappeTool) return;
+    // Changing Tools always starts a fresh conversation (1 canvas per convo).
+    if (chat.hasChat || activeChatId) {
+      onStartNewChat?.();
+      chat.resetConversation();
+    }
+    clearPendingOutputTarget();
+    lastTargetRef.current = null;
+    lastUpsertKeyRef.current = "";
+    setCanvasId(null);
+    onFrappeToolChange?.(next);
+  };
 
   const canSend =
     !chat.sending &&
@@ -455,6 +671,11 @@ export function WorkspaceChat({
             apiKeys={apiKeys}
             disabled={composerBusy}
           />
+          <ToolsPanelMenu
+            value={frappeTool}
+            onChange={handleFrappeToolChange}
+            disabled={composerBusy}
+          />
         </div>
         <p className="hidden px-1 text-[11px] text-on-surface-muted sm:block">
           Enter to send · Shift+Enter for new line
@@ -469,56 +690,32 @@ export function WorkspaceChat({
     </form>
   );
 
-  const rightSidebarToggles = (
-    <>
-      <button
-        type="button"
-        onClick={() => setShowRightTriggers(true)}
-        className={[
-          "fixed right-4 top-1/2 -translate-y-1/2 z-40 flex size-10 items-center justify-center rounded-xl bg-surface-container-lowest text-on-surface-muted shadow-bloom hover:text-primary",
-          showRightTriggers
-            ? "pointer-events-none opacity-0 translate-x-4 transition-all duration-200"
-            : "pointer-events-auto opacity-100 translate-x-0 transition-all duration-300 delay-150"
-        ].join(" ")}
-        aria-label="Show tools"
-      >
-        <LuMoveVertical className="size-5" aria-hidden />
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setShowRightTriggers(false)}
-        className={[
-          "right-sidebar-trigger fixed right-0 z-120 flex size-10 -translate-y-1/2 items-center justify-center",
-          "bg-surface-container-highest text-primary shadow-bloom ghost-border hover:bg-primary hover:text-on-primary",
-          "transition-[right,top,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "md:hidden!"
-        ].join(" ")}
-        aria-label="Hide tools"
-        style={{ top: "calc(50% + 12.25rem)" }}
-      >
-        <LuPanelRightClose className="size-5" aria-hidden />
-      </button>
-    </>
-  );
-
   if (chat.hasChat) {
     return (
       <div
         className={[
-          "relative z-10 flex h-screen flex-col overflow-hidden px-6 py-6 transition-[margin] duration-300 ease-out",
+          "relative z-10 flex h-screen overflow-hidden transition-[margin] duration-300 ease-out",
           sidebarOpen ? "md:ml-72 ml-0" : "ml-0",
         ].join(" ")}
       >
-        <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col overflow-hidden">
-          <p className="mb-4 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
+        {/* Chat — full width when Tools closed, left column when open */}
+        <section
+          className={[
+            "flex h-full min-h-0 flex-col px-4 py-5 md:px-5",
+            outputOpen ? "w-full md:w-[42%] md:max-w-xl" : "mx-auto w-full max-w-2xl",
+          ].join(" ")}
+        >
+          <p className="mb-3 shrink-0 text-xs font-medium uppercase tracking-[0.25em] text-secondary">
             BBAI · {firstName} · {routeLabel}
+          </p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+            Chat
           </p>
 
           <div
             key={activeChatId ?? chat.dbConversationId ?? "thread"}
             ref={threadRef}
-            className="bbai-scroll chat-thread-in min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4 pt-12"
+            className="bbai-scroll chat-thread-in min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden pb-4"
             onScroll={(event) => {
               if (event.currentTarget.scrollTop > 48) return;
               void chat.loadOlder(event.currentTarget);
@@ -532,12 +729,6 @@ export function WorkspaceChat({
                 <div className="flex justify-start">
                   <div className="h-24 w-3/4 animate-pulse rounded-2xl bg-surface-container-low" />
                 </div>
-                <div className="flex justify-end">
-                  <div className="h-10 w-1/3 animate-pulse rounded-2xl bg-surface-container-low" />
-                </div>
-                <div className="flex justify-start">
-                  <div className="h-16 w-2/3 animate-pulse rounded-2xl bg-surface-container-low" />
-                </div>
               </div>
             ) : null}
 
@@ -545,11 +736,14 @@ export function WorkspaceChat({
               <p className="text-center text-xs text-on-surface-muted">Loading earlier…</p>
             ) : null}
 
-            {chat.turns.map((turn) => (
+            {chat.turns.map((turn) => {
+              const displayText =
+                turn.role === "assistant" ? stripOutputMarker(turn.text) : turn.text;
+              return (
               <Fragment key={turn.id}>
                 {turn.id === chat.streamingAssistantId && chat.thinkingText ? (
                   <div className="chat-bubble-assistant flex justify-start">
-                    <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-surface-container px-4 py-3 text-xs leading-relaxed text-on-surface-muted">
+                    <div className="max-w-[95%] whitespace-pre-wrap rounded-2xl bg-surface-container px-4 py-3 text-xs leading-relaxed text-on-surface-muted">
                       <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.2em]">
                         Thinking
                       </p>
@@ -567,17 +761,17 @@ export function WorkspaceChat({
                 >
                   <div
                     className={[
-                      "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                      "max-w-[95%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
                       turn.role === "user"
                         ? "whitespace-pre-wrap bg-primary text-on-primary"
                         : "bg-surface-container-lowest text-on-surface shadow-bloom",
                     ].join(" ")}
                   >
-                    {turn.text ? (
+                    {displayText ? (
                       turn.role === "assistant" ? (
-                        <ChatMarkdown content={turn.text} />
+                        <ChatMarkdown content={displayText} />
                       ) : (
-                        turn.text
+                        displayText
                       )
                     ) : turn.id === chat.streamingAssistantId ? (
                       <span className="inline-flex gap-1.5 text-on-surface-muted">
@@ -585,11 +779,14 @@ export function WorkspaceChat({
                         <span className="chat-dot">●</span>
                         <span className="chat-dot">●</span>
                       </span>
+                    ) : turn.role === "assistant" ? (
+                      <span className="text-on-surface-muted">Opened in Output.</span>
                     ) : null}
                   </div>
                 </div>
               </Fragment>
-            ))}
+              );
+            })}
 
             {chat.sending && !chat.streamingAssistantId && !chat.thinkingText ? (
               <div className="chat-bubble-assistant flex justify-start">
@@ -604,9 +801,23 @@ export function WorkspaceChat({
             ) : null}
           </div>
 
+          {/* Composer + model/key select stay under Chat */}
           <div className="chat-composer-in shrink-0 pt-2">{composer}</div>
-        </div>
-        {rightSidebarToggles}
+        </section>
+
+        {/* Output — only when Tools is on */}
+        {outputOpen ? (
+          <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
+            <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
+              <OutputInteractive
+                key={`${frappeTool}-${activeChatId ?? "new"}`}
+                toolLabel={toolLabel}
+                canvasId={canvasId}
+                onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+              />
+            </div>
+          </aside>
+        ) : null}
 
         {(() => {
           const draftSkillConf = chat.pendingConfirmations.find(c => c.slug === "skills" && c.toolName === "create_skill");
@@ -757,12 +968,20 @@ export function WorkspaceChat({
   return (
     <div
       className={[
-        "relative z-10 flex min-h-screen items-center justify-center px-6 py-12 transition-[margin] duration-300 ease-out",
+        "relative z-10 flex h-screen overflow-hidden transition-[margin] duration-300 ease-out",
         sidebarOpen ? "md:ml-72 ml-0" : "ml-0",
       ].join(" ")}
     >
-      <div className="w-full max-w-2xl space-y-8">
-        <div className="space-y-4">
+      <section
+        className={[
+          "flex h-full min-h-0 flex-col justify-center px-4 py-8 md:px-5",
+          outputOpen ? "w-full md:w-[42%] md:max-w-xl" : "mx-auto w-full max-w-2xl",
+        ].join(" ")}
+      >
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          Chat
+        </p>
+        <div className="mb-8 space-y-4">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-secondary">
             Livro Systems Inc.
           </p>
@@ -770,8 +989,9 @@ export function WorkspaceChat({
             {loading ? "Hi…" : `Hi, ${firstName}.`}
           </h1>
           <p className="text-base leading-relaxed text-on-surface-muted">
-            Ask about tasks, bugs, or school setup — BBAI answers from {userEmail} and your
-            permissions.
+            {outputOpen
+              ? `Generate a Frappe ${toolLabel.toLowerCase()} here — live preview streams in Output.`
+              : "Ask about tasks, bugs, or school setup."}
           </p>
           {profile ? (
             <div className="flex flex-wrap gap-3">
@@ -788,9 +1008,20 @@ export function WorkspaceChat({
         </div>
 
         {composer}
-      </div>
+      </section>
 
-      {rightSidebarToggles}
+      {outputOpen ? (
+        <aside className="hidden min-h-0 flex-1 overflow-hidden md:block">
+          <div className="h-full overflow-hidden rounded-l-[1.75rem] bg-surface-container-low">
+            <OutputInteractive
+              key={`${frappeTool}-${activeChatId ?? "new"}`}
+              toolLabel={toolLabel}
+              canvasId={canvasId}
+              onClose={() => handleFrappeToolChange(FRAPPE_TOOL_MODE.OFF)}
+            />
+          </div>
+        </aside>
+      ) : null}
     </div>
   );
 }

@@ -60,6 +60,10 @@ export function WorkspacePage({
     [sidebar.setActiveChatId, sidebar.refreshHistory],
   );
 
+  const onCanvasSaved = useCallback(() => {
+    void sidebar.refreshCanvases();
+  }, [sidebar.refreshCanvases]);
+
   // Keep the native window scrollbar off so only .bbai-scroll panels scroll.
   useEffect(() => {
     document.documentElement.classList.add("bbai-lock-scroll");
@@ -90,6 +94,12 @@ export function WorkspacePage({
         sidebarOpen={sidebar.isOpen}
         activeChatId={sidebar.activeChatId}
         onConversationSaved={onConversationSaved}
+        frappeTool={sidebar.frappeTool}
+        onFrappeToolChange={sidebar.setFrappeTool}
+        onStartNewChat={sidebar.startNewChat}
+        pendingCanvas={sidebar.pendingCanvas}
+        onPendingCanvasConsumed={sidebar.clearPendingCanvas}
+        onCanvasSaved={onCanvasSaved}
         apiKeys={{
           personalCursor: Boolean(userSettings?.cursorApiKey),
           personalGemini: Boolean(userSettings?.geminiApiKey),
@@ -99,11 +109,13 @@ export function WorkspacePage({
       />
       {sidebar.isProfileOpen && (
         <ProfileView
+          key={sidebar.profileSection}
           userId={userId}
           userName={userName}
           userEmail={userEmail}
           userSettings={userSettings}
           userTeam={userTeam}
+          initialSection={sidebar.profileSection}
           onClose={sidebar.closeProfile}
         />
       )}

@@ -395,3 +395,93 @@ body.hide-right-triggers .right-sidebar-trigger {
   pointer-events: none;
   transform: translateX(100%);
 }
+
+/* Unified tools dock replaces the stacked icon rail */
+body.bbai-unified-tools-dock .right-sidebar-trigger {
+  display: none !important;
+}
+
+/*
+  While a tool drawer is open, hide the floating rail.
+  Switching is done from the switcher inside the panel header (not over the calendar).
+*/
+body:is(
+  .bbai-google-workspace-sidebar-open,
+  .bbai-github-sidebar-open,
+  .bbai-school-erp-sidebar-open,
+  .bbai-livro-sidebar-open
+)
+  .right-tools-dock {
+  display: none !important;
+}
+
+/* Output Source — react-simple-code-editor + Prism (light tokens) */
+.bbai-simple-code-editor {
+  color: var(--color-on-surface);
+}
+
+.bbai-simple-code-editor textarea,
+.bbai-simple-code-editor pre,
+.bbai-simple-code-editor pre * {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  tab-size: 2;
+}
+
+.bbai-simple-code-editor textarea {
+  outline: none !important;
+  caret-color: var(--color-primary);
+}
+
+.bbai-simple-code-editor .token.comment,
+.bbai-simple-code-editor .token.prolog,
+.bbai-simple-code-editor .token.doctype,
+.bbai-simple-code-editor .token.cdata {
+  color: color-mix(in srgb, var(--color-on-surface-muted) 85%, transparent);
+  font-style: italic;
+}
+
+.bbai-simple-code-editor .token.punctuation {
+  color: var(--color-on-surface-muted);
+}
+
+.bbai-simple-code-editor .token.property,
+.bbai-simple-code-editor .token.tag,
+.bbai-simple-code-editor .token.boolean,
+.bbai-simple-code-editor .token.number,
+.bbai-simple-code-editor .token.constant,
+.bbai-simple-code-editor .token.symbol {
+  color: var(--color-primary);
+}
+
+.bbai-simple-code-editor .token.selector,
+.bbai-simple-code-editor .token.attr-name,
+.bbai-simple-code-editor .token.string,
+.bbai-simple-code-editor .token.char,
+.bbai-simple-code-editor .token.builtin {
+  color: color-mix(in srgb, var(--color-primary) 70%, #0d9488);
+}
+
+.bbai-simple-code-editor .token.operator,
+.bbai-simple-code-editor .token.entity,
+.bbai-simple-code-editor .token.url,
+.bbai-simple-code-editor .token.variable {
+  color: var(--color-secondary);
+}
+
+.bbai-simple-code-editor .token.atrule,
+.bbai-simple-code-editor .token.attr-value,
+.bbai-simple-code-editor .token.keyword {
+  color: color-mix(in srgb, var(--color-primary) 55%, #7c3aed);
+}
+
+.bbai-simple-code-editor .token.function,
+.bbai-simple-code-editor .token.class-name {
+  color: color-mix(in srgb, var(--color-secondary) 80%, #c2410c);
+}
+
+.bbai-simple-code-editor .token.regex,
+.bbai-simple-code-editor .token.important {
+  color: var(--color-secondary);
+}

@@ -34,6 +34,11 @@ import {
   SCHOOL_ERP_MCP_SERVER_KEY,
   type ErpMcpServerConfig,
 } from "@/lib/entities/erpnext.type";
+import {
+  FRAPPE_TOOL_MODE,
+  frappeToolPromptPrefix,
+  type FrappeToolMode,
+} from "@/lib/entities/frappe_output.type";
 import { hasPermission, USER_PERMISSION } from "@/lib/entities/users.type";
 import { getAvailableCommands, type CommandDefinition } from "./workspaceChat.commands";
 
@@ -281,6 +286,8 @@ export function useWorkspaceChat(
     activeChatId?: string | null;
     onConversationSaved?: (dbConversationId: string) => void;
     apiKeys?: WorkspaceChatApiKeys;
+    /** Frappe Tools mode — injects generation instructions into the agent prompt. */
+    frappeTool?: FrappeToolMode;
   },
 ) {
   const [message, setMessage] = useState("");
@@ -772,6 +779,22 @@ export function useWorkspaceChat(
     ],
   );
 
+  const resetConversation = useCallback(() => {
+    setTurns([]);
+    setDbConversationId(undefined);
+    setProviderConversationId(undefined);
+    setThinkingText("");
+    setStreamingAssistantId(null);
+    setHasMoreHistory(false);
+    setNextBefore(null);
+    setError(null);
+    setLoadingThread(false);
+    setPendingConfirmations([]);
+    setMessage("");
+    setActiveCommand(null);
+    setAttachments([]);
+  }, []);
+
   const send = useCallback(
     async (event?: FormEvent) => {
       event?.preventDefault();
@@ -779,9 +802,15 @@ export function useWorkspaceChat(
       if (!text && !activeCommand && attachments.length === 0) return;
       if (sending) return;
 
-      const finalPrompt = activeCommand
+      const toolPrefix = frappeToolPromptPrefix(
+        options?.frappeTool ?? FRAPPE_TOOL_MODE.OFF,
+      );
+      const basePrompt = activeCommand
         ? `${activeCommand.promptText}\n\n${text}`.trim()
         : text;
+      const finalPrompt = toolPrefix
+        ? `${toolPrefix}${basePrompt}`.trim()
+        : basePrompt;
 
       setSending(true);
       setError(null);
@@ -836,7 +865,7 @@ export function useWorkspaceChat(
 
           const result = await promptAiAction({
             provider,
-            message: text,
+            message: finalPrompt,
             name: user?.name,
             email: user?.email,
             mcpServers: Object.keys(liveMcpServers).length > 0 ? liveMcpServers : undefined,
@@ -885,6 +914,7 @@ export function useWorkspaceChat(
       skills,
       dbConversationId,
       options,
+      options?.frappeTool,
       sendGoogleStream,
     ],
   );
@@ -1007,6 +1037,7 @@ export function useWorkspaceChat(
     setTurns,
     attachments,
     setAttachments,
+    resetConversation,
   };
 }
 

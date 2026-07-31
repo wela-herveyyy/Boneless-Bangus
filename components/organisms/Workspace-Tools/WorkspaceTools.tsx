@@ -44,11 +44,8 @@ import {
 } from "@/lib/entities/erpnext.type";
 import {
   isLivroParent,
-  persistEmbedParent,
   persistEmbedSidClient,
-  persistSchoolMcpAuto,
   readEmbedParamsFromWindow,
-  resolveSchoolEmbedParent,
 } from "@/lib/utils/erp-embed";
 
 /* ── Login form ─────────────────────────────────────────── */
@@ -746,43 +743,26 @@ export function SchoolErpToolsSidebar({ topOffset }: { topOffset?: string } = {}
   const sidebar = useSchoolErpSidebar();
 
   useEffect(() => {
+    // Only apply embed from the CURRENT URL. Never use stale bbai_erp_embed_parent
+    // (e.g. localhost:8007) — that was overwriting huawei-silid on every refresh.
     const { sid, parent } = readEmbedParamsFromWindow();
-    const resolved = resolveSchoolEmbedParent();
-    const schoolParent =
-      (parent && !isLivroParent(parent) ? parent : null) ||
-      (resolved && !isLivroParent(resolved) ? resolved : null);
+    if (!sid?.trim() || !parent || isLivroParent(parent)) return;
 
-    // Prefer URL sid; else reuse desk sid that was wrongly stored under Livro keys
-    const embedSid =
-      sid?.trim() ||
-      localStorage.getItem("bbai_school_erp_sid")?.trim() ||
-      (schoolParent ? localStorage.getItem("bbai_erp_sid")?.trim() : null) ||
-      null;
-
-    if (embedSid && schoolParent) {
-      const prevBase = localStorage.getItem("bbai_school_erp_base_url") ?? "";
-      if (prevBase.includes("school.example.com")) {
-        localStorage.removeItem("bbai_school_erp_base_url");
-      }
-      persistEmbedSidClient(
-        {
-          sid: embedSid,
-          fullName:
-            localStorage.getItem("bbai_school_erp_user") ||
-            localStorage.getItem("bbai_erp_user") ||
-            "User",
-          email:
-            localStorage.getItem("bbai_school_erp_email") ||
-            localStorage.getItem("bbai_erp_email") ||
-            "",
-          baseUrl: schoolParent,
-        },
-        { forceSchool: true },
-      );
-    } else if (schoolParent) {
-      persistEmbedParent(schoolParent);
-      persistSchoolMcpAuto(null);
-    }
+    persistEmbedSidClient(
+      {
+        sid: sid.trim(),
+        fullName:
+          localStorage.getItem("bbai_school_erp_user") ||
+          localStorage.getItem("bbai_erp_user") ||
+          "User",
+        email:
+          localStorage.getItem("bbai_school_erp_email") ||
+          localStorage.getItem("bbai_erp_email") ||
+          "",
+        baseUrl: parent,
+      },
+      { forceSchool: true },
+    );
   }, []);
 
   return (

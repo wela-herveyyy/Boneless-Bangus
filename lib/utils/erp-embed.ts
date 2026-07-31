@@ -99,19 +99,20 @@ export function isErpEmbedMode(): boolean {
 }
 
 /**
- * Resolve the ERP parent we are embedded in (URL → storage → school SID base URL).
- * Key rule: if this is set and is NOT Livro, School login UI must be hidden.
+ * Resolve the ERP parent we are embedded in.
+ * Prefer live URL, then the active School MCP site, then stale embed storage.
+ * (School base before embed store so localhost desk embeds don't win after a
+ * manual connect to a real school site.)
  */
 export function resolveSchoolEmbedParent(): string | null {
   if (typeof window === "undefined") return null;
   const fromWindow = readEmbedParamsFromWindow().parent;
   if (fromWindow) return fromWindow;
-  const fromStore = readEmbedParent();
-  if (fromStore) return fromStore;
   const schoolBase = normalizeErpBaseUrl(
     localStorage.getItem("bbai_school_erp_base_url") ?? "",
   );
-  return schoolBase;
+  if (schoolBase) return schoolBase;
+  return readEmbedParent();
 }
 
 /**

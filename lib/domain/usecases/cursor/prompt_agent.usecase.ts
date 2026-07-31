@@ -13,7 +13,9 @@ import {
   getPromptSkills,
   mergePromptSkills,
 } from "../skills/get_prompt_skills.usecase";
+import { SCHOOL_ERP_MCP_SERVER_KEY, SCHOOL_ERP_SESSION_PLACEHOLDER_URL } from "@/lib/entities/erpnext.type";
 import { buildGithubCustomTools } from "./build_github_custom_tools.usecase";
+import { buildSchoolErpCustomTools } from "./build_school_erp_custom_tools.usecase";
 import { buildSkillsCustomTools } from "./build_skills_custom_tools.usecase";
 import { buildWorkspaceCustomTools } from "./build_workspace_custom_tools.usecase";
 
@@ -54,10 +56,14 @@ export async function promptAgent(
   const workspaceTools = userId ? await buildWorkspaceCustomTools(userId) : undefined;
   const githubTools = userId ? await buildGithubCustomTools(userId) : undefined;
   const skillsTools = userId ? await buildSkillsCustomTools(userId) : undefined;
+  const schoolErpTools = await buildSchoolErpCustomTools(
+    mcpServers as Record<string, { headers?: Record<string, string> }> | undefined,
+  );
   const customTools = {
     ...(workspaceTools ?? {}),
     ...(githubTools ?? {}),
     ...(skillsTools ?? {}),
+    ...(schoolErpTools ?? {}),
   };
   const hasCustomTools = Object.keys(customTools).length > 0;
 
@@ -69,6 +75,9 @@ export async function promptAgent(
     : "";
   const skillsHint = skillsTools
     ? "Skill storage tools: call skills_create_skill to persist a new skill in the DATABASE (never edit source files like builtin_skills.ts). Use skills_list_skills to see existing DB skills.\n\n"
+    : "";
+  const schoolErpHint = schoolErpTools
+    ? "School ERP tools are available via the user's connected School ERP session in BBAI (custom tools school_erp_enrollee_summary / school_erp_list_enrollees / school_erp_set_web_page_html / school_erp_open_output). Prefer these over remote school_erpnext MCP. For Web Pages: call school_erp_set_web_page_html so HTML is written to main_section_html (Frappe HTML tab) before school_erp_open_output — otherwise desk/Preview stay blank. Paste the marker comment into your reply so Output streams the preview. Report Cards: skill \"BED Report Card Layout (SF9)\" is NON-NEGOTIABLE (DepEd SF9 / Form 138 — identity, learning progress, observed values AO/SO/RO/NO, attendance, signatures). Never invent a different report-card design. Other grading reports: School ERP Grading skills + Desk query-report only. Do not claim School MCP is disconnected if these tools work.\n\n"
     : "";
 
   // Extract text content from attached files and append to the prompt.
@@ -116,13 +125,22 @@ export async function promptAgent(
   }
 
   try {
+    // Don't send placeholder school MCP URL to Cursor cloud — custom tools carry the session.
+    const mcpForAgent = mcpServers ? { ...mcpServers } : undefined;
+    const schoolCfg = mcpForAgent?.[SCHOOL_ERP_MCP_SERVER_KEY] as
+      | { url?: string }
+      | undefined;
+    if (schoolCfg?.url === SCHOOL_ERP_SESSION_PLACEHOLDER_URL) {
+      delete mcpForAgent?.[SCHOOL_ERP_MCP_SERVER_KEY];
+    }
+
     const run = await Agent.prompt(
-      `${who}${skillBlock}${workspaceHint}${githubHint}${skillsHint}${message}${fileContext}`,
+      `${who}${skillBlock}${workspaceHint}${githubHint}${skillsHint}${schoolErpHint}${message}${fileContext}`,
       {
         apiKey,
         model: { id: input.modelId ?? "composer-2.5" },
         mcpServers:
-          mcpServers && Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+          mcpForAgent && Object.keys(mcpForAgent).length > 0 ? mcpForAgent : undefined,
         local: {
           cwd: input.cwd ?? process.cwd(),
           ...(hasCustomTools ? { customTools } : {}),

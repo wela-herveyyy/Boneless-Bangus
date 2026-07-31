@@ -108,6 +108,26 @@ function writeStoredSession(
   localStorage.setItem(config.storage.emailKey, session.email);
   localStorage.setItem(config.storage.baseUrlKey, session.baseUrl);
 
+  // Keep embed parent aligned with the active school site so a stale localhost
+  // parent from old desk embeds cannot win on the next refresh.
+  if (config.kind === "school_erpnext" && session.baseUrl) {
+    try {
+      localStorage.setItem("bbai_erp_embed_parent", session.baseUrl);
+      sessionStorage.setItem("bbai_erp_embed_parent", session.baseUrl);
+    } catch {
+      /* ignore */
+    }
+    // Bind School MCP SID into Output mini-browser cookie (same session as MCP tools).
+    void fetch("/api/erp/output/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ sid: session.sid, baseUrl: session.baseUrl }),
+    }).catch(() => {
+      /* ignore */
+    });
+  }
+
   if (notify && changed) notifySessionChanged(config);
   return changed;
 }
@@ -125,6 +145,16 @@ type SidCheck =
   | { status: "valid"; email: string }
   | { status: "expired" }
   | { status: "unknown" };
+
+async function readErpLoginJson(res: Response): Promise<ErpLoginResponse | null> {
+  const text = await res.text();
+  if (!text || text.trimStart().startsWith("<")) return null;
+  try {
+    return JSON.parse(text) as ErpLoginResponse;
+  } catch {
+    return null;
+  }
+}
 
 async function validateErpSid(sid: string, baseUrl: string): Promise<SidCheck> {
   try {
@@ -547,10 +577,19 @@ export function useErpLogin(config: ErpToolConfig) {
         const res = await fetch("/api/erp/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ usr, pwd, baseUrl: siteUrl }),
         });
 
-        const json = (await res.json()) as ErpLoginResponse;
+        const json = await readErpLoginJson(res);
+        if (!json) {
+          setLoginError(
+            res.status === 401
+              ? "Sign in to BBAI first, then connect School ERP."
+              : `School login failed (HTTP ${res.status}).`,
+          );
+          return;
+        }
 
         if (!json.ok) {
           setLoginError(json.error);
@@ -602,6 +641,7 @@ export function useErpLogin(config: ErpToolConfig) {
         const res = await fetch("/api/erp/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             tmp_id: otpState.tmp_id,
             otp,
@@ -610,7 +650,15 @@ export function useErpLogin(config: ErpToolConfig) {
           }),
         });
 
-        const json = (await res.json()) as ErpLoginResponse;
+        const json = await readErpLoginJson(res);
+        if (!json) {
+          setLoginError(
+            res.status === 401
+              ? "Sign in to BBAI first, then connect School ERP."
+              : `School login failed (HTTP ${res.status}).`,
+          );
+          return;
+        }
 
         if (!json.ok) {
           setLoginError(json.error);
@@ -674,9 +722,9 @@ export function useErpLogin(config: ErpToolConfig) {
 }
 
 export function useToolsSidebar() {
-  return useRightSidebar("tools");
+  return useRightSidebar("tools", { bodyClass: "bbai-livro-sidebar-open" });
 }
 
 export function useSchoolErpSidebar() {
-  return useRightSidebar("school-erp");
+  return useRightSidebar("school-erp", { bodyClass: "bbai-school-erp-sidebar-open" });
 }

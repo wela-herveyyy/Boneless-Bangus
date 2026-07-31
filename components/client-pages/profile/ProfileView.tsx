@@ -1,14 +1,29 @@
 "use client";
 
-import { useActionState, useState, startTransition, useEffect } from "react";
+import { useActionState, useState, startTransition, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LuX } from "react-icons/lu";
+import {
+  LuKeyRound,
+  LuPalette,
+  LuPuzzle,
+  LuUser,
+  LuWrench,
+  LuX,
+} from "react-icons/lu";
 import { Button } from "@/components/atoms/Button/Button";
 import { Input } from "@/components/atoms/Input/Input";
 import { Label } from "@/components/atoms/Label/Label";
 import { ConfirmModal } from "@/components/molecules/ConfirmModal/ConfirmModal";
-import { updateApiKeysAction, joinTeamAction, leaveTeamAction, updatePersonalInfoAction } from "@/lib/domain/actions/profile.actions";
+import { ThemePanel } from "@/components/organisms/ThemeSidebar/ThemePanel";
+import { SkillsMarketplacePanel } from "@/components/organisms/SkillsMarketplaceSidebar/SkillsMarketplacePanel";
+import { WorkspaceSettingsPanel } from "@/components/organisms/SettingsSidebar/WorkspaceSettingsPanel";
+import {
+  updateApiKeysAction,
+  joinTeamAction,
+  leaveTeamAction,
+  updatePersonalInfoAction,
+} from "@/lib/domain/actions/profile.actions";
 import { updateTeamApiKeysAction } from "@/lib/domain/actions/team.actions";
 
 type ProfileViewProps = {
@@ -28,6 +43,8 @@ type ProfileViewProps = {
     isManager: boolean;
   } | null;
   onClose?: () => void;
+  /** Open a specific section when the modal mounts. */
+  initialSection?: ProfileSection;
 };
 
 type ConfirmState = {
@@ -35,8 +52,31 @@ type ConfirmState = {
   formData: FormData;
 } | null;
 
-export function ProfileView({ userId, userName, userEmail, userSettings, userTeam, onClose }: ProfileViewProps) {
+export type ProfileSection = "account" | "theme" | "skills" | "tools";
+
+const SECTIONS: {
+  id: ProfileSection;
+  label: string;
+  hint: string;
+  icon: typeof LuUser;
+}[] = [
+  { id: "account", label: "Account", hint: "Profile & keys", icon: LuUser },
+  { id: "theme", label: "Theme", hint: "Colors & tokens", icon: LuPalette },
+  { id: "skills", label: "Skills", hint: "Marketplace", icon: LuPuzzle },
+  { id: "tools", label: "Tools", hint: "MCP & APIs", icon: LuWrench },
+];
+
+export function ProfileView({
+  userId,
+  userName,
+  userEmail,
+  userSettings,
+  userTeam,
+  onClose,
+  initialSection = "account",
+}: ProfileViewProps) {
   const router = useRouter();
+  const [section, setSection] = useState<ProfileSection>(initialSection);
   const [personalInfoState, personalInfoAction] = useActionState(updatePersonalInfoAction, null);
   const [apiKeyState, apiKeysFormAction] = useActionState(updateApiKeysAction, null);
   const [teamKeyState, teamKeysFormAction] = useActionState(updateTeamApiKeysAction, null);
@@ -47,11 +87,13 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
   const [editingKey, setEditingKey] = useState<
     "gemini" | "cursor" | "team_gemini" | "team_cursor" | "personal_info" | null
   >(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (apiKeyState?.ok) setFeedback({ type: 'success', message: "API keys updated successfully." });
-    else if (apiKeyState?.error) setFeedback({ type: 'error', message: apiKeyState.error });
+    if (apiKeyState?.ok) setFeedback({ type: "success", message: "API keys updated successfully." });
+    else if (apiKeyState?.error) setFeedback({ type: "error", message: apiKeyState.error });
   }, [apiKeyState]);
 
   useEffect(() => {
@@ -65,13 +107,13 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
   }, [teamKeyState, router]);
 
   useEffect(() => {
-    if (joinState?.ok) setFeedback({ type: 'success', message: "Successfully joined the team." });
-    else if (joinState?.error) setFeedback({ type: 'error', message: joinState.error });
+    if (joinState?.ok) setFeedback({ type: "success", message: "Successfully joined the team." });
+    else if (joinState?.error) setFeedback({ type: "error", message: joinState.error });
   }, [joinState]);
 
   useEffect(() => {
-    if (leaveState?.ok) setFeedback({ type: 'success', message: "Successfully left the team." });
-    else if (leaveState?.error) setFeedback({ type: 'error', message: leaveState.error });
+    if (leaveState?.ok) setFeedback({ type: "success", message: "Successfully left the team." });
+    else if (leaveState?.error) setFeedback({ type: "error", message: leaveState.error });
   }, [leaveState]);
 
   useEffect(() => {
@@ -91,11 +133,8 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
   }, [feedback]);
 
   const handleClose = () => {
-    if (onClose) {
-      onClose();
-    } else {
-      router.back();
-    }
+    if (onClose) onClose();
+    else router.back();
   };
 
   const handleConfirm = () => {
@@ -112,327 +151,104 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
     });
   };
 
+  const activeMeta = SECTIONS.find((s) => s.id === section)!;
+
   return (
     <>
-      <div className="fixed inset-0 z-130 flex items-center justify-center bg-on-surface/40 px-4 backdrop-blur-sm">
+      <div className="fixed inset-0 z-130 flex items-end justify-center bg-on-surface/40 sm:items-center sm:px-4">
+        <button
+          type="button"
+          className="absolute inset-0 cursor-default"
+          aria-label="Dismiss profile"
+          onClick={handleClose}
+        />
         <div
-          className="flex w-full max-w-2xl flex-col gap-6 rounded-2xl bg-surface-container-lowest p-6 shadow-bloom ghost-border max-h-[90vh] overflow-y-auto bbai-scroll"
+          className="relative flex h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-[1.75rem] bg-surface-container-lowest shadow-bloom sm:rounded-2xl"
           role="dialog"
           aria-modal="true"
           aria-labelledby="profile-settings-title"
         >
-          <header className="flex items-start justify-between">
-            <div>
-              <h1 id="profile-settings-title" className="text-2xl font-display font-bold text-on-surface">Profile Settings</h1>
-              <p className="mt-1 text-sm text-on-surface-muted">Manage your API keys and team affiliations.</p>
-              {userId ? (
-                <Link
-                  href={`/user/${userId}`}
-                  className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+          <header className="shrink-0 px-4 pt-4 pb-3 sm:px-5 sm:pt-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1
+                  id="profile-settings-title"
+                  className="font-display text-xl font-bold text-on-surface sm:text-2xl"
                 >
-                  View full profile, usage & prompt archives
-                </Link>
-              ) : null}
+                  Profile
+                </h1>
+                <p className="mt-0.5 text-sm text-on-surface-muted">
+                  {activeMeta.hint} · {userName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
+                aria-label="Close modal"
+              >
+                <LuX className="size-5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-              aria-label="Close modal"
+
+            <nav
+              className="mt-4 flex gap-1 overflow-x-auto bbai-scroll sm:grid sm:grid-cols-4 sm:gap-2"
+              aria-label="Profile sections"
             >
-              <LuX className="size-5" />
-            </button>
+              {SECTIONS.map((item) => {
+                const Icon = item.icon;
+                const active = section === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSection(item.id)}
+                    aria-pressed={active}
+                    className={[
+                      "flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-colors",
+                      "sm:flex-col sm:items-center sm:gap-1 sm:px-2 sm:py-3",
+                      active
+                        ? "bg-primary text-on-primary"
+                        : "bg-surface-container-low text-on-surface-muted hover:bg-surface-container-high hover:text-on-surface",
+                    ].join(" ")}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className="text-xs font-semibold">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </header>
 
-          {feedback && (
-            <div className={`rounded-xl p-4 text-sm font-medium ${feedback.type === 'success' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+          {feedback ? (
+            <div
+              className={[
+                "mx-4 shrink-0 rounded-xl px-4 py-3 text-sm font-medium sm:mx-5",
+                feedback.type === "success"
+                  ? "bg-tertiary/10 text-tertiary"
+                  : "bg-secondary/10 text-secondary",
+              ].join(" ")}
+            >
               {feedback.message}
             </div>
-          )}
+          ) : null}
 
-          <div className="grid gap-6">
-            {/* Personal Info Section */}
-            <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-on-surface">Personal Information</h2>
-              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <Label className="text-on-surface font-semibold mb-0">Your Details</Label>
-                    <p className="text-sm text-on-surface-muted">Manage your personal information.</p>
-                  </div>
-                  {!editingKey || editingKey !== "personal_info" ? (
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs h-auto" onClick={() => setEditingKey("personal_info")}>
-                      Edit Info
-                    </Button>
-                  ) : null}
-                </div>
-
-                {editingKey === "personal_info" ? (
-                  <form action={(formData) => { setConfirmAction({ type: "save_personal_info", formData }); }} className="flex flex-col gap-4 mt-3 border-t border-outline-variant pt-4">
-                    <div className="space-y-1">
-                      <Label>Name</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        type="text"
-                        defaultValue={userName}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>Email</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        defaultValue={userEmail}
-                        required
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>Cancel</Button>
-                      <Button type="submit" variant="primary">Save Changes</Button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="grid gap-3 border-t border-outline-variant pt-4">
-                    <div>
-                      <p className="text-sm font-medium text-on-surface-muted">Name</p>
-                      <p className="text-base text-on-surface">{userName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-on-surface-muted">Email</p>
-                      <p className="text-base text-on-surface">{userEmail}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Team Section */}
-            <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-on-surface">Team Configuration</h2>
-
-              {userTeam ? (
-                <div className="mb-4 rounded-xl bg-primary/10 p-4 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-primary mb-1">
-                      Current Team{userTeam.isManager ? " · Team Leader" : ""}
-                    </p>
-                    <p className="text-lg font-semibold text-on-surface">{userTeam.teamName}</p>
-                    <p className="text-sm text-on-surface-muted font-mono">Code: {userTeam.teamCode}</p>
-                    {userTeam.isManager ? (
-                      <p className="mt-2 text-xs text-on-surface-muted">
-                        As team leader you manage shared API keys, can revoke members, and cannot leave
-                        this team.
-                      </p>
-                    ) : null}
-                  </div>
-                  {userTeam.isManager ? (
-                    <Link
-                      href={`/team/${userTeam.teamId}`}
-                      className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-transform active:scale-[0.98]"
-                    >
-                      Manage team
-                    </Link>
-                  ) : (
-                    <form action={(formData) => setConfirmAction({ type: "leave_team", formData })}>
-                      <Button type="submit" variant="danger">
-                        Leave Team
-                      </Button>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <div className="mb-4 rounded-xl bg-surface-container-high p-4">
-                  <p className="text-sm text-on-surface-muted">You are not currently assigned to a team.</p>
-                </div>
-              )}
-
-              {!userTeam && (
-                <form action={(formData) => setConfirmAction({ type: "join_team", formData })} className="space-y-4 border-t border-outline-variant pt-4 mt-2">
-                  <div className="space-y-2">
-                    <Label>Join Team</Label>
-                    <div className="flex gap-3">
-                      <Input
-                        id="teamCode"
-                        name="teamCode"
-                        placeholder="Enter 6-digit team code"
-                        maxLength={6}
-                        required
-                        className="flex-1"
-                      />
-                      <Button type="submit">Join Team</Button>
-                    </div>
-                    <p className="text-xs text-on-surface-muted">
-                      Enter a team code to join an existing team.
-                    </p>
-                  </div>
-                </form>
-              )}
-
-            </section>
-
-            {/* API Keys — personal + team (managers) in one place */}
-            <section className="rounded-2xl border border-outline-variant bg-surface-container p-5 shadow-sm">
-              <h2 className="mb-1 text-lg font-semibold text-on-surface">API Keys</h2>
-              <p className="mb-5 text-sm text-on-surface-muted">
-                {userTeam
-                  ? "Personal keys override the team key. Members without a personal key use the team key."
-                  : "Keys are stored securely and used for Language Models in the workspace."}
-              </p>
-
-              <div className="space-y-4">
-                {(
-                  [
-                    {
-                      label: "Gemini",
-                      personalKey: userSettings?.geminiApiKey ?? null,
-                      teamKey: userTeam?.geminiApiKey ?? null,
-                      personalEdit: "gemini" as const,
-                      teamEdit: "team_gemini" as const,
-                      personalName: "geminiApiKey",
-                      teamName: "geminiApiKey",
-                      placeholder: "AIzaSy...",
-                    },
-                    {
-                      label: "Cursor",
-                      personalKey: userSettings?.cursorApiKey ?? null,
-                      teamKey: userTeam?.cursorApiKey ?? null,
-                      personalEdit: "cursor" as const,
-                      teamEdit: "team_cursor" as const,
-                      personalName: "cursorApiKey",
-                      teamName: "cursorApiKey",
-                      placeholder: "Enter Cursor API key",
-                    },
-                  ] as const
-                ).map((provider) => {
-                  const active = provider.personalKey
-                    ? "personal"
-                    : provider.teamKey
-                      ? "team"
-                      : "none";
-
-                  return (
-                    <div
-                      key={provider.label}
-                      className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"
-                    >
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <Label className="mb-0 font-semibold text-on-surface">{provider.label}</Label>
-                        <p className="flex items-center gap-2 text-xs text-on-surface-muted">
-                          <span
-                            className={`inline-block size-2 rounded-full ${active === "none" ? "bg-red-500" : "bg-green-500"
-                              }`}
-                          />
-                          {active === "personal"
-                            ? "Using personal"
-                            : active === "team"
-                              ? "Using team"
-                              : "Not configured"}
-                        </p>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <div className="mb-1.5 flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium text-on-surface-muted">Personal</p>
-                            {editingKey !== provider.personalEdit ? (
-                              <Button
-                                variant="secondary"
-                                className="h-auto px-3 py-1.5 text-xs"
-                                onClick={() => setEditingKey(provider.personalEdit)}
-                              >
-                                {provider.personalKey ? "Edit" : "Add"}
-                              </Button>
-                            ) : null}
-                          </div>
-                          {editingKey === provider.personalEdit ? (
-                            <form
-                              action={(formData) => {
-                                setEditingKey(null);
-                                setConfirmAction({ type: "save_keys", formData });
-                              }}
-                              className="flex flex-col gap-3 sm:flex-row"
-                            >
-                              <Input
-                                name={provider.personalName}
-                                type="password"
-                                defaultValue={provider.personalKey ?? ""}
-                                placeholder={provider.placeholder}
-                                required
-                                className="flex-1"
-                              />
-                              <div className="flex shrink-0 justify-end gap-2">
-                                <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
-                                  Cancel
-                                </Button>
-                                <Button type="submit" variant="primary">
-                                  Save
-                                </Button>
-                              </div>
-                            </form>
-                          ) : (
-                            <p className="text-sm text-on-surface-muted">
-                              {provider.personalKey ? "Configured" : "Not set"}
-                            </p>
-                          )}
-                        </div>
-
-                        {userTeam ? (
-                          <div className="border-t border-outline-variant pt-3">
-                            <div className="mb-1.5 flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-on-surface-muted">
-                                Team{userTeam.isManager ? "" : " (shared)"}
-                              </p>
-                              {userTeam.isManager && editingKey !== provider.teamEdit ? (
-                                <Button
-                                  variant="secondary"
-                                  className="h-auto px-3 py-1.5 text-xs"
-                                  onClick={() => setEditingKey(provider.teamEdit)}
-                                >
-                                  {provider.teamKey ? "Edit" : "Add"}
-                                </Button>
-                              ) : null}
-                            </div>
-                            {userTeam.isManager && editingKey === provider.teamEdit ? (
-                              <form
-                                action={(formData) => {
-                                  setConfirmAction({ type: "save_team_keys", formData });
-                                }}
-                                className="flex flex-col gap-3 sm:flex-row"
-                              >
-                                <input type="hidden" name="teamId" value={userTeam.teamId} />
-                                <Input
-                                  name={provider.teamName}
-                                  type="password"
-                                  defaultValue={provider.teamKey ?? ""}
-                                  placeholder={provider.placeholder}
-                                  required
-                                  className="flex-1"
-                                />
-                                <div className="flex shrink-0 justify-end gap-2">
-                                  <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
-                                    Cancel
-                                  </Button>
-                                  <Button type="submit" variant="primary">
-                                    Save
-                                  </Button>
-                                </div>
-                              </form>
-                            ) : (
-                              <p className="text-sm text-on-surface-muted">
-                                {provider.teamKey ? "Configured" : "Not set"}
-                              </p>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 bbai-scroll sm:px-5 sm:pb-6">
+            {section === "account" ? (
+              <AccountSection
+                userId={userId}
+                userName={userName}
+                userEmail={userEmail}
+                userSettings={userSettings}
+                userTeam={userTeam}
+                editingKey={editingKey}
+                setEditingKey={setEditingKey}
+                setConfirmAction={setConfirmAction}
+              />
+            ) : null}
+            {section === "theme" ? <ThemePanel /> : null}
+            {section === "skills" ? <SkillsMarketplacePanel /> : null}
+            {section === "tools" ? <WorkspaceSettingsPanel /> : null}
           </div>
         </div>
       </div>
@@ -471,5 +287,332 @@ export function ProfileView({ userId, userName, userEmail, userSettings, userTea
         onConfirm={handleConfirm}
       />
     </>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  children,
+  action,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl bg-surface-container-low p-4 sm:p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-on-surface">{title}</h2>
+          {description ? (
+            <p className="mt-0.5 text-sm text-on-surface-muted">{description}</p>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AccountSection({
+  userId,
+  userName,
+  userEmail,
+  userSettings,
+  userTeam,
+  editingKey,
+  setEditingKey,
+  setConfirmAction,
+}: {
+  userId?: string;
+  userName: string;
+  userEmail: string;
+  userSettings: ProfileViewProps["userSettings"];
+  userTeam: ProfileViewProps["userTeam"];
+  editingKey: "gemini" | "cursor" | "team_gemini" | "team_cursor" | "personal_info" | null;
+  setEditingKey: (
+    v: "gemini" | "cursor" | "team_gemini" | "team_cursor" | "personal_info" | null,
+  ) => void;
+  setConfirmAction: (v: ConfirmState) => void;
+}) {
+  return (
+    <div className="grid gap-4">
+      {userId ? (
+        <Link
+          href={`/user/${userId}`}
+          className="inline-flex text-sm font-medium text-primary hover:underline"
+        >
+          View full profile, usage & prompt archives
+        </Link>
+      ) : null}
+
+      <SectionCard
+        title="Personal information"
+        description="Name and email for this account."
+        action={
+          editingKey !== "personal_info" ? (
+            <Button
+              variant="secondary"
+              className="h-auto px-3 py-1.5 text-xs"
+              onClick={() => setEditingKey("personal_info")}
+            >
+              Edit
+            </Button>
+          ) : null
+        }
+      >
+        {editingKey === "personal_info" ? (
+          <form
+            action={(formData) => {
+              setConfirmAction({ type: "save_personal_info", formData });
+            }}
+            className="flex flex-col gap-4"
+          >
+            <div className="space-y-1">
+              <Label>Name</Label>
+              <Input id="name" name="name" type="text" defaultValue={userName} required />
+            </div>
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <Input id="email" name="email" type="email" defaultValue={userEmail} required />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                Save
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-surface-container-lowest px-3 py-2.5">
+              <p className="text-xs text-on-surface-muted">Name</p>
+              <p className="text-sm font-medium text-on-surface">{userName}</p>
+            </div>
+            <div className="rounded-xl bg-surface-container-lowest px-3 py-2.5">
+              <p className="text-xs text-on-surface-muted">Email</p>
+              <p className="truncate text-sm font-medium text-on-surface">{userEmail}</p>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Team" description="Shared workspace membership.">
+        {userTeam ? (
+          <div className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium text-primary">
+                Current team{userTeam.isManager ? " · Leader" : ""}
+              </p>
+              <p className="text-lg font-semibold text-on-surface">{userTeam.teamName}</p>
+              <p className="font-mono text-sm text-on-surface-muted">Code: {userTeam.teamCode}</p>
+            </div>
+            {userTeam.isManager ? (
+              <Link
+                href={`/team/${userTeam.teamId}`}
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary transition-transform active:scale-[0.98]"
+              >
+                Manage team
+              </Link>
+            ) : (
+              <form action={(formData) => setConfirmAction({ type: "leave_team", formData })}>
+                <Button type="submit" variant="danger">
+                  Leave team
+                </Button>
+              </form>
+            )}
+          </div>
+        ) : (
+          <form
+            action={(formData) => setConfirmAction({ type: "join_team", formData })}
+            className="space-y-3"
+          >
+            <p className="text-sm text-on-surface-muted">You are not on a team yet.</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="teamCode"
+                name="teamCode"
+                placeholder="6-digit team code"
+                maxLength={6}
+                required
+                className="flex-1"
+              />
+              <Button type="submit">Join team</Button>
+            </div>
+          </form>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="API keys"
+        description={
+          userTeam
+            ? "Personal keys override the team key."
+            : "Used for language models in the workspace."
+        }
+        action={<LuKeyRound className="size-4 text-on-surface-muted" aria-hidden />}
+      >
+        <div className="space-y-3">
+          {(
+            [
+              {
+                label: "Gemini",
+                personalKey: userSettings?.geminiApiKey ?? null,
+                teamKey: userTeam?.geminiApiKey ?? null,
+                personalEdit: "gemini" as const,
+                teamEdit: "team_gemini" as const,
+                personalName: "geminiApiKey",
+                teamName: "geminiApiKey",
+                placeholder: "AIzaSy...",
+              },
+              {
+                label: "Cursor",
+                personalKey: userSettings?.cursorApiKey ?? null,
+                teamKey: userTeam?.cursorApiKey ?? null,
+                personalEdit: "cursor" as const,
+                teamEdit: "team_cursor" as const,
+                personalName: "cursorApiKey",
+                teamName: "cursorApiKey",
+                placeholder: "Enter Cursor API key",
+              },
+            ] as const
+          ).map((provider) => {
+            const active = provider.personalKey
+              ? "personal"
+              : provider.teamKey
+                ? "team"
+                : "none";
+
+            return (
+              <div
+                key={provider.label}
+                className="rounded-xl bg-surface-container-lowest p-4"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <Label className="mb-0 font-semibold text-on-surface">{provider.label}</Label>
+                  <p className="flex items-center gap-2 text-xs text-on-surface-muted">
+                    <span
+                      className={`inline-block size-2 rounded-full ${
+                        active === "none" ? "bg-secondary" : "bg-tertiary"
+                      }`}
+                    />
+                    {active === "personal"
+                      ? "Using personal"
+                      : active === "team"
+                        ? "Using team"
+                        : "Not configured"}
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-on-surface-muted">Personal</p>
+                      {editingKey !== provider.personalEdit ? (
+                        <Button
+                          variant="secondary"
+                          className="h-auto px-3 py-1.5 text-xs"
+                          onClick={() => setEditingKey(provider.personalEdit)}
+                        >
+                          {provider.personalKey ? "Edit" : "Add"}
+                        </Button>
+                      ) : null}
+                    </div>
+                    {editingKey === provider.personalEdit ? (
+                      <form
+                        action={(formData) => {
+                          setEditingKey(null);
+                          setConfirmAction({ type: "save_keys", formData });
+                        }}
+                        className="flex flex-col gap-3 sm:flex-row"
+                      >
+                        <Input
+                          name={provider.personalName}
+                          type="password"
+                          defaultValue={provider.personalKey ?? ""}
+                          placeholder={provider.placeholder}
+                          required
+                          className="flex-1"
+                        />
+                        <div className="flex shrink-0 justify-end gap-2">
+                          <Button type="button" variant="secondary" onClick={() => setEditingKey(null)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" variant="primary">
+                            Save
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <p className="text-sm text-on-surface-muted">
+                        {provider.personalKey ? "Configured" : "Not set"}
+                      </p>
+                    )}
+                  </div>
+
+                  {userTeam ? (
+                    <div className="pt-3">
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-on-surface-muted">
+                          Team{userTeam.isManager ? "" : " (shared)"}
+                        </p>
+                        {userTeam.isManager && editingKey !== provider.teamEdit ? (
+                          <Button
+                            variant="secondary"
+                            className="h-auto px-3 py-1.5 text-xs"
+                            onClick={() => setEditingKey(provider.teamEdit)}
+                          >
+                            {provider.teamKey ? "Edit" : "Add"}
+                          </Button>
+                        ) : null}
+                      </div>
+                      {userTeam.isManager && editingKey === provider.teamEdit ? (
+                        <form
+                          action={(formData) => {
+                            setConfirmAction({ type: "save_team_keys", formData });
+                          }}
+                          className="flex flex-col gap-3 sm:flex-row"
+                        >
+                          <input type="hidden" name="teamId" value={userTeam.teamId} />
+                          <Input
+                            name={provider.teamName}
+                            type="password"
+                            defaultValue={provider.teamKey ?? ""}
+                            placeholder={provider.placeholder}
+                            required
+                            className="flex-1"
+                          />
+                          <div className="flex shrink-0 justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              onClick={() => setEditingKey(null)}
+                            >
+                              Cancel
+                            </Button>
+                            <Button type="submit" variant="primary">
+                              Save
+                            </Button>
+                          </div>
+                        </form>
+                      ) : (
+                        <p className="text-sm text-on-surface-muted">
+                          {provider.teamKey ? "Configured" : "Not set"}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
+    </div>
   );
 }

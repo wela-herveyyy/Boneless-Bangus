@@ -110,6 +110,9 @@ export const SCHOOL_ERP_MCP_URL =
 export const SCHOOL_ERP_MCP_SERVER_KEY =
   process.env.NEXT_PUBLIC_SCHOOL_ERP_MCP_SERVER_KEY ?? "school_erpnext";
 
+/** Sent when school SID exists but no remote MCP URL — custom tools still work. */
+export const SCHOOL_ERP_SESSION_PLACEHOLDER_URL = "bbai://school-erp-session";
+
 /** Optional comma-separated school ERP origins for the login URL picker. */
 export const SCHOOL_ERP_URL_PRESETS = (process.env.NEXT_PUBLIC_SCHOOL_ERP_URL_PRESETS ?? "")
   .split(",")
@@ -154,6 +157,8 @@ function buildMcpConfig(
     url: mcpUrl,
     headers: {
       Authorization: `Bearer ${sid}`,
+      // Some ERP MCP gateways read Cookie; desk APIs always use sid cookie
+      Cookie: `sid=${sid}`,
       "X-ERPNext-URL": siteUrl,
     },
   };
@@ -169,5 +174,61 @@ export function buildSchoolErpMcpConfig(
   sid: string | null,
   baseUrl: string | null | undefined,
 ): ErpMcpServerConfig | null {
-  return buildMcpConfig(sid, baseUrl, SCHOOL_ERP_MCP_URL);
+  // Keep config even without a remote MCP URL so Cursor custom tools can use the SID.
+  return buildMcpConfig(
+    sid,
+    baseUrl,
+    SCHOOL_ERP_MCP_URL || SCHOOL_ERP_SESSION_PLACEHOLDER_URL,
+  );
+}
+
+/** Same SID/baseUrl School MCP custom tools read from `Authorization` + `X-ERPNext-URL`. */
+export function extractSchoolErpSessionFromMcpHeaders(
+  headers: Record<string, string> | undefined | null,
+): { sid: string; baseUrl: string } | null {
+  if (!headers) return null;
+  const auth = headers.Authorization || headers.authorization || "";
+  const sid = auth.replace(/^Bearer\s+/i, "").trim();
+  const baseUrl = normalizeErpBaseUrl(
+    headers["X-ERPNext-URL"] || headers["x-erpnext-url"] || "",
+  );
+  if (!sid || !baseUrl) return null;
+  return { sid, baseUrl };
+}
+
+/**
+ * Browser: School MCP session only (never Livro `bbai_erp_sid`).
+ * Order: school localStorage keys → school MCP server headers in `bbai_mcp`.
+ */
+export function readSchoolErpMcpSessionFromBrowser(): {
+  sid: string;
+  baseUrl: string;
+} | null {
+  if (typeof window === "undefined") return null;
+
+  const sid =
+    localStorage.getItem("bbai_school_erp_sid")?.trim() ||
+    sessionStorage.getItem("bbai_school_erp_sid")?.trim() ||
+    "";
+  const baseUrl = normalizeErpBaseUrl(
+    localStorage.getItem("bbai_school_erp_base_url") ||
+      sessionStorage.getItem("bbai_school_erp_base_url") ||
+      "",
+  );
+  if (sid && baseUrl) return { sid, baseUrl };
+
+  // Fall back to whatever chat injected as school_erpnext MCP headers
+  try {
+    const raw = localStorage.getItem("bbai_mcp");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as
+      | Record<string, { headers?: Record<string, string> }>
+      | { mcpServers?: Record<string, { headers?: Record<string, string> }> };
+    const servers =
+      "mcpServers" in parsed && parsed.mcpServers ? parsed.mcpServers : parsed;
+    const cfg = servers?.[SCHOOL_ERP_MCP_SERVER_KEY];
+    return extractSchoolErpSessionFromMcpHeaders(cfg?.headers);
+  } catch {
+    return null;
+  }
 }

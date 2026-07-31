@@ -23,9 +23,61 @@ export type LivroLoginSuccess = {
   baseUrl: string;
 };
 
+type ErpLoginBody = {
+  full_name?: string;
+  message?: string;
+  tmp_id?: string;
+  verification?: {
+    token_delivery?: boolean;
+    prompt?: string;
+    method?: string;
+  };
+};
+
+async function readErpJson(response: Response): Promise<ErpLoginBody | null> {
+  const text = await response.text();
+  if (!text) return null;
+  const trimmed = text.trim();
+  if (trimmed.startsWith("<!") || trimmed.startsWith("<html")) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed) as ErpLoginBody;
+  } catch {
+    return null;
+  }
+}
+
+async function postErpLogin(
+  baseUrl: string,
+  body: Record<string, string>,
+  contentType: "json" | "form",
+): Promise<{ response: Response; erpBody: ErpLoginBody | null }> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  let payload: string;
+  if (contentType === "form") {
+    headers["Content-Type"] = "application/x-www-form-urlencoded";
+    payload = new URLSearchParams(body).toString();
+  } else {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${baseUrl}/api/method/login`, {
+    method: "POST",
+    headers,
+    body: payload,
+    redirect: "manual",
+    signal: AbortSignal.timeout(12_000),
+  });
+
+  return { response, erpBody: await readErpJson(response) };
+}
+
 /**
  * Password/OTP login against any ERPNext origin.
  * Defaults to Livro (`NEXT_PUBLIC_ERP_BASE_URL`) when `baseUrl` omitted.
+ * Prefers form-urlencoded (Frappe desk default); falls back to JSON.
  */
 export async function loginLivroErp(
   input: LivroLoginInput,
@@ -36,36 +88,27 @@ export async function loginLivroErp(
   }
 
   try {
-    const body =
-      "tmp_id" in input
-        ? { cmd: "login", tmp_id: input.tmp_id, otp: input.otp }
-        : { usr: input.usr.trim(), pwd: input.pwd };
-
-    if ("usr" in body && (!body.usr || !body.pwd)) {
-      return { ok: false, error: "Email and password are required." };
+    let body: Record<string, string>;
+    if ("tmp_id" in input) {
+      if (!input.tmp_id || !input.otp) {
+        return { ok: false, error: "Verification code is required." };
+      }
+      body = { cmd: "login", tmp_id: input.tmp_id, otp: input.otp };
+    } else {
+      const usr = input.usr.trim();
+      if (!usr || !input.pwd) {
+        return { ok: false, error: "Email and password are required." };
+      }
+      body = { usr, pwd: input.pwd };
     }
-    if ("tmp_id" in body && (!body.tmp_id || !body.otp)) {
-      return { ok: false, error: "Verification code is required." };
+
+    // School sites (and most Frappe desks) expect form posts for /api/method/login
+    let { response, erpBody } = await postErpLogin(baseUrl, body, "form");
+
+    // Retry JSON if form got an HTML/404 gateway page
+    if (!erpBody && (response.status === 404 || response.status === 405 || response.status >= 500)) {
+      ({ response, erpBody } = await postErpLogin(baseUrl, body, "json"));
     }
-
-    const response = await fetch(`${baseUrl}/api/method/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(body),
-      redirect: "manual",
-      signal: AbortSignal.timeout(12_000),
-    });
-
-    const erpBody = (await response.json().catch(() => null)) as {
-      full_name?: string;
-      message?: string;
-      tmp_id?: string;
-      verification?: {
-        token_delivery?: boolean;
-        prompt?: string;
-        method?: string;
-      };
-    } | null;
 
     if (erpBody?.tmp_id) {
       return {
@@ -81,6 +124,15 @@ export async function loginLivroErp(
 
     const sid = extractSidFromSetCookie(response.headers);
     if (!sid) {
+      if (!erpBody && response.status === 404) {
+        return {
+          ok: false,
+          error: `Login endpoint not found on ${baseUrl}. Check the School ERP URL.`,
+        };
+      }
+      if (!erpBody && response.status >= 500) {
+        return { ok: false, error: `School ERP at ${baseUrl} returned an error (${response.status}).` };
+      }
       const msg =
         typeof erpBody?.message === "string" && erpBody.message
           ? erpBody.message

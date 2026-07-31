@@ -19,7 +19,7 @@ export async function requireWorkspaceApiSession(
   if (!session || session.expired) {
     return { response: workspaceApiError("Authentication required.", 401) };
   }
-  if (!canManageGoogleWorkspaceAuth(session.user.role)) {
+  if (!canManageGoogleWorkspaceAuth(session.user.permissions)) {
     return { response: workspaceApiError("Not authorized for Google Workspace.", 403) };
   }
   return { session };

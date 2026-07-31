@@ -55,6 +55,7 @@ export async function updateUserRole(input: UpdateUserRoleInput): Promise<UserRe
         label: input.role,
         hint: `Assigned via admin control center`,
         description: null,
+        permissions: null,
         createdAt: now,
         updatedAt: now,
       };

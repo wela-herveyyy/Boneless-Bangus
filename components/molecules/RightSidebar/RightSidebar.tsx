@@ -2,6 +2,11 @@
 
 import React, { type ReactNode } from "react";
 import type { UseRightSidebarReturn } from "./rightSidebar.hooks";
+import { useRightToolsDock } from "@/components/organisms/RightSidebars/rightToolsDock.context";
+import {
+  openRightTool,
+  toggleRightTool,
+} from "@/components/organisms/RightSidebars/RightToolsDock";
 
 export {
   useRightSidebar,
@@ -40,12 +45,12 @@ export function RightSidebarTrigger({
       aria-expanded={isOpen}
       onClick={togglePinned}
       className={[
-        "right-sidebar-trigger relative pointer-events-auto flex items-center justify-center shrink-0",
+        "right-sidebar-trigger relative z-320 pointer-events-auto flex items-center justify-center shrink-0",
         "bg-surface-container-highest text-primary shadow-bloom ghost-border size-10 md:size-12 hover:bg-primary hover:text-on-primary",
         isSwitching
           ? "transition-none duration-0"
           : "transition-[right,background-color,color] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        isAnyRightSidebarOpen ? "right-[min(100vw-3rem,22rem)]" : "right-0",
+        isAnyRightSidebarOpen ? "right-88" : "right-0",
         className,
       ]
         .filter(Boolean)
@@ -62,7 +67,7 @@ export interface RightSidebarBackdropProps {
 }
 
 /**
- * Standardized right-sidebar backdrop with fade-in/out transition.
+ * Dims chat under an open drawer. Tool switching uses the in-panel header switcher.
  */
 export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBackdropProps) {
   const { isOpen, closeSidebar } = sidebar;
@@ -70,7 +75,7 @@ export function RightSidebarBackdrop({ sidebar, className = "" }: RightSidebarBa
   return (
     <div
       className={[
-        "fixed inset-0 z-110 bg-on-surface/20 backdrop-blur-[2px] transition-opacity duration-300 md:hidden",
+        "fixed inset-0 z-300 bg-on-surface/25 backdrop-blur-[2px] transition-opacity duration-300 md:right-88",
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
         className,
       ]
@@ -104,12 +109,13 @@ export function RightSidebarPanel({
     <aside
       inert={!isOpen ? true : undefined}
       className={[
-        "right-sidebar-panel pointer-events-auto fixed top-0 right-0 flex h-full w-[min(100vw-3rem,22rem)] flex-col",
+        // Full-bleed on phone; 22rem on md+
+        "right-sidebar-panel pointer-events-auto fixed top-0 right-0 flex h-full w-full flex-col md:w-88",
         "bg-surface-container-lowest shadow-bloom ghost-border",
         isSwitching
           ? "transition-none duration-0"
           : "transition-[transform,translate] duration-380 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        isOpen ? "z-118 translate-x-0" : "z-115 translate-x-full",
+        isOpen ? "z-310 translate-x-0" : "z-305 translate-x-full",
         className,
       ]
         .filter(Boolean)
@@ -142,46 +148,85 @@ export function RightSidebarHeader({
   closeLabel = "Close sidebar",
   className = "",
 }: RightSidebarHeaderProps) {
-  const { closeSidebar } = sidebar;
+  const { closeSidebar, id } = sidebar;
   const handleClose = onClose ?? closeSidebar;
+  const dock = useRightToolsDock();
+
+  const pick = (toolId: string) => {
+    if (toolId === id) toggleRightTool(toolId);
+    else openRightTool(toolId);
+  };
 
   return (
     <header
       className={[
-        "flex items-start justify-between gap-3 bg-surface-container-low p-5",
+        "flex flex-col gap-3 bg-surface-container-low p-5",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
     >
-      <div>
-        {subtitle ? (
-          <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
-            {subtitle}
-          </p>
-        ) : null}
-        <h2 className="font-display text-lg font-semibold text-primary">{title}</h2>
-      </div>
-      <div className="flex items-center gap-2">
-        {actions}
-        <button
-          type="button"
-          onClick={handleClose}
-          className="flex size-9 items-center justify-center bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
-          aria-label={closeLabel}
-        >
-          <svg
-            className="size-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
-            aria-hidden
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {subtitle ? (
+            <p className="text-xs font-medium uppercase tracking-wider text-on-surface-muted">
+              {subtitle}
+            </p>
+          ) : null}
+          <h2 className="font-display text-lg font-semibold text-primary">{title}</h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {actions}
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex size-9 items-center justify-center rounded-xl bg-surface-container-low text-on-surface-muted transition-colors hover:bg-surface-container-high hover:text-primary"
+            aria-label={closeLabel}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+            <svg
+              className="size-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Switch Google / School / Livro without closing the drawer */}
+      {dock && dock.tools.length > 1 ? (
+        <div
+          className="flex w-full gap-1 rounded-xl bg-surface-container-lowest p-1"
+          role="toolbar"
+          aria-label="Switch tool"
+        >
+          {dock.tools.map((tool) => {
+            const active = tool.id === (dock.activeId || id);
+            return (
+              <button
+                key={tool.id}
+                type="button"
+                onClick={() => pick(tool.id)}
+                title={tool.hint}
+                aria-pressed={active}
+                className={[
+                  "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold transition-colors",
+                  active
+                    ? "bg-primary text-on-primary"
+                    : "text-on-surface-muted hover:bg-surface-container-high hover:text-on-surface",
+                ].join(" ")}
+              >
+                <span className="flex size-4 shrink-0 items-center justify-center">{tool.icon}</span>
+                <span className="truncate">{tool.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </header>
   );
 }

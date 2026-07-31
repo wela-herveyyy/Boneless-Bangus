@@ -19,7 +19,10 @@ function mcpMatches(slugs: string[], commandName: string): boolean {
       return s.includes("google") || s.includes("gws");
     }
     if (needle === "erpnext") {
-      return s.includes("erp");
+      return s.includes("erp") && !s.includes("school");
+    }
+    if (needle === "school-erp") {
+      return s.includes("school");
     }
     return s.includes(needle);
   });

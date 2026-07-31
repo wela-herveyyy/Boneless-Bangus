@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   LuArchive,
   LuFishSymbol,
+  LuLayers2,
   LuLogOut,
   LuMessageSquare,
   LuPanelLeftClose,
@@ -15,6 +16,7 @@ import { ArchiveChatModal } from "@/components/molecules/ArchiveChatModal/Archiv
 import { Button } from "@/components/atoms/Button/Button";
 import { signOutAction } from "@/lib/domain/actions/auth.actions";
 import type { UserRole } from "@/lib/entities/users.type";
+import { labelForCanvasTool, type OutputCanvasItem } from "@/lib/entities/output_canvas.type";
 import { getRoleLabel } from "@/components/organisms/OnboardingPanel/onboardingPanel.hooks";
 import { formatChatDate, getInitials, type ChatHistoryItem } from "./workspaceSidebar.hooks";
 
@@ -23,6 +25,7 @@ type WorkspaceSidebarControls = {
   openSidebar: () => void;
   closeSidebar: () => void;
   chatHistory: ChatHistoryItem[];
+  canvases?: OutputCanvasItem[];
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
   startNewChat: () => void;
@@ -31,8 +34,11 @@ type WorkspaceSidebarControls = {
   cancelArchive?: () => void;
   confirmArchive?: () => void;
   isProfileOpen?: boolean;
-  openProfile?: () => void;
+  openProfile?: (section?: "account" | "theme" | "skills" | "tools") => void;
   closeProfile?: () => void;
+  openCanvas?: (canvas: OutputCanvasItem) => void;
+  sidebarTab?: "chats" | "canvases";
+  setSidebarTab?: (tab: "chats" | "canvases") => void;
 };
 
 type WorkspaceSidebarProps = {
@@ -55,6 +61,7 @@ export function WorkspaceSidebar({
     openSidebar,
     closeSidebar,
     chatHistory,
+    canvases = [],
     activeChatId,
     setActiveChatId,
     startNewChat,
@@ -63,6 +70,9 @@ export function WorkspaceSidebar({
     cancelArchive,
     confirmArchive,
     openProfile,
+    openCanvas,
+    sidebarTab = "chats",
+    setSidebarTab,
   } = sidebar;
 
   return (
@@ -106,10 +116,74 @@ export function WorkspaceSidebar({
           <Button type="button" variant="secondary" className="w-full" onClick={startNewChat}>
             New chat
           </Button>
+          <div className="mt-3 flex gap-1 rounded-2xl bg-surface-container-high/70 p-1">
+            {(
+              [
+                { id: "chats" as const, label: "Chats" },
+                { id: "canvases" as const, label: "Canvas" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSidebarTab?.(tab.id)}
+                className={[
+                  "flex-1 rounded-xl px-2 py-1.5 text-xs font-medium transition-colors",
+                  sidebarTab === tab.id
+                    ? "bg-surface-container-lowest text-on-surface shadow-bloom"
+                    : "text-on-surface-muted hover:text-on-surface",
+                ].join(" ")}
+              >
+                {tab.label}
+                {tab.id === "canvases" && canvases.length > 0 ? (
+                  <span className="ml-1 text-[10px] text-primary">{canvases.length}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="bbai-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          {chatHistory.length === 0 ? (
+          {sidebarTab === "canvases" ? (
+            canvases.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
+                <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-surface-container-high text-on-surface-muted">
+                  <LuLayers2 className="size-5" aria-hidden />
+                </span>
+                <p className="text-sm font-medium text-on-surface">No canvases yet</p>
+                <p className="mt-1 text-xs leading-relaxed text-on-surface-muted">
+                  Generate a Web Page, Web Form, or Print Format — one canvas per chat.
+                </p>
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {canvases.map((canvas) => {
+                  const isActive = canvas.conversationId === activeChatId;
+                  return (
+                    <li key={canvas.id}>
+                      <button
+                        type="button"
+                        onClick={() => openCanvas?.(canvas)}
+                        className={[
+                          "w-full rounded-xl px-3 py-3 text-left transition-colors",
+                          isActive
+                            ? "bg-surface-container-high text-on-surface"
+                            : "text-on-surface-muted hover:bg-surface-container-high/60 hover:text-on-surface",
+                        ].join(" ")}
+                      >
+                        <span className="block truncate text-sm font-medium">{canvas.title}</span>
+                        <span className="mt-1 flex items-center gap-2 text-[11px] text-on-surface-muted">
+                          <span className="font-mono text-primary">{canvas.id}</span>
+                          <span>·</span>
+                          <span>{labelForCanvasTool(canvas.toolMode)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )
+          ) : chatHistory.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-4 py-8 text-center">
               <span className="mb-3 flex size-10 items-center justify-center rounded-2xl bg-surface-container-high text-on-surface-muted">
                 <LuMessageSquare className="size-5" aria-hidden />
@@ -123,6 +197,7 @@ export function WorkspaceSidebar({
             <ul className="space-y-1">
               {chatHistory.map((chat) => {
                 const isActive = chat.id === activeChatId;
+                const canvas = canvases.find((c) => c.conversationId === chat.id);
 
                 return (
                   <li key={chat.id} className="group relative flex items-center">
@@ -137,8 +212,14 @@ export function WorkspaceSidebar({
                       ].join(" ")}
                     >
                       <span className="block truncate pr-6 text-sm font-medium">{chat.title}</span>
-                      <span className="mt-1 block text-xs text-on-surface-muted">
-                        {formatChatDate(chat.updatedAt)}
+                      <span className="mt-1 flex items-center gap-2 text-xs text-on-surface-muted">
+                        <span>{formatChatDate(chat.updatedAt)}</span>
+                        {canvas ? (
+                          <>
+                            <span>·</span>
+                            <span className="font-mono text-[10px] text-primary">{canvas.id}</span>
+                          </>
+                        ) : null}
                       </span>
                     </button>
                     {promptArchive && (
@@ -184,7 +265,7 @@ export function WorkspaceSidebar({
 
           <button
             type="button"
-            onClick={openProfile}
+            onClick={() => openProfile?.()}
             className="block w-full rounded-2xl bg-surface-container-high/80 p-4 text-left transition-colors hover:bg-surface-container-highest"
           >
             <div className="flex items-center gap-3">

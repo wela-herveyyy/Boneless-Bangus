@@ -1,7 +1,9 @@
 import type { CursorSkill } from "@/lib/entities/cursor.type";
+import { builtinGradingReportSkills } from "./builtin_grading_report_skills";
+import { builtinReportCardLayoutSkill } from "./builtin_report_card_layout_skill";
 
 export type BuiltinSlashCommand = {
-  commandName: "google-workspace" | "erpnext";
+  commandName: "google-workspace" | "erpnext" | "school-erp";
   subCommand: string;
   /** Chat insert text; defaults to `instructions` when omitted. */
   promptText?: string;
@@ -307,6 +309,10 @@ export const BUILTIN_SKILLS: BuiltinSkillDefinition[] = [
         'Follow the skill "ERPNext + Gmail End of Day Wrap-Up". Use Cursor with ERPNext MCP and Google Workspace tools. Default to today. Summarize my ERP timesheet/attendance, open todos (due today and overdue), and relevant HR items; then triage today\'s email action items and list my first three meetings tomorrow morning. Read-only unless I ask to create or submit something.',
     },
   },
+
+  // ── School ERP grading (SF9 layout is NON-NEGOTIABLE) ─────
+  builtinReportCardLayoutSkill(),
+  ...builtinGradingReportSkills(),
 ];
 
 export function builtinSkillsAsCursorSkills(): CursorSkill[] {

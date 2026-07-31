@@ -141,6 +141,13 @@
       "when": 1785440000000,
       "tag": "0019_role_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1785500000000,
+      "tag": "0020_ai_output_canvas",
+      "breakpoints": true
     }
   ]
 }

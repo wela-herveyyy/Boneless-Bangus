@@ -35,6 +35,8 @@ export interface UseRightSidebarReturn {
   scheduleClose: () => void;
   clearCloseTimer: () => void;
   togglePinned: () => void;
+  /** Force-open (used by the unified tools dock). */
+  openPinned: () => void;
   closeSidebar: () => void;
 }
 
@@ -89,36 +91,38 @@ export function useRightSidebar(
     options?.onClose?.();
   }, [clearCloseTimer, id, options]);
 
+  const openPinned = useCallback(() => {
+    if (pinnedOpen) return;
+    const switching = isOtherRightSidebarOpen;
+    if (switching) setIsSwitching(true);
+    window.dispatchEvent(
+      new CustomEvent("bbai:close-right-sidebar", {
+        detail: { sourceId: id, isSwitching: switching },
+      }),
+    );
+    setPinnedOpen(true);
+    globalOpenSidebars[id] = true;
+    window.dispatchEvent(
+      new CustomEvent("bbai:right-sidebar-state", {
+        detail: { source: id, isOpen: true },
+      }),
+    );
+  }, [id, pinnedOpen, isOtherRightSidebarOpen]);
+
   const togglePinned = useCallback(() => {
-    const nextPinned = !pinnedOpen;
-    if (nextPinned) {
-      const switching = isOtherRightSidebarOpen;
-      if (switching) {
-        setIsSwitching(true);
-      }
-      window.dispatchEvent(
-        new CustomEvent("bbai:close-right-sidebar", {
-          detail: { sourceId: id, isSwitching: switching },
-        })
-      );
-      setPinnedOpen(true);
-      globalOpenSidebars[id] = true;
-      window.dispatchEvent(
-        new CustomEvent("bbai:right-sidebar-state", {
-          detail: { source: id, isOpen: true },
-        })
-      );
-    } else {
+    if (pinnedOpen) {
       setPinnedOpen(false);
       setHoverOpen(false);
       globalOpenSidebars[id] = false;
       window.dispatchEvent(
         new CustomEvent("bbai:right-sidebar-state", {
           detail: { source: id, isOpen: false },
-        })
+        }),
       );
+      return;
     }
-  }, [id, pinnedOpen, isOtherRightSidebarOpen]);
+    openPinned();
+  }, [id, pinnedOpen, openPinned]);
 
   const openFromHover = useCallback(() => {}, []);
   const scheduleClose = useCallback(() => {}, []);
@@ -147,13 +151,31 @@ export function useRightSidebar(
       }
     };
 
+    const handleOpenRequest = (event: Event) => {
+      const customEvent = event as CustomEvent<{ sourceId?: string }>;
+      if (customEvent.detail?.sourceId === id) {
+        openPinned();
+      }
+    };
+
+    const handleToggleRequest = (event: Event) => {
+      const customEvent = event as CustomEvent<{ sourceId?: string }>;
+      if (customEvent.detail?.sourceId === id) {
+        togglePinned();
+      }
+    };
+
     window.addEventListener("bbai:close-right-sidebar", handleCloseOthers);
     window.addEventListener("bbai:right-sidebar-state", handleStateChange);
+    window.addEventListener("bbai:open-right-sidebar", handleOpenRequest);
+    window.addEventListener("bbai:toggle-right-sidebar", handleToggleRequest);
     return () => {
       window.removeEventListener("bbai:close-right-sidebar", handleCloseOthers);
       window.removeEventListener("bbai:right-sidebar-state", handleStateChange);
+      window.removeEventListener("bbai:open-right-sidebar", handleOpenRequest);
+      window.removeEventListener("bbai:toggle-right-sidebar", handleToggleRequest);
     };
-  }, [id, closeSidebar]);
+  }, [id, closeSidebar, openPinned, togglePinned]);
 
   // Reset switching flag after transition frame completes
   useEffect(() => {
@@ -224,6 +246,7 @@ export function useRightSidebar(
     scheduleClose,
     clearCloseTimer,
     togglePinned,
+    openPinned,
     closeSidebar,
   };
 }
