@@ -134,19 +134,17 @@ export async function promptAgent(
       delete mcpForAgent?.[SCHOOL_ERP_MCP_SERVER_KEY];
     }
 
-    const run = await Agent.prompt(
-      `${who}${skillBlock}${workspaceHint}${githubHint}${skillsHint}${schoolErpHint}${message}${fileContext}`,
-      {
-        apiKey,
-        model: { id: input.modelId ?? "composer-2.5" },
-        mcpServers:
-          mcpForAgent && Object.keys(mcpForAgent).length > 0 ? mcpForAgent : undefined,
-        local: {
-          cwd: input.cwd ?? process.cwd(),
-          ...(hasCustomTools ? { customTools } : {}),
-        },
+    const promptText = `${who}${skillBlock}${workspaceHint}${githubHint}${skillsHint}${schoolErpHint}${message}${fileContext}`;
+    const run = await Agent.prompt(promptText, {
+      apiKey,
+      model: { id: input.modelId ?? "composer-2.5" },
+      mcpServers:
+        mcpForAgent && Object.keys(mcpForAgent).length > 0 ? mcpForAgent : undefined,
+      local: {
+        cwd: input.cwd ?? process.cwd(),
+        ...(hasCustomTools ? { customTools } : {}),
       },
-    );
+    });
 
     if (run.status === "error") {
       return {
@@ -162,6 +160,9 @@ export async function promptAgent(
         result: run.result,
         requestId: run.requestId,
         durationMs: run.durationMs,
+        inputTokens: run.usage?.inputTokens,
+        outputTokens: run.usage?.outputTokens,
+        promptChars: promptText.length,
       },
     };
   } catch (error) {

@@ -49,4 +49,9 @@ export type PromptAgentOutput = {
   result?: string;
   requestId?: string;
   durationMs?: number;
+  /** From Cursor SDK RunResult.usage when the runtime reports it. */
+  inputTokens?: number;
+  outputTokens?: number;
+  /** Character length of the full prompt sent to Agent.prompt (for usage fallback). */
+  promptChars?: number;
 };

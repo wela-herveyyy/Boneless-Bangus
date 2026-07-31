@@ -35,13 +35,27 @@ export async function promptAi(input: PromptAiInput): Promise<AiResult<PromptAiO
         keySource: input.keySource,
       });
       if (!result.ok) return result;
+      const text = result.data.result?.trim() || "(No response)";
+      // Prefer SDK RunResult.usage; if omitted, estimate from prompt/response size (~4 chars/token).
+      const reportedIn = result.data.inputTokens;
+      const reportedOut = result.data.outputTokens;
+      const hasReported =
+        (typeof reportedIn === "number" && reportedIn > 0) ||
+        (typeof reportedOut === "number" && reportedOut > 0);
+      const promptChars = result.data.promptChars ?? message.length;
+      const usage = hasReported
+        ? usageFromApi({ inputTokens: reportedIn, outputTokens: reportedOut })
+        : usageFromApi({
+            inputTokens: Math.max(1, Math.round(promptChars / 4)),
+            outputTokens: Math.max(1, Math.round(text.length / 4)),
+          });
       return {
         ok: true,
         data: {
           provider: AI_PROVIDER.CURSOR,
-          text: result.data.result?.trim() || "(No response)",
+          text,
           conversationId: result.data.requestId,
-          usage: usageFromApi(),
+          usage,
         },
       };
     }

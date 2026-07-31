@@ -60,11 +60,11 @@ const SECTIONS: {
   hint: string;
   icon: typeof LuUser;
 }[] = [
-  { id: "account", label: "Account", hint: "Profile & keys", icon: LuUser },
-  { id: "theme", label: "Theme", hint: "Colors & tokens", icon: LuPalette },
-  { id: "skills", label: "Skills", hint: "Marketplace", icon: LuPuzzle },
-  { id: "tools", label: "Tools", hint: "MCP & APIs", icon: LuWrench },
-];
+    { id: "account", label: "Account", hint: "Profile & keys", icon: LuUser },
+    { id: "theme", label: "Theme", hint: "Colors & tokens", icon: LuPalette },
+    { id: "skills", label: "Skills", hint: "Marketplace", icon: LuPuzzle },
+    { id: "tools", label: "Tools", hint: "MCP & APIs", icon: LuWrench },
+  ];
 
 export function ProfileView({
   userId,
@@ -497,9 +497,8 @@ function AccountSection({
                   <Label className="mb-0 font-semibold text-on-surface">{provider.label}</Label>
                   <p className="flex items-center gap-2 text-xs text-on-surface-muted">
                     <span
-                      className={`inline-block size-2 rounded-full ${
-                        active === "none" ? "bg-secondary" : "bg-tertiary"
-                      }`}
+                      className={`inline-block size-2 rounded-full ${active === "none" ? "bg-secondary" : "bg-tertiary"
+                        }`}
                     />
                     {active === "personal"
                       ? "Using personal"
